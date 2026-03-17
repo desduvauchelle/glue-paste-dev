@@ -1,11 +1,11 @@
-name: Auto Tag
+name: Auto Tag & Release
 
 on:
   push:
     branches: [main]
 
 jobs:
-  tag:
+  tag-and-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -14,13 +14,61 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create tag from package.json version
+      - name: Check if new version
+        id: version
         run: |
           VERSION="v$(jq -r .version package.json)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
             echo "Tag $VERSION already exists"
           else
+            echo "new=true" >> "$GITHUB_OUTPUT"
             git tag "$VERSION"
             git push origin "$VERSION"
             echo "Created tag $VERSION"
           fi
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.version.outputs.new == 'true'
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        if: steps.version.outputs.new == 'true'
+        run: bun install --ignore-scripts
+
+      - name: Build dashboard
+        if: steps.version.outputs.new == 'true'
+        run: bun run build:dashboard
+
+      - name: Package release
+        if: steps.version.outputs.new == 'true'
+        run: |
+          mkdir -p release/server release/cli/src/commands
+
+          # Bundle server (single JS file with all deps)
+          bun build packages/server/src/index.ts --outdir release/server --target bun
+
+          # Copy pre-built dashboard
+          cp -r packages/server/public release/server/public
+
+          # Copy CLI source (Bun runs TS natively, no bundle needed)
+          cp packages/cli/src/index.ts release/cli/src/
+          cp packages/cli/src/daemon.ts release/cli/src/
+          cp packages/cli/src/daemon-wrapper.ts release/cli/src/
+          cp packages/cli/src/commands/*.ts release/cli/src/commands/
+          cp packages/cli/package.json release/cli/
+
+          # Copy version info
+          cp package.json release/
+
+          tar -czf glue-paste-dev.tar.gz -C release .
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.new == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          files: glue-paste-dev.tar.gz
+          generate_release_notes: true
