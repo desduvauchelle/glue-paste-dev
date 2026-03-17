@@ -30,6 +30,8 @@ beforeEach(() => {
 describe("config manager", () => {
   it("should return default global config", () => {
     const config = getGlobalConfig(db);
+    expect(config.cliProvider).toBe("claude");
+    expect(config.cliCustomCommand).toBe("");
     expect(config.model).toBe("claude-opus-4-6");
     expect(config.maxBudgetUsd).toBe(10.0);
     expect(config.autoConfirm).toBe(true);
@@ -79,5 +81,26 @@ describe("config manager", () => {
     updateGlobalConfig(db, { model: "claude-opus-4-6" });
     const merged = getMergedConfig(db, boardId);
     expect(merged.model).toBe("claude-opus-4-6");
+  });
+
+  it("should update and retrieve CLI provider", () => {
+    updateGlobalConfig(db, { cliProvider: "gemini", model: "gemini-pro" });
+    const config = getGlobalConfig(db);
+    expect(config.cliProvider).toBe("gemini");
+    expect(config.model).toBe("gemini-pro");
+  });
+
+  it("should support custom CLI command", () => {
+    updateGlobalConfig(db, { cliProvider: "custom", cliCustomCommand: "my-cli --flag" });
+    const config = getGlobalConfig(db);
+    expect(config.cliProvider).toBe("custom");
+    expect(config.cliCustomCommand).toBe("my-cli --flag");
+  });
+
+  it("should merge CLI provider from project over global", () => {
+    updateGlobalConfig(db, { cliProvider: "claude" });
+    updateProjectConfig(db, boardId, { cliProvider: "gemini" });
+    const merged = getMergedConfig(db, boardId);
+    expect(merged.cliProvider).toBe("gemini");
   });
 });

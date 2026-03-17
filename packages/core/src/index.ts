@@ -29,3 +29,5 @@ export type { QueueState, QueueCallbacks } from "./executor/queue.js";
 export type { RunnerCallbacks, RunResult } from "./executor/runner.js";
 export { buildPrompt } from "./executor/prompt.js";
 export { parseStreamLine } from "./executor/stream-parser.js";
+export { buildCliCommand } from "./executor/cli-adapter.js";
+export type { CliCommand } from "./executor/cli-adapter.js";

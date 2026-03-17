@@ -5,6 +5,7 @@ import * as commentsDb from "../db/comments.js";
 import * as cardsDb from "../db/cards.js";
 import { buildPrompt } from "./prompt.js";
 import { parseStreamLine } from "./stream-parser.js";
+import { buildCliCommand } from "./cli-adapter.js";
 import { log } from "../logger.js";
 
 export interface RunnerCallbacks {
@@ -34,6 +35,7 @@ export async function runCard(
   callbacks: RunnerCallbacks
 ): Promise<RunResult> {
   log.info("runner", `Running card "${card.title}" (${card.id}) on board "${board.name}"`);
+  log.debug("runner", `Starting execution for card ${card.id}`);
   cardsDb.updateCardStatus(db, card.id as CardId, "in-progress");
   const inProgressCard = cardsDb.getCard(db, card.id as CardId);
   if (inProgressCard) callbacks.onCardUpdated(inProgressCard);
@@ -67,45 +69,25 @@ async function executePhase(
   callbacks: RunnerCallbacks
 ): Promise<RunResult> {
   log.info("runner", `Phase "${phase}" starting for card "${card.title}" (${card.id})`);
+  const sessionId = crypto.randomUUID();
+  log.debug("runner", `Phase "${phase}" using session ${sessionId}`);
   const prompt = buildPrompt({ card, board, comments, config, phase });
 
   // Create execution record
   const execution = executionsDb.createExecution(
     db,
     card.id as CardId,
-    board.session_id,
+    sessionId,
     phase
   );
 
   callbacks.onExecutionStarted(card.id, execution.id, phase);
 
-  // Build Claude CLI args
-  const args = [
-    "claude",
-    "-p",
-    prompt,
-    "--output-format",
-    "stream-json",
-    "--verbose",
-  ];
+  // Build CLI command using the configured provider
+  const cliCmd = buildCliCommand(config, prompt, sessionId, phase);
+  const args = cliCmd.args;
 
-  if (board.session_id) {
-    args.push("--session-id", board.session_id);
-  }
-
-  if (config.model) {
-    args.push("--model", config.model);
-  }
-
-  if (config.maxBudgetUsd > 0) {
-    args.push("--max-budget-usd", String(config.maxBudgetUsd));
-  }
-
-  // Auto-confirm permissions in execute phase
-  if (phase === "execute" && config.autoConfirm) {
-    args.push("--dangerously-skip-permissions");
-  }
-
+  log.info("runner", `Using CLI provider: ${config.cliProvider}`);
   log.debug("runner", `Spawning: ${args.join(" ")}`);
   const proc = Bun.spawn(args, {
     cwd: board.directory,
@@ -136,14 +118,20 @@ async function executePhase(
       buffer = lines.pop() ?? "";
 
       for (const line of lines) {
-        const parsed = parseStreamLine(line);
-        if (parsed && (parsed.type === "text" || parsed.type === "tool_use")) {
-          output += parsed.content + "\n";
-          callbacks.onOutput(execution.id, parsed.content);
-          executionsDb.appendExecutionOutput(db, execution.id, parsed.content + "\n");
-        }
-        if (parsed?.type === "result" && parsed.costUsd !== undefined) {
-          executionsDb.updateExecutionCost(db, execution.id, parsed.costUsd);
+        if (cliCmd.supportsStreamJson) {
+          const parsed = parseStreamLine(line);
+          if (parsed && (parsed.type === "text" || parsed.type === "tool_use")) {
+            output += parsed.content + "\n";
+            callbacks.onOutput(execution.id, parsed.content);
+            executionsDb.appendExecutionOutput(db, execution.id, parsed.content + "\n");
+          }
+          if (parsed?.type === "result" && parsed.costUsd !== undefined) {
+            executionsDb.updateExecutionCost(db, execution.id, parsed.costUsd);
+          }
+        } else if (line.trim()) {
+          output += line + "\n";
+          callbacks.onOutput(execution.id, line);
+          executionsDb.appendExecutionOutput(db, execution.id, line + "\n");
         }
       }
     }
@@ -167,10 +155,15 @@ async function executePhase(
 
   // Process remaining buffer
   if (buffer.trim()) {
-    const parsed = parseStreamLine(buffer);
-    if (parsed && (parsed.type === "text" || parsed.type === "tool_use")) {
-      output += parsed.content + "\n";
-      callbacks.onOutput(execution.id, parsed.content);
+    if (cliCmd.supportsStreamJson) {
+      const parsed = parseStreamLine(buffer);
+      if (parsed && (parsed.type === "text" || parsed.type === "tool_use")) {
+        output += parsed.content + "\n";
+        callbacks.onOutput(execution.id, parsed.content);
+      }
+    } else {
+      output += buffer + "\n";
+      callbacks.onOutput(execution.id, buffer);
     }
   }
 

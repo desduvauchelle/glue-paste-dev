@@ -56,6 +56,8 @@ export function initSchema(db: Database): void {
 
     CREATE TABLE IF NOT EXISTS config (
       key TEXT PRIMARY KEY,
+      cli_provider TEXT NOT NULL DEFAULT 'claude',
+      cli_custom_command TEXT NOT NULL DEFAULT '',
       model TEXT NOT NULL DEFAULT 'claude-opus-4-6',
       max_budget_usd REAL NOT NULL DEFAULT 10.0,
       auto_confirm INTEGER NOT NULL DEFAULT 1,
@@ -76,6 +78,18 @@ export function initSchema(db: Database): void {
   // Migration: add blocking column if missing (for existing databases)
   try {
     db.exec(`ALTER TABLE cards ADD COLUMN blocking INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add cli_provider and cli_custom_command to config
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN cli_provider TEXT NOT NULL DEFAULT 'claude'`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN cli_custom_command TEXT NOT NULL DEFAULT ''`);
   } catch {
     // Column already exists — ignore
   }

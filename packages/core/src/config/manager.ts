@@ -1,9 +1,11 @@
 import type { Database } from "bun:sqlite";
 import type { ConfigInput, BoardId } from "../types/index.js";
-import { DEFAULT_CONFIG } from "../schemas/config.js";
+import { DEFAULT_CONFIG, type CliProvider } from "../schemas/config.js";
 
 interface ConfigRow {
   key: string;
+  cli_provider: string;
+  cli_custom_command: string;
   model: string;
   max_budget_usd: number;
   auto_confirm: number;
@@ -14,6 +16,8 @@ interface ConfigRow {
 
 function rowToConfigInput(row: ConfigRow): Required<ConfigInput> {
   return {
+    cliProvider: (row.cli_provider || "claude") as CliProvider,
+    cliCustomCommand: row.cli_custom_command || "",
     model: row.model,
     maxBudgetUsd: row.max_budget_usd,
     autoConfirm: row.auto_confirm === 1,
@@ -52,6 +56,8 @@ export function getMergedConfig(
   if (!project) return global;
 
   return {
+    cliProvider: project.cliProvider ?? global.cliProvider,
+    cliCustomCommand: project.cliCustomCommand ?? global.cliCustomCommand,
     model: project.model ?? global.model,
     maxBudgetUsd: project.maxBudgetUsd ?? global.maxBudgetUsd,
     autoConfirm: project.autoConfirm ?? global.autoConfirm,
@@ -90,6 +96,8 @@ function upsertConfig(
     : { ...DEFAULT_CONFIG, customTags: [...DEFAULT_CONFIG.customTags] };
 
   const merged = {
+    cliProvider: input.cliProvider ?? current.cliProvider,
+    cliCustomCommand: input.cliCustomCommand ?? current.cliCustomCommand,
     model: input.model ?? current.model,
     maxBudgetUsd: input.maxBudgetUsd ?? current.maxBudgetUsd,
     autoConfirm: input.autoConfirm ?? current.autoConfirm,
@@ -99,9 +107,11 @@ function upsertConfig(
   };
 
   db.query(
-    `INSERT INTO config (key, model, max_budget_usd, auto_confirm, plan_mode, custom_tags, custom_instructions)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, plan_mode, custom_tags, custom_instructions)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
+       cli_provider = excluded.cli_provider,
+       cli_custom_command = excluded.cli_custom_command,
        model = excluded.model,
        max_budget_usd = excluded.max_budget_usd,
        auto_confirm = excluded.auto_confirm,
@@ -110,6 +120,8 @@ function upsertConfig(
        custom_instructions = excluded.custom_instructions`
   ).run(
     key,
+    merged.cliProvider,
+    merged.cliCustomCommand,
     merged.model,
     merged.maxBudgetUsd,
     merged.autoConfirm ? 1 : 0,

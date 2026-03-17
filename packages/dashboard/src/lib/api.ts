@@ -67,6 +67,8 @@ export const comments = {
       method: "POST",
       body: JSON.stringify({ author: "user", ...data }),
     }),
+  clear: (cardId: string) =>
+    request<{ ok: boolean }>(`/comments/card/${cardId}`, { method: "DELETE" }),
 };
 
 // Executions
@@ -177,7 +179,11 @@ interface QueueStatus {
   isRunning: boolean;
 }
 
+type CliProvider = "claude" | "gemini" | "codex" | "aider" | "copilot" | "custom";
+
 interface ConfigData {
+  cliProvider: CliProvider;
+  cliCustomCommand: string;
   model: string;
   maxBudgetUsd: number;
   autoConfirm: boolean;
@@ -196,4 +202,5 @@ export type {
   Execution,
   QueueStatus,
   ConfigData,
+  CliProvider,
 };

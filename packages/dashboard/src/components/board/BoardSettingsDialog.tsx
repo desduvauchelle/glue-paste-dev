@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import type { Board } from "@/lib/api";
-import { boards as boardsApi } from "@/lib/api";
+import type { Board, ConfigData, CliProvider } from "@/lib/api";
+import { boards as boardsApi, config as configApi } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+
+const CLI_PROVIDERS: { value: CliProvider; label: string; description: string }[] = [
+  { value: "claude", label: "Claude Code", description: "Anthropic Claude CLI" },
+  { value: "gemini", label: "Gemini CLI", description: "Google Gemini CLI" },
+  { value: "codex", label: "Codex CLI", description: "OpenAI Codex CLI" },
+  { value: "aider", label: "Aider", description: "Aider AI pair programming" },
+  { value: "copilot", label: "GitHub Copilot", description: "GitHub Copilot CLI" },
+  { value: "custom", label: "Custom", description: "Custom CLI command" },
+];
 
 interface BoardSettingsDialogProps {
   open: boolean;
@@ -28,13 +37,34 @@ export function BoardSettingsDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [directory, setDirectory] = useState("");
+  const [cliProvider, setCliProvider] = useState<CliProvider>("claude");
+  const [cliCustomCommand, setCliCustomCommand] = useState("");
+  const [model, setModel] = useState("");
+  const [maxBudgetUsd, setMaxBudgetUsd] = useState(10);
+  const [autoConfirm, setAutoConfirm] = useState(true);
+  const [planMode, setPlanMode] = useState(true);
+  const [customInstructions, setCustomInstructions] = useState("");
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<"general" | "cli" | "execution">("general");
 
   useEffect(() => {
-    if (board) {
+    if (board && open) {
       setName(board.name);
       setDescription(board.description);
       setDirectory(board.directory);
+
+      // Load board config
+      configApi.getForBoard(board.id).then((cfg: ConfigData) => {
+        setCliProvider(cfg.cliProvider || "claude");
+        setCliCustomCommand(cfg.cliCustomCommand || "");
+        setModel(cfg.model);
+        setMaxBudgetUsd(cfg.maxBudgetUsd);
+        setAutoConfirm(cfg.autoConfirm);
+        setPlanMode(cfg.planMode);
+        setCustomInstructions(cfg.customInstructions);
+      }).catch(() => {
+        // Use defaults
+      });
     }
   }, [board, open]);
 
@@ -47,6 +77,17 @@ export function BoardSettingsDialog({
         description: description.trim(),
         directory: directory.trim(),
       });
+
+      await configApi.updateForBoard(board.id, {
+        cliProvider,
+        cliCustomCommand: cliCustomCommand.trim(),
+        model: model.trim(),
+        maxBudgetUsd,
+        autoConfirm,
+        planMode,
+        customInstructions: customInstructions.trim(),
+      });
+
       onUpdated(updated);
       onOpenChange(false);
     } finally {
@@ -54,44 +95,173 @@ export function BoardSettingsDialog({
     }
   };
 
+  const tabClass = (tab: string) =>
+    `px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+      activeTab === tab
+        ? "bg-primary text-primary-foreground"
+        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+    }`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Board Settings</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div>
-            <label className="text-sm font-medium mb-1 block">Name</label>
-            <Input
-              placeholder="Board name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-1 border-b pb-2">
+          <button className={tabClass("general")} onClick={() => setActiveTab("general")}>
+            General
+          </button>
+          <button className={tabClass("cli")} onClick={() => setActiveTab("cli")}>
+            CLI Provider
+          </button>
+          <button className={tabClass("execution")} onClick={() => setActiveTab("execution")}>
+            Execution
+          </button>
+        </div>
 
-          <div>
-            <label className="text-sm font-medium mb-1 block">Description</label>
-            <Textarea
-              placeholder="What is this project about?"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="min-h-[80px]"
-            />
-          </div>
+        <div className="space-y-4 py-2 min-h-[260px]">
+          {/* General Tab */}
+          {activeTab === "general" && (
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Name</label>
+                <Input
+                  placeholder="Board name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Description</label>
+                <Textarea
+                  placeholder="What is this project about?"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="min-h-[80px]"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Project Directory</label>
+                <Input
+                  placeholder="/path/to/project"
+                  value={directory}
+                  onChange={(e) => setDirectory(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  The directory where the CLI will execute tasks
+                </p>
+              </div>
+            </>
+          )}
 
-          <div>
-            <label className="text-sm font-medium mb-1 block">Project Directory</label>
-            <Input
-              placeholder="/path/to/project"
-              value={directory}
-              onChange={(e) => setDirectory(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              The directory where Claude CLI will execute tasks
-            </p>
-          </div>
+          {/* CLI Provider Tab */}
+          {activeTab === "cli" && (
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1 block">CLI Provider</label>
+                <div className="grid gap-2">
+                  {CLI_PROVIDERS.map((p) => (
+                    <label
+                      key={p.value}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        cliProvider === p.value
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-muted-foreground/50"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cliProvider"
+                        value={p.value}
+                        checked={cliProvider === p.value}
+                        onChange={() => setCliProvider(p.value)}
+                        className="accent-primary"
+                      />
+                      <div>
+                        <div className="text-sm font-medium">{p.label}</div>
+                        <div className="text-xs text-muted-foreground">{p.description}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {cliProvider === "custom" && (
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Custom Command</label>
+                  <Input
+                    placeholder="e.g., my-cli --flag"
+                    value={cliCustomCommand}
+                    onChange={(e) => setCliCustomCommand(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    The prompt will be appended as the last argument
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">Model</label>
+                <Input
+                  placeholder="e.g., claude-opus-4-6, gemini-pro"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Model name passed to the CLI (provider-specific)
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Execution Tab */}
+          {activeTab === "execution" && (
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Max Budget (USD)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={maxBudgetUsd}
+                  onChange={(e) => setMaxBudgetUsd(Number(e.target.value))}
+                />
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoConfirm}
+                  onChange={(e) => setAutoConfirm(e.target.checked)}
+                  className="accent-primary"
+                />
+                <span className="text-sm font-medium">Auto-confirm permissions</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={planMode}
+                  onChange={(e) => setPlanMode(e.target.checked)}
+                  className="accent-primary"
+                />
+                <span className="text-sm font-medium">Plan before execute (2-phase)</span>
+              </label>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">Custom Instructions</label>
+                <Textarea
+                  placeholder="Additional instructions for the AI..."
+                  value={customInstructions}
+                  onChange={(e) => setCustomInstructions(e.target.value)}
+                  className="min-h-[80px]"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <DialogFooter>
