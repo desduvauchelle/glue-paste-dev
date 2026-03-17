@@ -163,7 +163,7 @@ export function KanbanBoard({ grouped, onPlayCard, onClickCard, onMoveCard }: Ka
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4 h-full">
+      <div className="flex gap-4 overflow-x-auto h-full">
         {COLUMNS.map(({ status, title }) => (
           <KanbanColumn
             key={status}

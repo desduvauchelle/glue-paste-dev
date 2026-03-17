@@ -112,7 +112,7 @@ export function BoardView({ params }: BoardViewProps) {
       </header>
 
       {/* Kanban Board */}
-      <main className="flex-1 overflow-hidden p-4">
+      <main className="flex-1 overflow-hidden pt-4">
         {loading ? (
           <p className="text-muted-foreground">Loading cards...</p>
         ) : (
