@@ -1,0 +1,22 @@
+{
+  "name": "@glue-paste-dev/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@glue-paste-dev/core": "workspace:*",
+    "hono": "^4.7.6"
+  },
+  "devDependencies": {
+    "vitest": "^3.1.1",
+    "typescript": "^5.8.3",
+    "@types/bun": "latest"
+  }
+}
