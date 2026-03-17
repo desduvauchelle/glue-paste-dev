@@ -55,6 +55,10 @@ export function getDaemonStatus(): { running: boolean; pid: number | null } {
 }
 
 export function getServerPath(): string {
+  // Bundled release: server/index.js sits next to cli/
+  const bundled = join(import.meta.dir, "..", "..", "server", "index.js");
+  if (existsSync(bundled)) return bundled;
+  // Dev: full repo layout
   return join(import.meta.dir, "..", "..", "server", "src", "index.ts");
 }
 

@@ -6,6 +6,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+REPO="desduvauchelle/glue-paste-dev"
+INSTALL_DIR="$HOME/.glue-paste-dev"
+
 echo -e "${YELLOW}Installing GluePasteDev...${NC}"
 
 # Check for bun
@@ -22,45 +25,47 @@ if ! command -v claude &> /dev/null; then
   echo "GluePasteDev requires Claude CLI to execute tasks."
 fi
 
-INSTALL_DIR="$HOME/.glue-paste-dev"
-REPO_DIR="$INSTALL_DIR/repo"
+# Download latest release
+echo "Downloading latest release..."
+DOWNLOAD_URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+  | grep '"browser_download_url"' \
+  | grep 'glue-paste-dev.tar.gz' \
+  | head -1 \
+  | cut -d '"' -f 4)
 
-mkdir -p "$INSTALL_DIR"
-
-# Clone or update
-if [ -d "$REPO_DIR" ]; then
-  echo "Updating existing installation..."
-  cd "$REPO_DIR" && git pull --ff-only
-else
-  echo "Cloning GluePasteDev..."
-  git clone https://github.com/desduvauchelle/glue-paste-dev.git "$REPO_DIR"
+if [ -z "$DOWNLOAD_URL" ]; then
+  echo -e "${RED}Failed to find latest release. Check https://github.com/$REPO/releases${NC}"
+  exit 1
 fi
 
-cd "$REPO_DIR"
+# Stop daemon if running
+if [ -f "$INSTALL_DIR/glue-paste-dev.pid" ]; then
+  PID=$(cat "$INSTALL_DIR/glue-paste-dev.pid")
+  if kill -0 "$PID" 2>/dev/null; then
+    echo "Stopping running daemon..."
+    kill "$PID" 2>/dev/null || true
+    sleep 1
+  fi
+fi
 
-# Install dependencies (skip prepare/husky — end users don't need git hooks)
-echo "Installing dependencies..."
-bun install --ignore-scripts
+# Clean previous installation (keep data dir for PID/logs)
+rm -rf "$INSTALL_DIR/server" "$INSTALL_DIR/cli"
+mkdir -p "$INSTALL_DIR"
 
-# Build dashboard
-echo "Building dashboard..."
-bun run build
+# Download and extract
+curl -fsSL "$DOWNLOAD_URL" | tar -xz -C "$INSTALL_DIR"
 
 # Ensure CLI entry is executable
-chmod +x "$REPO_DIR/packages/cli/src/index.ts"
+chmod +x "$INSTALL_DIR/cli/src/index.ts"
 
 # Create symlink
 echo "Creating CLI symlink..."
-if [ -L /usr/local/bin/glue-paste-dev ]; then
-  rm /usr/local/bin/glue-paste-dev
-fi
-
 BIN_DIR="$INSTALL_DIR/bin"
 mkdir -p "$BIN_DIR"
-ln -sf "$REPO_DIR/packages/cli/src/index.ts" "$BIN_DIR/glue-paste-dev"
+ln -sf "$INSTALL_DIR/cli/src/index.ts" "$BIN_DIR/glue-paste-dev"
 
 # Also try /usr/local/bin for convenience
-ln -sf "$REPO_DIR/packages/cli/src/index.ts" /usr/local/bin/glue-paste-dev 2>/dev/null || true
+ln -sf "$INSTALL_DIR/cli/src/index.ts" /usr/local/bin/glue-paste-dev 2>/dev/null || true
 
 # Ensure BIN_DIR is on PATH
 if ! echo "$PATH" | grep -q "$BIN_DIR"; then
@@ -84,7 +89,6 @@ if ! echo "$PATH" | grep -q "$BIN_DIR"; then
     fi
   fi
 
-  # Make it available in current session
   export PATH="$BIN_DIR:$PATH"
 fi
 

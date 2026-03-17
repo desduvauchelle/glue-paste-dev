@@ -5,6 +5,7 @@
  * It supervises the child server process and restarts it with back-off.
  */
 import { appendFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { LOG_FILE } from "./daemon.js";
 
 const serverPath = process.env.GPD_SERVER;
@@ -26,6 +27,7 @@ async function runServer(): Promise<number> {
   const logFile = Bun.file(LOG_FILE);
 
   const proc = Bun.spawn(["bun", "run", serverPath!], {
+    cwd: dirname(serverPath!),
     env: process.env,
     stdout: logFile,
     stderr: logFile,

@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --ignore-scripts
+
+      - name: Build dashboard
+        run: bun run build:dashboard
+
+      - name: Package release
+        run: |
+          mkdir -p release/server release/cli/src/commands
+
+          # Bundle server (single JS file with all deps)
+          bun build packages/server/src/index.ts --outdir release/server --target bun
+
+          # Copy pre-built dashboard
+          cp -r packages/server/public release/server/public
+
+          # Copy CLI source (Bun runs TS natively, no bundle needed)
+          cp packages/cli/src/index.ts release/cli/src/
+          cp packages/cli/src/daemon.ts release/cli/src/
+          cp packages/cli/src/daemon-wrapper.ts release/cli/src/
+          cp packages/cli/src/commands/*.ts release/cli/src/commands/
+          cp packages/cli/package.json release/cli/
+
+          # Copy version info
+          cp package.json release/
+
+          tar -czf glue-paste-dev.tar.gz -C release .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: glue-paste-dev.tar.gz
+          generate_release_notes: true
