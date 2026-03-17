@@ -28,6 +28,16 @@ export async function start(opts: { open?: boolean } = { open: true }) {
     process.exit(1);
   }
 
+  // Kill any orphaned process still holding the port
+  const lsof = Bun.spawnSync(["lsof", "-ti", `:${PORT}`], { stdout: "pipe" });
+  const stalePort = lsof.stdout.toString().trim();
+  if (stalePort) {
+    for (const p of stalePort.split("\n")) {
+      try { process.kill(Number(p), "SIGKILL"); } catch {}
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
   logToFile("Starting daemon...");
 
   // Spawn as a fully detached background process via a wrapper that

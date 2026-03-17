@@ -17,6 +17,7 @@ const MAX_RESTARTS = 10;
 const RESTART_WINDOW_MS = 60_000; // reset counter after 1 min of stability
 let restartCount = 0;
 let lastStart = Date.now();
+let childProc: ReturnType<typeof Bun.spawn> | null = null;
 
 function log(msg: string) {
   const line = `[${new Date().toISOString()}] [daemon] ${msg}\n`;
@@ -26,15 +27,16 @@ function log(msg: string) {
 async function runServer(): Promise<number> {
   const logFile = Bun.file(LOG_FILE);
 
-  const proc = Bun.spawn(["bun", "run", serverPath!], {
+  childProc = Bun.spawn(["bun", "run", serverPath!], {
     cwd: dirname(serverPath!),
     env: process.env,
     stdout: logFile,
     stderr: logFile,
   });
 
-  log(`Server started (PID ${proc.pid})`);
-  const exitCode = await proc.exited;
+  log(`Server started (PID ${childProc.pid})`);
+  const exitCode = await childProc.exited;
+  childProc = null;
   log(`Server exited with code ${exitCode}`);
   return exitCode;
 }
@@ -45,6 +47,20 @@ function handleSignal(sig: string) {
   if (shuttingDown) return;
   shuttingDown = true;
   log(`Received ${sig}, shutting down`);
+
+  // Kill the child server process and wait for it to release the port
+  if (childProc?.pid) {
+    try { process.kill(childProc.pid, "SIGTERM"); } catch {}
+    // Give the child time to release the port before we exit
+    const deadline = Date.now() + 3000;
+    while (Date.now() < deadline) {
+      try { process.kill(childProc.pid, 0); } catch { break; } // gone
+      Bun.sleepSync(100);
+    }
+    // Force kill if still alive
+    try { process.kill(childProc.pid, "SIGKILL"); } catch {}
+  }
+
   process.exit(0);
 }
 

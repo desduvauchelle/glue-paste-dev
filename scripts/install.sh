@@ -44,8 +44,15 @@ if [ -f "$INSTALL_DIR/glue-paste-dev.pid" ]; then
   if kill -0 "$PID" 2>/dev/null; then
     echo "Stopping running daemon..."
     kill "$PID" 2>/dev/null || true
-    sleep 1
+    sleep 2
   fi
+fi
+
+# Kill any orphaned process still holding port 4242
+STALE_PIDS=$(lsof -ti :4242 2>/dev/null || true)
+if [ -n "$STALE_PIDS" ]; then
+  echo "$STALE_PIDS" | xargs kill -9 2>/dev/null || true
+  sleep 1
 fi
 
 # Clean previous installation (keep data dir for PID/logs)
