@@ -33,7 +33,7 @@ if [ -d "$REPO_DIR" ]; then
   cd "$REPO_DIR" && git pull --ff-only
 else
   echo "Cloning GluePasteDev..."
-  git clone https://github.com/denisduvauchelle/glue-paste-dev.git "$REPO_DIR"
+  git clone https://github.com/desduvauchelle/glue-paste-dev.git "$REPO_DIR"
 fi
 
 cd "$REPO_DIR"

@@ -25,7 +25,7 @@ You create a board for a project, add cards describing what you want built, and 
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/denisduvauchelle/glue-paste-dev/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/desduvauchelle/glue-paste-dev/main/scripts/install.sh | bash
 ```
 
 Requires [Bun](https://bun.sh) (installed automatically if missing) and [Claude CLI](https://docs.anthropic.com/en/docs/claude-code).
