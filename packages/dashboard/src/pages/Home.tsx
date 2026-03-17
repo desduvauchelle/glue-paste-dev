@@ -12,7 +12,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { DirectoryPicker } from "@/components/directory-picker";
 import { Plus, FolderOpen, Trash2 } from "lucide-react";
 
 export function Home() {
@@ -68,10 +67,12 @@ export function Home() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Project Directory</label>
-                <DirectoryPicker
+                <Input
+                  placeholder="/Users/you/projects/my-app"
                   value={directory}
-                  onChange={setDirectory}
+                  onChange={(e) => setDirectory(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground mt-1">Paste the full path to your project</p>
               </div>
             </div>
             <DialogFooter>

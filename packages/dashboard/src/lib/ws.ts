@@ -7,6 +7,11 @@ interface WSEvent {
 
 type WSListener = (event: WSEvent) => void;
 
+const DEBUG = import.meta.env.DEV || import.meta.env.VITE_GPD_DEBUG === "1";
+function dbg(...args: unknown[]) {
+  if (DEBUG) console.debug("[gpd:ws]", ...args);
+}
+
 const listeners = new Set<WSListener>();
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -23,6 +28,7 @@ function connect() {
   ws = new WebSocket(url);
 
   ws.onopen = () => {
+    dbg("Connected to", url);
     reconnectDelay = 1000;
   };
 
@@ -32,17 +38,19 @@ function connect() {
       for (const listener of listeners) {
         listener(data);
       }
-    } catch {
-      // Ignore malformed messages
+    } catch (err) {
+      console.error("[gpd:ws] Failed to parse message:", err);
     }
   };
 
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
+    dbg("Disconnected", ev.code, ev.reason);
     ws = null;
     scheduleReconnect();
   };
 
-  ws.onerror = () => {
+  ws.onerror = (ev) => {
+    console.error("[gpd:ws] Error:", ev);
     ws?.close();
   };
 }

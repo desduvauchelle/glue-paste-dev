@@ -1,3 +1,6 @@
+// Logger
+export { log } from "./logger.js";
+
 // Schemas
 export * from "./schemas/board.js";
 export * from "./schemas/card.js";

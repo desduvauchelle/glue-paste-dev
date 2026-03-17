@@ -5,6 +5,7 @@ import * as cardsDb from "../db/cards.js";
 import * as commentsDb from "../db/comments.js";
 import { getMergedConfig } from "../config/manager.js";
 import { runCard, type RunnerCallbacks } from "./runner.js";
+import { log } from "../logger.js";
 
 export interface QueueState {
   boardId: string;
@@ -42,6 +43,7 @@ export async function startQueue(
   if (!board) throw new Error(`Board ${boardId} not found`);
 
   const todoCards = cardsDb.listCardsByStatus(db, boardId, "todo");
+  log.info("queue", `Starting queue for board ${boardId} with ${todoCards.length} todo cards`);
   if (todoCards.length === 0) {
     callbacks.onQueueStopped(boardId, "No todo cards to execute");
     return;
@@ -80,6 +82,7 @@ export async function executeSingleCard(
   const board = boardsDb.getBoard(db, card.board_id as BoardId);
   if (!board) throw new Error(`Board ${card.board_id} not found`);
 
+  log.info("queue", `Executing single card "${card.title}" (${cardId})`);
   const comments = commentsDb.listComments(db, cardId);
   const config = getMergedConfig(db, card.board_id as BoardId);
 
@@ -88,7 +91,7 @@ export async function executeSingleCard(
   if (result.success) {
     cardsDb.updateCardStatus(db, cardId, "done");
   } else {
-    // Retry once
+    log.warn("queue", `Card ${cardId} failed, retrying once`);
     const retryResult = await runCard(db, card, board, comments, config, callbacks);
     cardsDb.updateCardStatus(db, cardId, retryResult.success ? "done" : "failed");
   }
@@ -116,6 +119,7 @@ export function stopQueue(
     activeProcesses.delete(boardId);
   }
 
+  log.info("queue", `Queue stopped by user for board ${boardId}`);
   callbacks.onQueueStopped(boardId, "Stopped by user");
 }
 

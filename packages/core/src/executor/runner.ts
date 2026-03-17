@@ -5,6 +5,7 @@ import * as commentsDb from "../db/comments.js";
 import * as cardsDb from "../db/cards.js";
 import { buildPrompt } from "./prompt.js";
 import { parseStreamLine } from "./stream-parser.js";
+import { log } from "../logger.js";
 
 export interface RunnerCallbacks {
   onExecutionStarted: (cardId: string, executionId: string, phase: "plan" | "execute") => void;
@@ -32,7 +33,7 @@ export async function runCard(
   config: Required<ConfigInput>,
   callbacks: RunnerCallbacks
 ): Promise<RunResult> {
-  // Update card status to in-progress and broadcast immediately
+  log.info("runner", `Running card "${card.title}" (${card.id}) on board "${board.name}"`);
   cardsDb.updateCardStatus(db, card.id as CardId, "in-progress");
   const inProgressCard = cardsDb.getCard(db, card.id as CardId);
   if (inProgressCard) callbacks.onCardUpdated(inProgressCard);
@@ -65,6 +66,7 @@ async function executePhase(
   phase: "plan" | "execute",
   callbacks: RunnerCallbacks
 ): Promise<RunResult> {
+  log.info("runner", `Phase "${phase}" starting for card "${card.title}" (${card.id})`);
   const prompt = buildPrompt({ card, board, comments, config, phase });
 
   // Create execution record
@@ -84,6 +86,7 @@ async function executePhase(
     prompt,
     "--output-format",
     "stream-json",
+    "--verbose",
   ];
 
   if (board.session_id) {
@@ -103,7 +106,7 @@ async function executePhase(
     args.push("--dangerously-skip-permissions");
   }
 
-  // Spawn Claude CLI
+  log.debug("runner", `Spawning: ${args.join(" ")}`);
   const proc = Bun.spawn(args, {
     cwd: board.directory,
     stdout: "pipe",
@@ -144,8 +147,8 @@ async function executePhase(
         }
       }
     }
-  } catch {
-    // Stream read error - process likely terminated
+  } catch (err) {
+    log.warn("runner", `Stream read error (execution ${execution.id}):`, err);
   }
 
   // Read stderr
@@ -158,8 +161,8 @@ async function executePhase(
       if (done) break;
       stderrOutput += stderrDecoder.decode(value, { stream: true });
     }
-  } catch {
-    // stderr read error
+  } catch (err) {
+    log.warn("runner", `stderr read error (execution ${execution.id}):`, err);
   }
 
   // Process remaining buffer
@@ -171,10 +174,13 @@ async function executePhase(
     }
   }
 
-  // Wait for process to exit
   const exitCode = await proc.exited;
   const success = exitCode === 0;
   const status = success ? "success" : "failed";
+  log.info("runner", `Phase "${phase}" ${status} for card ${card.id} (exit ${exitCode})`);
+  if (!success && stderrOutput) {
+    log.error("runner", `stderr:\n${stderrOutput.slice(-500)}`);
+  }
 
   // Update execution record
   executionsDb.updateExecutionStatus(db, execution.id, status, exitCode);

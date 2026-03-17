@@ -29,7 +29,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
       c.req.param("boardId") as BoardId,
       parsed.data
     );
-    broadcast({ type: "card:updated", payload: card });
+    broadcast({ type: "card:created", payload: card });
     return c.json(card, 201);
   });
 

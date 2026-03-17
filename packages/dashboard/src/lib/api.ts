@@ -1,17 +1,27 @@
 const BASE = "/api";
+const DEBUG = import.meta.env.DEV || import.meta.env.VITE_GPD_DEBUG === "1";
+
+function dbg(...args: unknown[]) {
+  if (DEBUG) console.debug("[gpd:api]", ...args);
+}
 
 async function request<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
+  const method = options?.method ?? "GET";
+  dbg(`→ ${method} ${path}`);
   const res = await fetch(`${BASE}${path}`, {
     headers: { "Content-Type": "application/json", ...options?.headers },
     ...options,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error((err as { error?: string }).error ?? res.statusText);
+    const msg = (err as { error?: string }).error ?? res.statusText;
+    console.error(`[gpd:api] ← ${method} ${path} ${res.status}:`, msg);
+    throw new Error(msg);
   }
+  dbg(`← ${method} ${path} ${res.status}`);
   return res.json() as Promise<T>;
 }
 

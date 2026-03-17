@@ -27,6 +27,16 @@ export function useCards(boardId: string) {
 
   // Listen for real-time card updates
   useWebSocket((event) => {
+    if (event.type === "card:created") {
+      const card = event.payload as CardWithTags;
+      if (card.board_id === boardId) {
+        setData((prev) => {
+          // Avoid duplicates — create() already added it optimistically
+          if (prev.some((c) => c.id === card.id)) return prev;
+          return [...prev, card];
+        });
+      }
+    }
     if (event.type === "card:updated") {
       const card = event.payload as CardWithTags;
       if (card.board_id === boardId) {
@@ -37,7 +47,7 @@ export function useCards(boardId: string) {
             next[idx] = card;
             return next;
           }
-          return [...prev, card];
+          return prev;
         });
       }
     }
