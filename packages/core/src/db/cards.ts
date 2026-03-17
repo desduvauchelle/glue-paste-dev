@@ -205,6 +205,15 @@ export function resetStaleCards(db: Database): number {
   return result.changes;
 }
 
+export function countActiveCards(db: Database): number {
+  const row = db
+    .query(
+      "SELECT COUNT(*) as count FROM cards WHERE status IN ('queued', 'in-progress')"
+    )
+    .get() as { count: number };
+  return row.count;
+}
+
 export function getDistinctTags(db: Database, boardId: BoardId): string[] {
   const rows = db
     .query(

@@ -35,9 +35,12 @@ export function Home() {
   return (
     <div className="max-w-5xl mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
-        <div>
+        <div className="flex items-center gap-3">
+          <img src="/fav-original.jpeg" alt="GluePasteDev logo" className="w-12 h-12 rounded-xl object-cover" />
+          <div>
           <h1 className="text-3xl font-bold">GluePasteDev</h1>
           <p className="text-muted-foreground mt-1">AI-powered Kanban boards for automated coding</p>
+          </div>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />

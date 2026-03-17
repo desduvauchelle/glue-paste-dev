@@ -17,7 +17,7 @@ export async function start(opts: { open?: boolean } = { open: true }) {
   const { running, pid } = getDaemonStatus();
   if (running) {
     console.log(`Daemon already running (PID ${pid})`);
-    console.log(`  http://localhost:${PORT}`);
+    console.log(`  Dashboard: \x1b[4mhttp://localhost:${PORT}\x1b[0m`);
     if (opts.open) openBrowser();
     return;
   }
@@ -55,8 +55,8 @@ export async function start(opts: { open?: boolean } = { open: true }) {
 
   if (ready) {
     console.log(` \x1b[32m✓\x1b[0m`);
-    console.log(`  http://localhost:${PORT}  (PID ${proc.pid})`);
-    console.log(`  Logs: ${LOG_FILE}`);
+    console.log(`  Dashboard: \x1b[4mhttp://localhost:${PORT}\x1b[0m`);
+    console.log(`  PID: ${proc.pid}  |  Logs: ${LOG_FILE}`);
     if (opts.open) openBrowser();
   } else {
     console.log(` \x1b[33m?\x1b[0m`);

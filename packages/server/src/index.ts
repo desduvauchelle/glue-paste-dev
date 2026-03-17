@@ -10,6 +10,7 @@ import { executionRoutes } from "./routes/executions.js";
 import { queueRoutes, cardExecuteRoutes } from "./routes/queue.js";
 import { configRoutes } from "./routes/config.js";
 import { tagRoutes } from "./routes/tags.js";
+import { checkAndToggleCaffeinate, stopCaffeinate } from "./caffeinate.js";
 
 import type { ServerWebSocket } from "bun";
 
@@ -90,6 +91,12 @@ app.use("*", serveStatic({ root: "./public" }));
 app.use("*", serveStatic({ path: "./public/index.html" }));
 
 const PORT = Number(process.env.PORT) || 4242;
+
+// Caffeinate: keep machine awake while tasks are active
+checkAndToggleCaffeinate(db);
+const caffeinateInterval = setInterval(() => checkAndToggleCaffeinate(db), 300_000);
+process.on("SIGTERM", () => { clearInterval(caffeinateInterval); stopCaffeinate(); });
+process.on("SIGINT", () => { clearInterval(caffeinateInterval); stopCaffeinate(); });
 
 console.log(`GluePasteDev server running on http://localhost:${PORT}`);
 log.info("server", "Debug logging enabled (GPD_DEBUG)");

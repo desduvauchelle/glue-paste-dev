@@ -6,6 +6,8 @@ import { restart } from "./commands/restart.js";
 import { status } from "./commands/status.js";
 import { logs } from "./commands/logs.js";
 import { open } from "./commands/open.js";
+import { update } from "./commands/update.js";
+import { uninstall } from "./commands/uninstall.js";
 
 const command = process.argv[2];
 const flags = process.argv.slice(3);
@@ -31,6 +33,12 @@ switch (command) {
   case "open":
     await open();
     break;
+  case "update":
+    await update();
+    break;
+  case "uninstall":
+    await uninstall(flags);
+    break;
   case "--help":
   case "-h":
   case undefined:
@@ -49,6 +57,10 @@ switch (command) {
 \x1b[2mDashboard:\x1b[0m
   open           Open the dashboard in your browser (starts daemon if needed)
   logs [-f]      Show daemon logs (-f to follow)
+
+\x1b[2mMaintenance:\x1b[0m
+  update         Check for updates and install if available
+  uninstall      Remove GluePasteDev (--yes to confirm, --keep-data to back up DB)
 
 \x1b[2mExamples:\x1b[0m
   glue-paste-dev up          # start daemon, open browser

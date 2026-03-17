@@ -38,9 +38,9 @@ fi
 
 cd "$REPO_DIR"
 
-# Install dependencies
+# Install dependencies (skip prepare/husky — end users don't need git hooks)
 echo "Installing dependencies..."
-bun install
+bun install --ignore-scripts
 
 # Build dashboard
 echo "Building dashboard..."
@@ -55,13 +55,38 @@ if [ -L /usr/local/bin/glue-paste-dev ]; then
   rm /usr/local/bin/glue-paste-dev
 fi
 
-ln -sf "$REPO_DIR/packages/cli/src/index.ts" /usr/local/bin/glue-paste-dev 2>/dev/null || {
-  echo -e "${YELLOW}Could not create symlink in /usr/local/bin.${NC}"
-  echo "You can add this to your PATH manually:"
-  echo "  export PATH=\"$REPO_DIR/packages/cli/src:\$PATH\""
-  echo "Or create the symlink with sudo:"
-  echo "  sudo ln -sf $REPO_DIR/packages/cli/src/index.ts /usr/local/bin/glue-paste-dev"
-}
+BIN_DIR="$INSTALL_DIR/bin"
+mkdir -p "$BIN_DIR"
+ln -sf "$REPO_DIR/packages/cli/src/index.ts" "$BIN_DIR/glue-paste-dev"
+
+# Also try /usr/local/bin for convenience
+ln -sf "$REPO_DIR/packages/cli/src/index.ts" /usr/local/bin/glue-paste-dev 2>/dev/null || true
+
+# Ensure BIN_DIR is on PATH
+if ! echo "$PATH" | grep -q "$BIN_DIR"; then
+  SHELL_PROFILE=""
+  if [ -f "$HOME/.zshrc" ]; then
+    SHELL_PROFILE="$HOME/.zshrc"
+  elif [ -f "$HOME/.bashrc" ]; then
+    SHELL_PROFILE="$HOME/.bashrc"
+  elif [ -f "$HOME/.bash_profile" ]; then
+    SHELL_PROFILE="$HOME/.bash_profile"
+  fi
+
+  EXPORT_LINE="export PATH=\"$BIN_DIR:\$PATH\""
+
+  if [ -n "$SHELL_PROFILE" ]; then
+    if ! grep -q "$BIN_DIR" "$SHELL_PROFILE" 2>/dev/null; then
+      echo "" >> "$SHELL_PROFILE"
+      echo "# GluePasteDev" >> "$SHELL_PROFILE"
+      echo "$EXPORT_LINE" >> "$SHELL_PROFILE"
+      echo -e "${GREEN}Added $BIN_DIR to PATH in $SHELL_PROFILE${NC}"
+    fi
+  fi
+
+  # Make it available in current session
+  export PATH="$BIN_DIR:$PATH"
+fi
 
 echo ""
 echo -e "${GREEN}GluePasteDev installed successfully!${NC}"
@@ -72,3 +97,5 @@ echo "  glue-paste-dev stop     Stop the server"
 echo "  glue-paste-dev status   Check server status"
 echo ""
 echo "The dashboard will be available at http://localhost:4242"
+echo ""
+echo -e "${YELLOW}Note: Restart your terminal or run 'source ~/.zshrc' to use the command.${NC}"
