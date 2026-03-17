@@ -9,7 +9,10 @@ export const CardStatus = z.enum([
   "in-progress",
   "done",
   "failed",
+  "rate-limited",
 ]);
+
+export const ThinkingLevel = z.enum(["smart", "basic"]);
 
 export const DEFAULT_TAGS = ["UX", "design", "backend", "logic"] as const;
 
@@ -21,6 +24,8 @@ export const CardSchema = z.object({
   status: CardStatus.default("todo"),
   position: z.number().int().default(0),
   blocking: z.boolean().default(false),
+  thinking_level: ThinkingLevel.nullable().default(null),
+  plan_mode: z.boolean().nullable().default(null),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -35,6 +40,8 @@ export const CreateCardSchema = z.object({
   tags: z.array(z.string()).optional().default([]),
   position: z.number().int().optional(),
   blocking: z.boolean().optional().default(true),
+  thinking_level: ThinkingLevel.nullable().optional().default(null),
+  plan_mode: z.boolean().nullable().optional().default(null),
 });
 
 export const UpdateCardSchema = z.object({
@@ -44,6 +51,8 @@ export const UpdateCardSchema = z.object({
   status: CardStatus.optional(),
   position: z.number().int().optional(),
   blocking: z.boolean().optional(),
+  thinking_level: ThinkingLevel.nullable().optional(),
+  plan_mode: z.boolean().nullable().optional(),
 });
 
 export const MoveCardSchema = z.object({

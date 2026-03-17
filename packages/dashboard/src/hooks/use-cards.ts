@@ -62,7 +62,10 @@ export function useCards(boardId: string) {
   const create = useCallback(
     async (input: CreateCard) => {
       const card = await cardsApi.create(boardId, input);
-      setData((prev) => [...prev, card]);
+      setData((prev) => {
+        if (prev.some((c) => c.id === card.id)) return prev;
+        return [...prev, card];
+      });
       return card;
     },
     [boardId]
@@ -91,6 +94,10 @@ export function useCards(boardId: string) {
     await cardsApi.execute(id);
   }, []);
 
+  const stop = useCallback(async (id: string) => {
+    await cardsApi.stop(id);
+  }, []);
+
   // Group by status
   const grouped = {
     todo: data.filter((c) => c.status === "todo"),
@@ -98,7 +105,8 @@ export function useCards(boardId: string) {
     "in-progress": data.filter((c) => c.status === "in-progress"),
     done: data.filter((c) => c.status === "done"),
     failed: data.filter((c) => c.status === "failed"),
+    "rate-limited": data.filter((c) => c.status === "rate-limited"),
   };
 
-  return { cards: data, grouped, loading, refresh, create, update, move, remove, execute };
+  return { cards: data, grouped, loading, refresh, create, update, move, remove, execute, stop };
 }

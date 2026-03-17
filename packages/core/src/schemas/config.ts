@@ -31,6 +31,7 @@ export const ConfigSchema = z.object({
   max_budget_usd: z.number().default(10.0),
   auto_confirm: z.boolean().default(true),
   plan_mode: z.boolean().default(true),
+  thinking_level: z.string().default("smart"),
   custom_tags: z.string().default("[]"),
   custom_instructions: z.string().default(""),
 });
@@ -43,6 +44,7 @@ export const ConfigInputSchema = z.object({
   maxBudgetUsd: z.number().optional(),
   autoConfirm: z.boolean().optional(),
   planMode: z.boolean().optional(),
+  thinkingLevel: z.enum(["smart", "basic"]).optional(),
   customTags: z.array(z.string()).optional(),
   customInstructions: z.string().optional(),
 });
@@ -54,6 +56,7 @@ export const DEFAULT_CONFIG = {
   maxBudgetUsd: 10.0,
   autoConfirm: true,
   planMode: true,
+  thinkingLevel: "smart" as "smart" | "basic",
   customTags: [] as string[],
   customInstructions: "",
 } as const;

@@ -11,7 +11,11 @@ interface KanbanColumnProps {
   status: string;
   cards: CardWithTags[];
   onPlayCard: (id: string) => void;
+  onStopCard: (id: string) => void;
   onClickCard: (card: CardWithTags) => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  totalCount?: number;
 }
 
 const columnColors: Record<string, string> = {
@@ -20,6 +24,7 @@ const columnColors: Record<string, string> = {
   "in-progress": "border-t-amber-500",
   done: "border-t-green-500",
   failed: "border-t-red-500",
+  "rate-limited": "border-t-orange-500",
 };
 
 export function KanbanColumn({
@@ -27,7 +32,11 @@ export function KanbanColumn({
   status,
   cards,
   onPlayCard,
+  onStopCard,
   onClickCard,
+  hasMore,
+  onLoadMore,
+  totalCount,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const cardIds = useMemo(() => cards.map((c) => c.id), [cards]);
@@ -46,7 +55,7 @@ export function KanbanColumn({
           {title}
         </h3>
         <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-          {cards.length}
+          {totalCount ?? cards.length}
         </span>
       </div>
       <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
@@ -57,9 +66,18 @@ export function KanbanColumn({
                 key={card.id}
                 card={card}
                 onPlay={onPlayCard}
+                onStop={onStopCard}
                 onClick={onClickCard}
               />
             ))}
+            {hasMore && onLoadMore && (
+              <button
+                onClick={onLoadMore}
+                className="w-full text-xs text-muted-foreground hover:text-foreground py-2 rounded border border-dashed border-border hover:border-muted-foreground transition-colors"
+              >
+                Load older cards
+              </button>
+            )}
           </div>
         </ScrollArea>
       </SortableContext>

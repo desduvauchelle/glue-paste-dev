@@ -1,0 +1,16 @@
+# 1. Auto-bump patch version and stage
+node -e "
+const fs = require('fs');
+const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
+const v = pkg.version.split('.');
+v[2] = parseInt(v[2]) + 1;
+pkg.version = v.join('.');
+fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
+"
+git add package.json
+
+# 2. Type check all packages
+bunx tsc -b
+
+# 3. Run tests
+bun run test

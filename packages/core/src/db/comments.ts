@@ -36,6 +36,11 @@ export function deleteComment(db: Database, id: CommentId): boolean {
   return result.changes > 0;
 }
 
+export function deleteAllCommentsForCard(db: Database, cardId: CardId): number {
+  const result = db.query("DELETE FROM comments WHERE card_id = ?").run(cardId);
+  return result.changes;
+}
+
 /** Add a system comment for an execution result */
 export function addSystemComment(
   db: Database,

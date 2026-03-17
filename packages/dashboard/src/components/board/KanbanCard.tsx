@@ -2,7 +2,7 @@ import type { CardWithTags } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Check, X, GripVertical } from "lucide-react";
+import { Play, Check, X, GripVertical, Clock, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -10,6 +10,7 @@ import { CSS } from "@dnd-kit/utilities";
 interface KanbanCardProps {
   card: CardWithTags;
   onPlay: (id: string) => void;
+  onStop: (id: string) => void;
   onClick: (card: CardWithTags) => void;
   isDragOverlay?: boolean;
 }
@@ -20,9 +21,10 @@ const statusColors: Record<string, string> = {
   "in-progress": "bg-amber-900/30 border-amber-500/30",
   done: "bg-green-900/30 border-green-500/30",
   failed: "bg-red-900/30 border-red-500/30",
+  "rate-limited": "bg-orange-900/30 border-orange-500/30",
 };
 
-export function KanbanCard({ card, onPlay, onClick, isDragOverlay }: KanbanCardProps) {
+export function KanbanCard({ card, onPlay, onStop, onClick, isDragOverlay }: KanbanCardProps) {
   const isRunning = card.status === "in-progress";
 
   const {
@@ -80,13 +82,26 @@ export function KanbanCard({ card, onPlay, onClick, isDragOverlay }: KanbanCardP
             </Button>
           )}
           {isRunning && (
-            <span className="w-2.5 h-2.5 shrink-0 rounded-full bg-amber-400 animate-pulse" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 text-amber-400 hover:text-red-400"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStop(card.id);
+              }}
+            >
+              <Square className="w-3 h-3 fill-current" />
+            </Button>
           )}
           {card.status === "done" && (
             <Check className="w-4 h-4 shrink-0 text-green-400" />
           )}
           {card.status === "failed" && (
             <X className="w-4 h-4 shrink-0 text-red-400" />
+          )}
+          {card.status === "rate-limited" && (
+            <Clock className="w-4 h-4 shrink-0 text-orange-400" />
           )}
         </div>
 

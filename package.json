@@ -1,8 +1,10 @@
 {
   "name": "glue-paste-dev",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev:server": "GPD_DEBUG=1 bun run --cwd packages/server dev",
     "dev:dashboard": "VITE_GPD_DEBUG=1 bun run --cwd packages/dashboard dev",
@@ -10,10 +12,12 @@
     "build:dashboard": "bun run --cwd packages/dashboard build",
     "build:server": "bun run --cwd packages/server build",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "vitest": "^3.1.1",
-    "typescript": "^5.8.3"
+    "husky": "^9.1.7",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
   }
 }

@@ -24,10 +24,12 @@ export * as executionsDb from "./db/executions.js";
 export * from "./config/manager.js";
 
 // Executor
-export { startQueue, executeSingleCard, stopQueue, getQueueState } from "./executor/queue.js";
+export { startQueue, executeSingleCard, stopCard, stopQueue, pauseQueue, resumeQueue, getQueueState } from "./executor/queue.js";
 export type { QueueState, QueueCallbacks } from "./executor/queue.js";
 export type { RunnerCallbacks, RunResult } from "./executor/runner.js";
 export { buildPrompt } from "./executor/prompt.js";
 export { parseStreamLine } from "./executor/stream-parser.js";
 export { buildCliCommand } from "./executor/cli-adapter.js";
 export type { CliCommand } from "./executor/cli-adapter.js";
+export { detectRateLimit } from "./executor/rate-limit.js";
+export type { RateLimitInfo } from "./executor/rate-limit.js";

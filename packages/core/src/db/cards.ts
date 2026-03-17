@@ -18,6 +18,8 @@ interface CardRow {
   status: string;
   position: number;
   blocking: number;
+  thinking_level: string | null;
+  plan_mode: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +49,8 @@ function toCardWithTags(db: Database, row: CardRow): CardWithTags {
   return {
     ...row,
     blocking: Boolean(row.blocking),
+    thinking_level: row.thinking_level as "smart" | "basic" | null,
+    plan_mode: row.plan_mode === null ? null : Boolean(row.plan_mode),
     tags: getTagsForCard(db, row.id),
   } as CardWithTags;
 }
@@ -99,11 +103,11 @@ export function createCard(
 
   const row = db
     .query(
-      `INSERT INTO cards (board_id, title, description, position, blocking)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO cards (board_id, title, description, position, blocking, thinking_level, plan_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        RETURNING *`
     )
-    .get(boardId, input.title, input.description, position, input.blocking ? 1 : 0) as CardRow;
+    .get(boardId, input.title, input.description, position, input.blocking ? 1 : 0, input.thinking_level ?? null, input.plan_mode === null || input.plan_mode === undefined ? null : input.plan_mode ? 1 : 0) as CardRow;
 
   if (input.tags.length > 0) {
     setTagsForCard(db, row.id, input.tags);
@@ -127,14 +131,16 @@ export function updateCard(
   const status = input.status ?? current.status;
   const position = input.position ?? current.position;
   const blocking = input.blocking !== undefined ? (input.blocking ? 1 : 0) : current.blocking;
+  const thinkingLevel = input.thinking_level !== undefined ? input.thinking_level : current.thinking_level;
+  const planMode = input.plan_mode !== undefined ? (input.plan_mode === null ? null : input.plan_mode ? 1 : 0) : current.plan_mode;
 
   const row = db
     .query(
-      `UPDATE cards SET title = ?, description = ?, status = ?, position = ?, blocking = ?, updated_at = datetime('now')
+      `UPDATE cards SET title = ?, description = ?, status = ?, position = ?, blocking = ?, thinking_level = ?, plan_mode = ?, updated_at = datetime('now')
        WHERE id = ?
        RETURNING *`
     )
-    .get(title, description, status, position, blocking, id) as CardRow;
+    .get(title, description, status, position, blocking, thinkingLevel, planMode, id) as CardRow;
 
   if (input.tags !== undefined) {
     setTagsForCard(db, row.id, input.tags);

@@ -6,7 +6,27 @@ import * as cardsDb from "../db/cards.js";
 import { buildPrompt } from "./prompt.js";
 import { parseStreamLine } from "./stream-parser.js";
 import { buildCliCommand } from "./cli-adapter.js";
+import { detectRateLimit } from "./rate-limit.js";
 import { log } from "../logger.js";
+
+/** Track active processes by cardId so they can be killed */
+const activeCardProcesses = new Map<string, { proc: ReturnType<typeof Bun.spawn>; executionId: string }>();
+
+export function getActiveCardProcess(cardId: string) {
+  return activeCardProcesses.get(cardId);
+}
+
+export function killCardProcess(cardId: string): boolean {
+  const entry = activeCardProcesses.get(cardId);
+  if (!entry) return false;
+  try {
+    entry.proc.kill("SIGTERM");
+  } catch {
+    // process may have already exited
+  }
+  activeCardProcesses.delete(cardId);
+  return true;
+}
 
 export interface RunnerCallbacks {
   onExecutionStarted: (cardId: string, executionId: string, phase: "plan" | "execute") => void;
@@ -20,6 +40,7 @@ export interface RunResult {
   success: boolean;
   exitCode: number;
   output: string;
+  rateLimitInfo?: { isRateLimit: boolean; resetMessage?: string };
 }
 
 /**
@@ -49,8 +70,8 @@ export async function runCard(
       return result;
     }
 
-    // Phase 2: Execute
-    result = await executePhase(db, card, board, comments, config, "execute", callbacks);
+    // Phase 2: Execute (with plan context)
+    result = await executePhase(db, card, board, comments, config, "execute", callbacks, result.output);
   } else {
     // Single phase: just execute directly
     result = await executePhase(db, card, board, comments, config, "execute", callbacks);
@@ -66,12 +87,13 @@ async function executePhase(
   comments: Comment[],
   config: Required<ConfigInput>,
   phase: "plan" | "execute",
-  callbacks: RunnerCallbacks
+  callbacks: RunnerCallbacks,
+  planOutput?: string
 ): Promise<RunResult> {
   log.info("runner", `Phase "${phase}" starting for card "${card.title}" (${card.id})`);
   const sessionId = crypto.randomUUID();
   log.debug("runner", `Phase "${phase}" using session ${sessionId}`);
-  const prompt = buildPrompt({ card, board, comments, config, phase });
+  const prompt = buildPrompt({ card, board, comments, config, phase, planOutput });
 
   // Create execution record
   const execution = executionsDb.createExecution(
@@ -100,6 +122,9 @@ async function executePhase(
   if (proc.pid) {
     executionsDb.updateExecutionPid(db, execution.id, proc.pid);
   }
+
+  // Track process for stop functionality
+  activeCardProcesses.set(card.id, { proc, executionId: execution.id });
 
   // Stream stdout
   let output = "";
@@ -168,6 +193,7 @@ async function executePhase(
   }
 
   const exitCode = await proc.exited;
+  activeCardProcesses.delete(card.id);
   const success = exitCode === 0;
   const status = success ? "success" : "failed";
   log.info("runner", `Phase "${phase}" ${status} for card ${card.id} (exit ${exitCode})`);
@@ -191,7 +217,9 @@ async function executePhase(
     : undefined;
   callbacks.onExecutionCompleted(execution.id, status, exitCode, shortError);
 
-  return { success, exitCode, output };
+  const rateLimitResult = !success ? detectRateLimit(output, stderrOutput, exitCode) : null;
+
+  return { success, exitCode, output, ...(rateLimitResult ? { rateLimitInfo: rateLimitResult } : {}) };
 }
 
 function buildFailureSummary(

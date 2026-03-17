@@ -3,7 +3,10 @@ import type { Database } from "bun:sqlite";
 import {
   startQueue,
   executeSingleCard,
+  stopCard,
   stopQueue,
+  pauseQueue,
+  resumeQueue,
   getQueueState,
 } from "@glue-paste-dev/core";
 import type { BoardId, CardId, QueueCallbacks } from "@glue-paste-dev/core";
@@ -27,26 +30,14 @@ function makeCallbacks(broadcast: (event: unknown) => void): QueueCallbacks {
         type: "execution:completed",
         payload: { executionId, status, exitCode },
       });
-      broadcast({
-        type: "notification",
-        payload: {
-          level: status === "success" ? "success" : "error",
-          title: status === "success" ? "Card Completed" : "Card Failed",
-          message: status === "success"
-            ? "Execution completed successfully"
-            : errorSummary
-              ? `Execution failed: ${errorSummary}`
-              : `Execution failed (exit code ${exitCode})`,
-        },
-      });
     },
     onCommentAdded(comment) {
       broadcast({ type: "comment:added", payload: comment });
     },
-    onQueueUpdated(boardId, queue, current) {
+    onQueueUpdated(boardId, queue, current, isPaused) {
       broadcast({
         type: "queue:updated",
-        payload: { boardId, queue, current },
+        payload: { boardId, queue, current, isPaused },
       });
     },
     onQueueStopped(boardId, reason) {
@@ -63,11 +54,30 @@ function makeCallbacks(broadcast: (event: unknown) => void): QueueCallbacks {
         },
       });
     },
+    onRateLimited(boardId: string, cardTitle: string, resetMessage?: string) {
+      broadcast({
+        type: "notification",
+        payload: {
+          level: "warning",
+          title: "Rate Limited",
+          message: `CLI rate limited on "${cardTitle}". ${resetMessage ?? "Check provider dashboard for reset time."} Queue paused.`,
+        },
+      });
+    },
     onCardUpdated(card) {
       broadcast({
         type: "card:updated",
         payload: card,
       });
+      const notifMap: Record<string, { level: string; title: string; message: string }> = {
+        done: { level: "success", title: "Card Completed", message: "Execution completed successfully" },
+        failed: { level: "error", title: "Card Failed", message: "Execution failed" },
+        "rate-limited": { level: "warning", title: "Card Rate Limited", message: "CLI provider rate limit hit" },
+      };
+      const notif = notifMap[card.status as string];
+      if (notif) {
+        broadcast({ type: "notification", payload: notif });
+      }
     },
   };
 }
@@ -99,6 +109,20 @@ export function queueRoutes(
     return c.json({ ok: true, message: "Queue started" });
   });
 
+  // POST /api/queue/:boardId/pause - pause queue
+  app.post("/:boardId/pause", (c) => {
+    const boardId = c.req.param("boardId");
+    pauseQueue(boardId, callbacks);
+    return c.json({ ok: true });
+  });
+
+  // POST /api/queue/:boardId/resume - resume paused queue
+  app.post("/:boardId/resume", (c) => {
+    const boardId = c.req.param("boardId") as BoardId;
+    resumeQueue(db, boardId, callbacks);
+    return c.json({ ok: true });
+  });
+
   // DELETE /api/queue/:boardId/play - stop queue
   app.delete("/:boardId/play", (c) => {
     const boardId = c.req.param("boardId");
@@ -115,6 +139,13 @@ export function cardExecuteRoutes(
 ) {
   const app = new Hono();
   const callbacks = makeCallbacks(broadcast);
+
+  // POST /api/cards/:cardId/stop - stop a running card
+  app.post("/:cardId/stop", (c) => {
+    const cardId = c.req.param("cardId") as CardId;
+    stopCard(db, cardId, callbacks);
+    return c.json({ ok: true });
+  });
 
   // POST /api/cards/:cardId/execute - execute single card
   app.post("/:cardId/execute", async (c) => {

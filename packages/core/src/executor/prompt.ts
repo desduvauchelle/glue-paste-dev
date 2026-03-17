@@ -6,10 +6,11 @@ interface PromptContext {
   comments: Comment[];
   config: Required<ConfigInput>;
   phase: "plan" | "execute";
+  planOutput?: string | undefined;
 }
 
 export function buildPrompt(ctx: PromptContext): string {
-  const { card, board, comments, config, phase } = ctx;
+  const { card, board, comments, config, phase, planOutput } = ctx;
 
   const parts: string[] = [];
 
@@ -74,8 +75,13 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push(`- Follow existing code patterns and conventions in the project`);
     parts.push(`- Do NOT make any changes yet - only create the plan`);
   } else {
+    if (planOutput) {
+      parts.push(`## Plan from previous step`);
+      parts.push(planOutput);
+      parts.push("");
+    }
     parts.push(`## Instructions`);
-    parts.push(`- Execute the plan from the previous step`);
+    parts.push(`- Execute the plan above`);
     parts.push(`- Implement the changes completely`);
     parts.push(`- Follow existing code patterns and conventions`);
     parts.push(`- Write tests if the project has a test framework`);

@@ -34,5 +34,13 @@ export function commentRoutes(
     return c.json(comment, 201);
   });
 
+  // DELETE /api/comments/card/:cardId
+  app.delete("/card/:cardId", (c) => {
+    const cardId = c.req.param("cardId") as CardId;
+    commentsDb.deleteAllCommentsForCard(db, cardId);
+    broadcast({ type: "comments:cleared", payload: { cardId } });
+    return c.json({ ok: true });
+  });
+
   return app;
 }

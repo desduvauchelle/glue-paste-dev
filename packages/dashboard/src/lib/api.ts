@@ -57,6 +57,8 @@ export const cards = {
     request<{ ok: boolean }>(`/cards/${id}`, { method: "DELETE" }),
   execute: (id: string) =>
     request<{ ok: boolean }>(`/cards/${id}/execute`, { method: "POST" }),
+  stop: (id: string) =>
+    request<{ ok: boolean }>(`/cards/${id}/stop`, { method: "POST" }),
 };
 
 // Comments
@@ -84,6 +86,10 @@ export const queue = {
     request<{ ok: boolean }>(`/queue/${boardId}/play`, { method: "POST" }),
   stop: (boardId: string) =>
     request<{ ok: boolean }>(`/queue/${boardId}/play`, { method: "DELETE" }),
+  pause: (boardId: string) =>
+    request<{ ok: boolean }>(`/queue/${boardId}/pause`, { method: "POST" }),
+  resume: (boardId: string) =>
+    request<{ ok: boolean }>(`/queue/${boardId}/resume`, { method: "POST" }),
 };
 
 // Config
@@ -130,6 +136,8 @@ interface CardWithTags {
   status: string;
   position: number;
   blocking: boolean;
+  thinking_level: "smart" | "basic" | null;
+  plan_mode: boolean | null;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -140,6 +148,8 @@ interface CreateCard {
   description?: string;
   tags?: string[];
   blocking?: boolean;
+  thinking_level?: "smart" | "basic" | null;
+  plan_mode?: boolean | null;
 }
 
 interface UpdateCard {
@@ -149,6 +159,8 @@ interface UpdateCard {
   status?: string;
   position?: number;
   blocking?: boolean;
+  thinking_level?: "smart" | "basic" | null;
+  plan_mode?: boolean | null;
 }
 
 interface Comment {
@@ -177,6 +189,7 @@ interface QueueStatus {
   queue: string[];
   current: string | null;
   isRunning: boolean;
+  isPaused: boolean;
 }
 
 type CliProvider = "claude" | "gemini" | "codex" | "aider" | "copilot" | "custom";
@@ -188,6 +201,7 @@ interface ConfigData {
   maxBudgetUsd: number;
   autoConfirm: boolean;
   planMode: boolean;
+  thinkingLevel: "smart" | "basic";
   customTags: string[];
   customInstructions: string;
 }

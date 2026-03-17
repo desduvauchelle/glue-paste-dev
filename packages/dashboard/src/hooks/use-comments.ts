@@ -38,5 +38,18 @@ export function useComments(cardId: string | null) {
     [cardId]
   );
 
-  return { comments: data, loading, refresh, add };
+  const clear = useCallback(async () => {
+    if (!cardId) return;
+    await commentsApi.clear(cardId);
+    setData([]);
+  }, [cardId]);
+
+  useWSEvent("comments:cleared", (payload) => {
+    const { cardId: clearedId } = payload as { cardId: string };
+    if (clearedId === cardId) {
+      setData([]);
+    }
+  });
+
+  return { comments: data, loading, refresh, add, clear };
 }

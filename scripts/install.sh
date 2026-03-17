@@ -46,6 +46,9 @@ bun install
 echo "Building dashboard..."
 bun run build
 
+# Ensure CLI entry is executable
+chmod +x "$REPO_DIR/packages/cli/src/index.ts"
+
 # Create symlink
 echo "Creating CLI symlink..."
 if [ -L /usr/local/bin/glue-paste-dev ]; then

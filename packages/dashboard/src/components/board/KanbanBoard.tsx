@@ -17,6 +17,7 @@ import { arrayMove } from "@dnd-kit/sortable";
 interface KanbanBoardProps {
   grouped: Record<string, CardWithTags[]>;
   onPlayCard: (id: string) => void;
+  onStopCard: (id: string) => void;
   onClickCard: (card: CardWithTags) => void;
   onMoveCard: (id: string, status: string, position: number) => void;
 }
@@ -27,14 +28,31 @@ const COLUMNS = [
   { status: "in-progress", title: "In Progress" },
   { status: "done", title: "Done" },
   { status: "failed", title: "Failed" },
+  { status: "rate-limited", title: "Rate Limited" },
 ] as const;
 
-export function KanbanBoard({ grouped, onPlayCard, onClickCard, onMoveCard }: KanbanBoardProps) {
+export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onMoveCard }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<CardWithTags | null>(null);
   // Local state for optimistic column updates during drag
   const [localGrouped, setLocalGrouped] = useState<Record<string, CardWithTags[]> | null>(null);
+  const [doneWeeksLoaded, setDoneWeeksLoaded] = useState(1);
 
   const displayGrouped = localGrouped ?? grouped;
+
+  // Paginate done column: show only cards updated within the last N weeks
+  const { filteredDoneCards, hasDoneMore } = useMemo(() => {
+    const doneCards = displayGrouped["done"] ?? [];
+    const cutoff = Date.now() - doneWeeksLoaded * 7 * 24 * 60 * 60 * 1000;
+    const filtered = doneCards.filter((c) => {
+      const ts = c.updated_at ? new Date(c.updated_at).getTime() : 0;
+      return ts >= cutoff;
+    });
+    const hasMore = doneCards.some((c) => {
+      const ts = c.updated_at ? new Date(c.updated_at).getTime() : 0;
+      return ts < cutoff;
+    });
+    return { filteredDoneCards: filtered, hasDoneMore: hasMore };
+  }, [displayGrouped, doneWeeksLoaded]);
 
   // All card IDs for lookup
   const allCards = useMemo(() => {
@@ -163,17 +181,24 @@ export function KanbanBoard({ grouped, onPlayCard, onClickCard, onMoveCard }: Ka
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="flex gap-4 overflow-x-auto h-full">
-        {COLUMNS.map(({ status, title }) => (
-          <KanbanColumn
-            key={status}
-            title={title}
-            status={status}
-            cards={displayGrouped[status] ?? []}
-            onPlayCard={onPlayCard}
-            onClickCard={onClickCard}
-          />
-        ))}
+      <div className="flex gap-4 overflow-x-auto h-full px-3">
+        {COLUMNS.map(({ status, title }) => {
+          const isDone = status === "done";
+          return (
+            <KanbanColumn
+              key={status}
+              title={title}
+              status={status}
+              cards={isDone ? filteredDoneCards : (displayGrouped[status] ?? [])}
+              onPlayCard={onPlayCard}
+              onStopCard={onStopCard}
+              onClickCard={onClickCard}
+              hasMore={isDone ? hasDoneMore : undefined}
+              onLoadMore={isDone ? () => setDoneWeeksLoaded((w) => w + 1) : undefined}
+              totalCount={isDone ? (displayGrouped["done"]?.length ?? 0) : undefined}
+            />
+          );
+        })}
       </div>
 
       <DragOverlay dropAnimation={null}>
@@ -182,6 +207,7 @@ export function KanbanBoard({ grouped, onPlayCard, onClickCard, onMoveCard }: Ka
             <KanbanCard
               card={activeCard}
               onPlay={() => {}}
+              onStop={() => {}}
               onClick={() => {}}
               isDragOverlay
             />

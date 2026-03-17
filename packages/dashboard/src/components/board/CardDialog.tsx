@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, X, Play, Trash2, Plus } from "lucide-react";
+import { Send, X, Play, Trash2, Plus, Eraser, Brain, Zap } from "lucide-react";
 
 interface CardDialogProps {
   open: boolean;
@@ -43,9 +43,11 @@ export function CardDialog({
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [customTagInput, setCustomTagInput] = useState("");
   const [blocking, setBlocking] = useState(true);
+  const [thinkingLevel, setThinkingLevel] = useState<"smart" | "basic" | null>(null);
+  const [planMode, setPlanMode] = useState<boolean | null>(null);
   const [commentText, setCommentText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const { comments, add: addComment } = useComments(card?.id ?? null);
+  const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null);
 
   const isEditing = card !== null;
 
@@ -55,11 +57,15 @@ export function CardDialog({
       setDescription(card.description);
       setSelectedTags(card.tags);
       setBlocking(card.blocking);
+      setThinkingLevel(card.thinking_level);
+      setPlanMode(card.plan_mode);
     } else {
       setTitle("");
       setDescription("");
       setSelectedTags([]);
       setBlocking(false);
+      setThinkingLevel(null);
+      setPlanMode(null);
     }
     setConfirmDelete(false);
     setCustomTagInput("");
@@ -80,6 +86,8 @@ export function CardDialog({
         description: description.trim(),
         tags: selectedTags,
         blocking,
+        thinking_level: thinkingLevel,
+        plan_mode: planMode,
       });
     } else {
       await onCreate({
@@ -87,6 +95,8 @@ export function CardDialog({
         description: description.trim(),
         tags: selectedTags,
         blocking,
+        thinking_level: thinkingLevel,
+        plan_mode: planMode,
       });
     }
     onOpenChange(false);
@@ -172,6 +182,58 @@ export function CardDialog({
             </span>
           </div>
 
+          {/* Thinking Level */}
+          <div>
+            <label className="text-sm font-medium mb-1 block">Thinking Level</label>
+            <div className="flex gap-2">
+              {([null, "smart", "basic"] as const).map((level) => (
+                <Button
+                  key={level ?? "default"}
+                  type="button"
+                  size="sm"
+                  variant={thinkingLevel === level ? "default" : "outline"}
+                  onClick={() => setThinkingLevel(level)}
+                  className="flex items-center gap-1.5"
+                >
+                  {level === null && "Default"}
+                  {level === "smart" && <><Brain className="w-3.5 h-3.5" /> Smart (Opus)</>}
+                  {level === "basic" && <><Zap className="w-3.5 h-3.5" /> Basic (Sonnet)</>}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {thinkingLevel === null
+                ? "Uses the project or global default"
+                : thinkingLevel === "smart"
+                  ? "Uses Opus for deeper reasoning"
+                  : "Uses Sonnet for faster, simpler tasks"}
+            </p>
+          </div>
+
+          {/* Plan Mode */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="plan-mode"
+              checked={planMode === null ? false : planMode}
+              ref={(el) => {
+                if (el) el.indeterminate = planMode === null;
+              }}
+              onChange={() => {
+                if (planMode === null) setPlanMode(true);
+                else if (planMode) setPlanMode(false);
+                else setPlanMode(null);
+              }}
+              className="h-4 w-4 rounded border-border bg-background accent-primary"
+            />
+            <label htmlFor="plan-mode" className="text-sm font-medium cursor-pointer">
+              Plan Mode
+            </label>
+            <span className="text-xs text-muted-foreground">
+              — {planMode === null ? "Default (uses project setting)" : planMode ? "Plan then execute" : "Execute directly"}
+            </span>
+          </div>
+
           {/* Tags */}
           <div>
             <label className="text-sm font-medium mb-1 block">Tags</label>
@@ -216,9 +278,22 @@ export function CardDialog({
           {/* Comments (only when editing) */}
           {isEditing && (
             <div>
-              <label className="text-sm font-medium mb-1 block">
-                Comments ({comments.length})
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium">
+                  Comments ({comments.length})
+                </label>
+                {comments.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => void clearComments()}
+                    title="Clear all comments"
+                  >
+                    <Eraser className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Button>
+                )}
+              </div>
               <ScrollArea className="max-h-[200px] border rounded-md p-2">
                 {comments.length === 0 ? (
                   <p className="text-xs text-muted-foreground py-2 text-center">
