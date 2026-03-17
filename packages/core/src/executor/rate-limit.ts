@@ -5,6 +5,7 @@
 
 export interface RateLimitInfo {
   isRateLimit: boolean;
+  isOverloaded: boolean;
   resetMessage?: string;
 }
 
@@ -47,22 +48,32 @@ const RESET_PATTERNS: { pattern: RegExp; extract: (m: RegExpMatchArray) => strin
   },
 ];
 
+const OVERLOADED_PATTERNS = [
+  /529/,
+  /overloaded/i,
+  /service.unavailable/i,
+  /server.busy/i,
+];
+
 export function detectRateLimit(stdout: string, stderr: string, exitCode: number): RateLimitInfo {
   // Only check failures
-  if (exitCode === 0) return { isRateLimit: false };
+  if (exitCode === 0) return { isRateLimit: false, isOverloaded: false };
 
   const combined = `${stderr}\n${stdout}`;
 
-  const isRateLimit = RATE_LIMIT_PATTERNS.some((p) => p.test(combined));
-  if (!isRateLimit) return { isRateLimit: false };
+  // Check for 529 / overloaded first
+  const isOverloaded = OVERLOADED_PATTERNS.some((p) => p.test(combined));
+
+  const isRateLimit = isOverloaded || RATE_LIMIT_PATTERNS.some((p) => p.test(combined));
+  if (!isRateLimit) return { isRateLimit: false, isOverloaded: false };
 
   // Try to extract reset time
   for (const { pattern, extract } of RESET_PATTERNS) {
     const match = combined.match(pattern);
     if (match) {
-      return { isRateLimit: true, resetMessage: extract(match) };
+      return { isRateLimit: true, isOverloaded, resetMessage: extract(match) };
     }
   }
 
-  return { isRateLimit: true, resetMessage: "Check provider dashboard for reset time." };
+  return { isRateLimit: true, isOverloaded, resetMessage: isOverloaded ? "Claude servers are overloaded." : "Check provider dashboard for reset time." };
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useLocation } from "wouter"
 import { boards as boardsApi, queue as queueApi, type Board, type CardWithTags } from "@/lib/api"
 import { useCards } from "@/hooks/use-cards"
@@ -7,7 +7,8 @@ import { KanbanBoard } from "@/components/board/KanbanBoard"
 import { CardDialog } from "@/components/board/CardDialog"
 import { Button } from "@/components/ui/button"
 import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
-import { ArrowLeft, Plus, Play, Pause, Square, Settings } from "lucide-react"
+import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
+import { ArrowLeft, Plus, Pause, Square, Settings } from "lucide-react"
 
 interface BoardViewProps {
 	params: { boardId: string }
@@ -19,11 +20,54 @@ export function BoardView({ params }: BoardViewProps) {
 	const [board, setBoard] = useState<Board | null>(null)
 	const [dialogOpen, setDialogOpen] = useState(false)
 	const [selectedCard, setSelectedCard] = useState<CardWithTags | null>(null)
+	const [newCardStatus, setNewCardStatus] = useState<string | undefined>(undefined)
 	const [queueRunning, setQueueRunning] = useState(false)
 	const [queuePaused, setQueuePaused] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
+	const [switcherOpen, setSwitcherOpen] = useState(false)
+	const [autoRun, setAutoRun] = useState(() => {
+		const stored = localStorage.getItem(`queue-autorun-${boardId}`)
+		return stored === null ? true : stored === "true"
+	})
+	const autoRunRef = useRef(autoRun)
+	autoRunRef.current = autoRun
 
-	const { grouped, create, update, move, remove, execute, stop, loading } = useCards(boardId)
+	const { grouped, create, update, reorder, remove, execute, stop, loading } = useCards(boardId)
+
+	const tryStartQueue = useCallback(async () => {
+		if (!autoRunRef.current || queueRunning) return
+		try {
+			await queueApi.start(boardId)
+			setQueueRunning(true)
+		} catch {
+			// 409 = already running, ignore
+		}
+	}, [boardId, queueRunning])
+
+	useEffect(() => {
+		const handler = (e: KeyboardEvent) => {
+			if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+				e.preventDefault()
+				setSwitcherOpen((v) => !v)
+			}
+			if (
+				e.key === "n" &&
+				!e.metaKey &&
+				!e.ctrlKey &&
+				!e.altKey &&
+				!dialogOpen &&
+				!settingsOpen &&
+				!(e.target instanceof HTMLInputElement) &&
+				!(e.target instanceof HTMLTextAreaElement) &&
+				!(e.target instanceof HTMLSelectElement)
+			) {
+				e.preventDefault()
+				handleNewCard()
+			}
+		}
+		window.addEventListener("keydown", handler)
+		return () => window.removeEventListener("keydown", handler)
+	}, [dialogOpen, settingsOpen])
 
 	useEffect(() => {
 		void boardsApi.get(boardId).then(setBoard)
@@ -33,6 +77,13 @@ export function BoardView({ params }: BoardViewProps) {
 		})
 	}, [boardId])
 
+	// When auto-run is toggled ON, start queue if there are queued cards
+	useEffect(() => {
+		if (autoRun && !queueRunning && (grouped.queued?.length ?? 0) > 0) {
+			void tryStartQueue()
+		}
+	}, [autoRun])
+
 	useWebSocket((event) => {
 		if (event.type === "queue:updated") {
 			setQueueRunning(true)
@@ -41,6 +92,10 @@ export function BoardView({ params }: BoardViewProps) {
 		if (event.type === "queue:stopped") {
 			setQueueRunning(false)
 			setQueuePaused(false)
+			// Auto-restart if there are still queued cards
+			if (autoRunRef.current) {
+				setTimeout(() => void tryStartQueue(), 500)
+			}
 		}
 	})
 
@@ -52,25 +107,37 @@ export function BoardView({ params }: BoardViewProps) {
 		await stop(id)
 	}
 
-	const handlePlayAll = async () => {
-		if (queuePaused) {
-			await queueApi.resume(boardId)
-			setQueuePaused(false)
-		} else {
-			await queueApi.start(boardId)
-			setQueueRunning(true)
+	const handleToggleAutoRun = () => {
+		const next = !autoRun
+		setAutoRun(next)
+		localStorage.setItem(`queue-autorun-${boardId}`, String(next))
+		if (!next && queueRunning) {
+			void handleStopQueue()
 		}
 	}
 
 	const handlePauseQueue = async () => {
-		await queueApi.pause(boardId)
-		setQueuePaused(true)
+		if (queuePaused) {
+			await queueApi.resume(boardId)
+			setQueuePaused(false)
+		} else {
+			await queueApi.pause(boardId)
+			setQueuePaused(true)
+		}
 	}
 
 	const handleStopQueue = async () => {
 		await queueApi.stop(boardId)
 		setQueueRunning(false)
 		setQueuePaused(false)
+	}
+
+	const handleReorderCards = async (updates: Array<{ id: string; status: string; position: number }>) => {
+		await reorder(updates)
+		const hasNewQueued = updates.some((u) => u.status === "queued")
+		if (hasNewQueued && autoRun && !queueRunning) {
+			void tryStartQueue()
+		}
 	}
 
 	const handleClickCard = (card: CardWithTags) => {
@@ -80,6 +147,13 @@ export function BoardView({ params }: BoardViewProps) {
 
 	const handleNewCard = () => {
 		setSelectedCard(null)
+		setNewCardStatus(undefined)
+		setDialogOpen(true)
+	}
+
+	const handleNewCardWithStatus = (status: string) => {
+		setSelectedCard(null)
+		setNewCardStatus(status)
 		setDialogOpen(true)
 	}
 
@@ -99,6 +173,7 @@ export function BoardView({ params }: BoardViewProps) {
 					<Button variant="ghost" size="icon" onClick={() => setLocation("/")}>
 						<ArrowLeft className="w-4 h-4" />
 					</Button>
+
 					<button
 						type="button"
 						className="text-left hover:opacity-80 transition-opacity"
@@ -109,38 +184,35 @@ export function BoardView({ params }: BoardViewProps) {
 							<p className="text-xs text-muted-foreground font-mono">{board.directory}</p>
 						)}
 					</button>
+				</div>
+				<div className="flex items-center gap-2">
 					<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSettingsOpen(true)}>
 						<Settings className="w-4 h-4" />
 					</Button>
-				</div>
-				<div className="flex items-center gap-2">
 					<Button variant="outline" size="sm" onClick={handleNewCard}>
 						<Plus className="w-4 h-4 mr-1" />
 						Add Card
+						<kbd className="ml-1.5 px-1.5 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">N</kbd>
 					</Button>
-					{queueRunning ? (
+					<Button
+						variant={autoRun ? "default" : "outline"}
+						size="sm"
+						onClick={handleToggleAutoRun}
+					>
+						Queue: {autoRun ? "On" : "Off"}
+					</Button>
+
+					{queueRunning && (
 						<>
-							{queuePaused ? (
-								<Button size="sm" onClick={() => void handlePlayAll()}>
-									<Play className="w-4 h-4 mr-1" />
-									Resume
-								</Button>
-							) : (
-								<Button variant="secondary" size="sm" onClick={() => void handlePauseQueue()}>
-									<Pause className="w-4 h-4 mr-1" />
-									Pause
-								</Button>
-							)}
+							<Button variant="secondary" size="sm" onClick={() => void handlePauseQueue()}>
+								<Pause className="w-4 h-4 mr-1" />
+								{queuePaused ? "Resume" : "Pause"}
+							</Button>
 							<Button variant="destructive" size="sm" onClick={() => void handleStopQueue()}>
 								<Square className="w-4 h-4 mr-1" />
 								Stop
 							</Button>
 						</>
-					) : (
-						<Button size="sm" onClick={() => void handlePlayAll()}>
-							<Play className="w-4 h-4 mr-1" />
-							Run queued
-						</Button>
 					)}
 				</div>
 			</header>
@@ -155,7 +227,8 @@ export function BoardView({ params }: BoardViewProps) {
 						onPlayCard={(id) => void handlePlayCard(id)}
 						onStopCard={(id) => void handleStopCard(id)}
 						onClickCard={handleClickCard}
-						onMoveCard={(id, status, position) => void move(id, status, position)}
+						onReorderCards={(updates) => void handleReorderCards(updates)}
+						onAddCard={handleNewCardWithStatus}
 					/>
 				)}
 			</main>
@@ -170,7 +243,13 @@ export function BoardView({ params }: BoardViewProps) {
 				onUpdate={update}
 				onDelete={remove}
 				onPlay={(id) => void handlePlayCard(id)}
+				defaultStatus={newCardStatus}
 			/>
+
+			{/* Project Switcher */}
+			{switcherOpen && (
+				<ProjectSwitcher currentBoardId={boardId} onClose={() => setSwitcherOpen(false)} />
+			)}
 
 			{/* Board Settings Dialog */}
 			<BoardSettingsDialog

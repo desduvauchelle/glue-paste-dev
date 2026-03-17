@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { Comment, CommentId, CardId, CreateComment } from "../types/index.js";
+import { CreateCommentSchema } from "../schemas/comment.js";
 
 export function listComments(db: Database, cardId: CardId): Comment[] {
   return db
@@ -19,8 +20,9 @@ export function getComment(db: Database, id: CommentId): Comment | null {
 export function createComment(
   db: Database,
   cardId: CardId,
-  input: CreateComment
+  rawInput: CreateComment
 ): Comment {
+  const input = CreateCommentSchema.parse(rawInput);
   const row = db
     .query(
       `INSERT INTO comments (card_id, author, content, execution_id)

@@ -9,8 +9,8 @@ interface ConfigRow {
   model: string;
   max_budget_usd: number;
   auto_confirm: number;
-  plan_mode: number;
-  thinking_level: string;
+  plan_thinking: string | null;
+  execute_thinking: string;
   custom_tags: string;
   custom_instructions: string;
 }
@@ -22,8 +22,8 @@ function rowToConfigInput(row: ConfigRow): Required<ConfigInput> {
     model: row.model,
     maxBudgetUsd: row.max_budget_usd,
     autoConfirm: row.auto_confirm === 1,
-    planMode: row.plan_mode === 1,
-    thinkingLevel: (row.thinking_level || "smart") as "smart" | "basic",
+    planThinking: (row.plan_thinking as "smart" | "basic" | null) ?? "smart",
+    executeThinking: (row.execute_thinking || "smart") as "smart" | "basic",
     customTags: JSON.parse(row.custom_tags) as string[],
     customInstructions: row.custom_instructions,
   };
@@ -63,8 +63,8 @@ export function getMergedConfig(
     model: project.model ?? global.model,
     maxBudgetUsd: project.maxBudgetUsd ?? global.maxBudgetUsd,
     autoConfirm: project.autoConfirm ?? global.autoConfirm,
-    planMode: project.planMode ?? global.planMode,
-    thinkingLevel: project.thinkingLevel ?? global.thinkingLevel,
+    planThinking: project.planThinking !== undefined ? project.planThinking : global.planThinking,
+    executeThinking: project.executeThinking ?? global.executeThinking,
     customTags: project.customTags ?? global.customTags,
     customInstructions: project.customInstructions ?? global.customInstructions,
   };
@@ -104,14 +104,14 @@ function upsertConfig(
     model: input.model ?? current.model,
     maxBudgetUsd: input.maxBudgetUsd ?? current.maxBudgetUsd,
     autoConfirm: input.autoConfirm ?? current.autoConfirm,
-    planMode: input.planMode ?? current.planMode,
-    thinkingLevel: input.thinkingLevel ?? current.thinkingLevel,
+    planThinking: input.planThinking !== undefined ? input.planThinking : current.planThinking,
+    executeThinking: input.executeThinking ?? current.executeThinking,
     customTags: input.customTags ?? current.customTags,
     customInstructions: input.customInstructions ?? current.customInstructions,
   };
 
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, plan_mode, thinking_level, custom_tags, custom_instructions)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, plan_thinking, execute_thinking, custom_tags, custom_instructions)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
@@ -119,21 +119,21 @@ function upsertConfig(
        model = excluded.model,
        max_budget_usd = excluded.max_budget_usd,
        auto_confirm = excluded.auto_confirm,
-       plan_mode = excluded.plan_mode,
-       thinking_level = excluded.thinking_level,
+       plan_thinking = excluded.plan_thinking,
+       execute_thinking = excluded.execute_thinking,
        custom_tags = excluded.custom_tags,
        custom_instructions = excluded.custom_instructions`
   ).run(
     key,
-    merged.cliProvider,
-    merged.cliCustomCommand,
-    merged.model,
-    merged.maxBudgetUsd,
+    merged.cliProvider ?? "claude",
+    merged.cliCustomCommand ?? "",
+    merged.model ?? "",
+    merged.maxBudgetUsd ?? 10,
     merged.autoConfirm ? 1 : 0,
-    merged.planMode ? 1 : 0,
-    merged.thinkingLevel,
-    JSON.stringify(merged.customTags),
-    merged.customInstructions
+    merged.planThinking ?? null,
+    merged.executeThinking ?? "smart",
+    JSON.stringify(merged.customTags ?? []),
+    merged.customInstructions ?? ""
   );
 
   return merged;

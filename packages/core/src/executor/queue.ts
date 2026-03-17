@@ -19,24 +19,19 @@ export interface QueueState {
 export interface QueueCallbacks extends RunnerCallbacks {
   onQueueUpdated: (boardId: string, queue: string[], current: string | null, isPaused: boolean) => void;
   onQueueStopped: (boardId: string, reason: string) => void;
-  onRateLimited?: (boardId: string, cardTitle: string, resetMessage?: string) => void;
+  onRateLimited?: (boardId: string, cardTitle: string, retryInSeconds: number, resetMessage?: string) => void;
+  onOverloaded?: (boardId: string, cardTitle: string, retryInSeconds: number) => void;
 }
 
-const THINKING_LEVEL_MODELS: Record<string, string> = {
-  smart: "claude-opus-4-6",
-  basic: "claude-sonnet-4-6",
-};
-
-/** Apply per-card thinking_level and plan_mode overrides to config */
+/** Apply per-card plan_thinking and execute_thinking overrides to config */
 function applyCardOverrides(
   config: Required<ConfigInput>,
   card: CardWithTags
 ): Required<ConfigInput> {
-  const thinkingLevel = card.thinking_level ?? config.thinkingLevel ?? "smart";
-  const model = THINKING_LEVEL_MODELS[thinkingLevel] || config.model;
-  const planMode = card.plan_mode !== null && card.plan_mode !== undefined ? card.plan_mode : config.planMode;
+  const planThinking = card.plan_thinking !== null && card.plan_thinking !== undefined ? card.plan_thinking : config.planThinking;
+  const executeThinking = card.execute_thinking ?? config.executeThinking ?? "smart";
 
-  return { ...config, model, planMode, thinkingLevel };
+  return { ...config, planThinking, executeThinking };
 }
 
 const queues = new Map<string, QueueState>();
@@ -63,21 +58,14 @@ export async function startQueue(
   const board = boardsDb.getBoard(db, boardId);
   if (!board) throw new Error(`Board ${boardId} not found`);
 
-  const todoCards = cardsDb.listCardsByStatus(db, boardId, "todo");
-  log.info("queue", `Starting queue for board ${boardId} with ${todoCards.length} todo cards`);
-  if (todoCards.length === 0) {
-    callbacks.onQueueStopped(boardId, "No todo cards to execute");
+  const queuedCards = cardsDb.listCardsByStatus(db, boardId, "queued");
+  log.info("queue", `Starting queue for board ${boardId} with ${queuedCards.length} queued cards`);
+  if (queuedCards.length === 0) {
+    callbacks.onQueueStopped(boardId, "No queued cards to execute");
     return;
   }
 
-  // Set all todo cards to queued
-  for (const card of todoCards) {
-    cardsDb.updateCardStatus(db, card.id as CardId, "queued");
-    const updated = cardsDb.getCard(db, card.id as CardId);
-    if (updated) callbacks.onCardUpdated(updated);
-  }
-
-  const cardIds = todoCards.map((c) => c.id);
+  const cardIds = queuedCards.map((c) => c.id);
   const state: QueueState = {
     boardId,
     queue: cardIds.slice(1),
@@ -113,20 +101,12 @@ export async function executeSingleCard(
   if (result.success) {
     cardsDb.updateCardStatus(db, cardId, "done");
   } else if (result.rateLimitInfo?.isRateLimit) {
-    cardsDb.updateCardStatus(db, cardId, "rate-limited");
-    const resetMsg = result.rateLimitInfo.resetMessage;
-    const comment = commentsDb.addSystemComment(db, cardId, "", `Rate limited. ${resetMsg ?? "Check provider dashboard for reset time."}`);
-    callbacks.onCommentAdded(comment);
-    callbacks.onRateLimited?.(card.board_id, card.title, resetMsg);
+    notifyRateLimitOrOverload(db, card, result.rateLimitInfo, callbacks);
   } else {
     log.warn("queue", `Card ${cardId} failed, retrying once`);
     const retryResult = await runCard(db, card, board, comments, config, callbacks);
     if (retryResult.rateLimitInfo?.isRateLimit) {
-      cardsDb.updateCardStatus(db, cardId, "rate-limited");
-      const resetMsg = retryResult.rateLimitInfo.resetMessage;
-      const comment = commentsDb.addSystemComment(db, cardId, "", `Rate limited. ${resetMsg ?? "Check provider dashboard for reset time."}`);
-      callbacks.onCommentAdded(comment);
-      callbacks.onRateLimited?.(card.board_id, card.title, resetMsg);
+      notifyRateLimitOrOverload(db, card, retryResult.rateLimitInfo, callbacks);
     } else {
       cardsDb.updateCardStatus(db, cardId, retryResult.success ? "done" : "failed");
     }
@@ -243,7 +223,7 @@ async function processQueue(
     advanceQueue(db, boardId, callbacks);
   } else if (result.rateLimitInfo?.isRateLimit) {
     // Rate limited — don't retry, pause the queue
-    handleRateLimited(db, boardId, card, result.rateLimitInfo.resetMessage, callbacks);
+    handleRateLimited(db, boardId, card, result.rateLimitInfo, callbacks);
   } else {
     // Retry once
     const retryComments = commentsDb.listComments(db, cardId);
@@ -255,7 +235,7 @@ async function processQueue(
       if (updated) callbacks.onCardUpdated(updated);
       advanceQueue(db, boardId, callbacks);
     } else if (retryResult.rateLimitInfo?.isRateLimit) {
-      handleRateLimited(db, boardId, card, retryResult.rateLimitInfo.resetMessage, callbacks);
+      handleRateLimited(db, boardId, card, retryResult.rateLimitInfo, callbacks);
     } else {
       // Failed after retry
       cardsDb.updateCardStatus(db, cardId, "failed");
@@ -288,23 +268,67 @@ async function processQueue(
   }
 }
 
+/** Parse seconds from a reset message like "Retry after 30 seconds" */
+function parseRetrySeconds(resetMessage?: string): number {
+  if (!resetMessage) return 60;
+  const match = resetMessage.match(/(\d+)\s*(seconds?|minutes?|hours?)/i);
+  if (!match || !match[1] || !match[2]) return 60;
+  const value = parseInt(match[1], 10);
+  const unit = match[2].toLowerCase();
+  if (unit.startsWith("minute")) return value * 60;
+  if (unit.startsWith("hour")) return value * 3600;
+  return value;
+}
+
+/** Notify rate-limit or overload for a single-card execution (no queue) */
+function notifyRateLimitOrOverload(
+  db: Database,
+  card: CardWithTags,
+  rateLimitInfo: RateLimitInfo,
+  callbacks: QueueCallbacks
+): void {
+  const cardId = card.id as CardId;
+  cardsDb.updateCardStatus(db, cardId, "queued");
+  const retrySeconds = parseRetrySeconds(rateLimitInfo.resetMessage);
+  if (rateLimitInfo.isOverloaded) {
+    const comment = commentsDb.addSystemComment(db, cardId, "", `Claude servers are overloaded. Retrying in ${retrySeconds}s.`);
+    callbacks.onCommentAdded(comment);
+    callbacks.onOverloaded?.(card.board_id, card.title, retrySeconds);
+  } else {
+    const msg = rateLimitInfo.resetMessage ?? "Check provider dashboard for reset time.";
+    const comment = commentsDb.addSystemComment(db, cardId, "", `Rate limited. Retrying in ${retrySeconds}s. ${msg}`);
+    callbacks.onCommentAdded(comment);
+    callbacks.onRateLimited?.(card.board_id, card.title, retrySeconds, rateLimitInfo.resetMessage);
+  }
+}
+
 function handleRateLimited(
   db: Database,
   boardId: string,
   card: CardWithTags,
-  resetMessage: string | undefined,
+  rateLimitInfo: RateLimitInfo,
   callbacks: QueueCallbacks
 ): void {
   const cardId = card.id as CardId;
-  cardsDb.updateCardStatus(db, cardId, "rate-limited");
-  const msg = resetMessage ?? "Check provider dashboard for reset time.";
-  const comment = commentsDb.addSystemComment(db, cardId, "", `Rate limited. ${msg}`);
-  callbacks.onCommentAdded(comment);
+  cardsDb.updateCardStatus(db, cardId, "queued");
+
+  const retrySeconds = parseRetrySeconds(rateLimitInfo.resetMessage);
+
+  if (rateLimitInfo.isOverloaded) {
+    const comment = commentsDb.addSystemComment(db, cardId, "", `Claude servers are overloaded. Retrying in ${retrySeconds}s.`);
+    callbacks.onCommentAdded(comment);
+    callbacks.onOverloaded?.(boardId, card.title, retrySeconds);
+  } else {
+    const msg = rateLimitInfo.resetMessage ?? "Check provider dashboard for reset time.";
+    const comment = commentsDb.addSystemComment(db, cardId, "", `Rate limited. Retrying in ${retrySeconds}s. ${msg}`);
+    callbacks.onCommentAdded(comment);
+    callbacks.onRateLimited?.(boardId, card.title, retrySeconds, rateLimitInfo.resetMessage);
+  }
 
   const updated = cardsDb.getCard(db, cardId);
   if (updated) callbacks.onCardUpdated(updated);
 
-  // Pause the queue — all subsequent cards will likely hit the same limit
+  // Pause the queue and schedule auto-resume
   const state = queues.get(boardId);
   if (state) {
     state.isPaused = true;
@@ -312,8 +336,16 @@ function handleRateLimited(
     callbacks.onQueueUpdated(boardId, state.queue, null, true);
   }
 
-  callbacks.onRateLimited?.(boardId, card.title, resetMessage);
-  log.warn("queue", `Rate limited on card "${card.title}". Queue paused. ${msg}`);
+  log.warn("queue", `${rateLimitInfo.isOverloaded ? "Overloaded" : "Rate limited"} on card "${card.title}". Queue paused, auto-resuming in ${retrySeconds}s.`);
+
+  // Auto-resume after delay
+  setTimeout(() => {
+    const currentState = queues.get(boardId);
+    if (currentState?.isPaused && currentState.isRunning) {
+      log.info("queue", `Auto-resuming queue for board ${boardId} after rate limit delay`);
+      resumeQueue(db, boardId, callbacks);
+    }
+  }, retrySeconds * 1000);
 }
 
 function advanceQueue(
@@ -333,12 +365,18 @@ function advanceQueue(
   }
 
   if (state.queue.length === 0) {
-    state.isRunning = false;
-    state.current = null;
-    state.isPaused = false;
-    queues.set(boardId, state);
-    callbacks.onQueueStopped(boardId, "All cards completed");
-    return;
+    // Re-check DB for newly queued cards (added while queue was running)
+    const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued");
+    if (newQueued.length > 0) {
+      state.queue = newQueued.map((c) => c.id);
+    } else {
+      state.isRunning = false;
+      state.current = null;
+      state.isPaused = false;
+      queues.set(boardId, state);
+      callbacks.onQueueStopped(boardId, "All cards completed");
+      return;
+    }
   }
 
   state.current = state.queue.shift() ?? null;

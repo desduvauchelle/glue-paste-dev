@@ -51,6 +51,10 @@ export function useCards(boardId: string) {
         });
       }
     }
+    if (event.type === "execution:completed" || event.type === "ws:reconnected") {
+      void refresh();
+      return;
+    }
     if (event.type === "card:deleted") {
       const { cardId, boardId: deletedBoardId } = event.payload as { cardId: string; boardId: string };
       if (deletedBoardId === boardId) {
@@ -85,6 +89,23 @@ export function useCards(boardId: string) {
     []
   );
 
+  const reorder = useCallback(
+    async (updates: Array<{ id: string; status: string; position: number }>) => {
+      await cardsApi.reorder(updates);
+      setData((prev) => {
+        const next = [...prev];
+        for (const u of updates) {
+          const idx = next.findIndex((c) => c.id === u.id);
+          if (idx >= 0) {
+            next[idx] = Object.assign({}, next[idx], { status: u.status, position: u.position }) as CardWithTags;
+          }
+        }
+        return next;
+      });
+    },
+    []
+  );
+
   const remove = useCallback(async (id: string) => {
     await cardsApi.delete(id);
     setData((prev) => prev.filter((c) => c.id !== id));
@@ -105,8 +126,7 @@ export function useCards(boardId: string) {
     "in-progress": data.filter((c) => c.status === "in-progress"),
     done: data.filter((c) => c.status === "done"),
     failed: data.filter((c) => c.status === "failed"),
-    "rate-limited": data.filter((c) => c.status === "rate-limited"),
   };
 
-  return { cards: data, grouped, loading, refresh, create, update, move, remove, execute, stop };
+  return { cards: data, grouped, loading, refresh, create, update, move, reorder, remove, execute, stop };
 }

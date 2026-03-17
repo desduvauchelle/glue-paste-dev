@@ -19,7 +19,8 @@ interface KanbanBoardProps {
   onPlayCard: (id: string) => void;
   onStopCard: (id: string) => void;
   onClickCard: (card: CardWithTags) => void;
-  onMoveCard: (id: string, status: string, position: number) => void;
+  onReorderCards: (updates: Array<{ id: string; status: string; position: number }>) => void;
+  onAddCard?: (status: string) => void;
 }
 
 const COLUMNS = [
@@ -28,10 +29,11 @@ const COLUMNS = [
   { status: "in-progress", title: "In Progress" },
   { status: "done", title: "Done" },
   { status: "failed", title: "Failed" },
-  { status: "rate-limited", title: "Rate Limited" },
 ] as const;
 
-export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onMoveCard }: KanbanBoardProps) {
+const ADD_CARD_STATUSES = new Set(["todo", "queued"]);
+
+export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onReorderCards, onAddCard }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<CardWithTags | null>(null);
   // Local state for optimistic column updates during drag
   const [localGrouped, setLocalGrouped] = useState<Record<string, CardWithTags[]> | null>(null);
@@ -53,6 +55,15 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onMo
     });
     return { filteredDoneCards: filtered, hasDoneMore: hasMore };
   }, [displayGrouped, doneWeeksLoaded]);
+
+  const sortedInProgressCards = useMemo(() => {
+    const cards = displayGrouped["in-progress"] ?? [];
+    return [...cards].sort((a, b) => {
+      const ta = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+      const tb = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+      return tb - ta;
+    });
+  }, [displayGrouped]);
 
   // All card IDs for lookup
   const allCards = useMemo(() => {
@@ -149,24 +160,35 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onMo
     // Default to the same column if no target column found
     if (!overColumn) overColumn = activeColumn;
 
-    let newCards = [...(localGrouped[overColumn] ?? [])];
+    let destCards = [...(localGrouped[overColumn] ?? [])];
 
     if (activeColumn === overColumn) {
       // Reorder within same column
-      const oldIndex = newCards.findIndex((c) => c.id === activeId);
-      const newIndex = newCards.findIndex((c) => c.id === overId);
+      const oldIndex = destCards.findIndex((c) => c.id === activeId);
+      const newIndex = destCards.findIndex((c) => c.id === overId);
       if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-        newCards = arrayMove(newCards, oldIndex, newIndex);
+        destCards = arrayMove(destCards, oldIndex, newIndex);
       }
     }
 
-    // Find the final position of the active card
-    const position = newCards.findIndex((c) => c.id === activeId);
-    const finalPosition = position >= 0 ? position : 0;
-
     setLocalGrouped(null);
-    onMoveCard(activeId, overColumn, finalPosition);
-  }, [localGrouped, findColumnForCard, onMoveCard]);
+
+    // Build updates for all cards in affected columns
+    const updates: Array<{ id: string; status: string; position: number }> = [];
+    const columnsToUpdate = new Set([overColumn]);
+    if (activeColumn !== overColumn) columnsToUpdate.add(activeColumn);
+
+    for (const col of columnsToUpdate) {
+      const colCards = col === overColumn ? destCards : (localGrouped[col] ?? []).filter((c) => c.id !== activeId);
+      colCards.forEach((card, i) => {
+        updates.push({ id: card.id, status: col, position: i });
+      });
+    }
+
+    if (updates.length > 0) {
+      onReorderCards(updates);
+    }
+  }, [localGrouped, findColumnForCard, onReorderCards]);
 
   const handleDragCancel = useCallback(() => {
     setActiveCard(null);
@@ -184,18 +206,20 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onMo
       <div className="flex gap-4 overflow-x-auto h-full px-3">
         {COLUMNS.map(({ status, title }) => {
           const isDone = status === "done";
+          const isInProgress = status === "in-progress";
           return (
             <KanbanColumn
               key={status}
               title={title}
               status={status}
-              cards={isDone ? filteredDoneCards : (displayGrouped[status] ?? [])}
+              cards={isDone ? filteredDoneCards : isInProgress ? sortedInProgressCards : (displayGrouped[status] ?? [])}
               onPlayCard={onPlayCard}
               onStopCard={onStopCard}
               onClickCard={onClickCard}
               hasMore={isDone ? hasDoneMore : undefined}
               onLoadMore={isDone ? () => setDoneWeeksLoaded((w) => w + 1) : undefined}
               totalCount={isDone ? (displayGrouped["done"]?.length ?? 0) : undefined}
+              onAddCard={ADD_CARD_STATUSES.has(status) ? onAddCard : undefined}
             />
           );
         })}

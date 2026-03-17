@@ -6,9 +6,11 @@ import type {
   CreateCard,
   UpdateCard,
   MoveCard,
+  ReorderCards,
   BoardId,
   CardStatusType,
 } from "../types/index.js";
+import { CreateCardSchema } from "../schemas/card.js";
 
 interface CardRow {
   id: string;
@@ -18,8 +20,8 @@ interface CardRow {
   status: string;
   position: number;
   blocking: number;
-  thinking_level: string | null;
-  plan_mode: number | null;
+  plan_thinking: string | null;
+  execute_thinking: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -49,8 +51,8 @@ function toCardWithTags(db: Database, row: CardRow): CardWithTags {
   return {
     ...row,
     blocking: Boolean(row.blocking),
-    thinking_level: row.thinking_level as "smart" | "basic" | null,
-    plan_mode: row.plan_mode === null ? null : Boolean(row.plan_mode),
+    plan_thinking: row.plan_thinking as "smart" | "basic" | null,
+    execute_thinking: row.execute_thinking as "smart" | "basic" | null,
     tags: getTagsForCard(db, row.id),
   } as CardWithTags;
 }
@@ -88,26 +90,28 @@ export function getCard(db: Database, id: CardId): CardWithTags | null {
 export function createCard(
   db: Database,
   boardId: BoardId,
-  input: CreateCard
+  rawInput: CreateCard
 ): CardWithTags {
+  const input = CreateCardSchema.parse(rawInput);
   // Get next position if not specified
+  const status = input.status ?? "todo";
   const position =
     input.position ??
     ((
       db
         .query(
-          "SELECT COALESCE(MAX(position), -1) + 1 as next_pos FROM cards WHERE board_id = ? AND status = 'todo'"
+          "SELECT COALESCE(MAX(position), -1) + 1 as next_pos FROM cards WHERE board_id = ? AND status = ?"
         )
-        .get(boardId) as { next_pos: number }
+        .get(boardId, status) as { next_pos: number }
     ).next_pos);
 
   const row = db
     .query(
-      `INSERT INTO cards (board_id, title, description, position, blocking, thinking_level, plan_mode)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO cards (board_id, title, description, status, position, blocking, plan_thinking, execute_thinking)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`
     )
-    .get(boardId, input.title, input.description, position, input.blocking ? 1 : 0, input.thinking_level ?? null, input.plan_mode === null || input.plan_mode === undefined ? null : input.plan_mode ? 1 : 0) as CardRow;
+    .get(boardId, input.title, input.description, status, position, input.blocking ? 1 : 0, input.plan_thinking ?? null, input.execute_thinking ?? null) as CardRow;
 
   if (input.tags.length > 0) {
     setTagsForCard(db, row.id, input.tags);
@@ -131,16 +135,16 @@ export function updateCard(
   const status = input.status ?? current.status;
   const position = input.position ?? current.position;
   const blocking = input.blocking !== undefined ? (input.blocking ? 1 : 0) : current.blocking;
-  const thinkingLevel = input.thinking_level !== undefined ? input.thinking_level : current.thinking_level;
-  const planMode = input.plan_mode !== undefined ? (input.plan_mode === null ? null : input.plan_mode ? 1 : 0) : current.plan_mode;
+  const planThinking = input.plan_thinking !== undefined ? input.plan_thinking : current.plan_thinking;
+  const executeThinking = input.execute_thinking !== undefined ? input.execute_thinking : current.execute_thinking;
 
   const row = db
     .query(
-      `UPDATE cards SET title = ?, description = ?, status = ?, position = ?, blocking = ?, thinking_level = ?, plan_mode = ?, updated_at = datetime('now')
+      `UPDATE cards SET title = ?, description = ?, status = ?, position = ?, blocking = ?, plan_thinking = ?, execute_thinking = ?, updated_at = datetime('now')
        WHERE id = ?
        RETURNING *`
     )
-    .get(title, description, status, position, blocking, thinkingLevel, planMode, id) as CardRow;
+    .get(title, description, status, position, blocking, planThinking, executeThinking, id) as CardRow;
 
   if (input.tags !== undefined) {
     setTagsForCard(db, row.id, input.tags);
@@ -165,6 +169,18 @@ export function moveCard(
   return toCardWithTags(db, row);
 }
 
+export function reorderCards(db: Database, updates: ReorderCards): void {
+  const stmt = db.prepare(
+    "UPDATE cards SET status = ?, position = ?, updated_at = datetime('now') WHERE id = ?"
+  );
+  const tx = db.transaction(() => {
+    for (const u of updates) {
+      stmt.run(u.status, u.position, u.id);
+    }
+  });
+  tx();
+}
+
 export function deleteCard(db: Database, id: CardId): boolean {
   const result = db.query("DELETE FROM cards WHERE id = ?").run(id);
   return result.changes > 0;
@@ -183,7 +199,7 @@ export function updateCardStatus(
 export function resetStaleCards(db: Database): number {
   const result = db
     .query(
-      "UPDATE cards SET status = 'todo' WHERE status IN ('queued', 'in-progress')"
+      "UPDATE cards SET status = 'todo' WHERE status IN ('in-progress', 'queued')"
     )
     .run();
   return result.changes;

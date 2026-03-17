@@ -1,22 +1,25 @@
 import { useToasts, removeToast, type Toast } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
-import { X, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from "lucide-react";
 
 const icons: Record<Toast["level"], typeof CheckCircle> = {
   success: CheckCircle,
   error: AlertCircle,
+  warning: AlertTriangle,
   info: Info,
 };
 
 const colors: Record<Toast["level"], string> = {
   success: "border-green-500/50 bg-green-950/80",
   error: "border-red-500/50 bg-red-950/80",
+  warning: "border-amber-500/50 bg-amber-950/80",
   info: "border-blue-500/50 bg-blue-950/80",
 };
 
 const iconColors: Record<Toast["level"], string> = {
   success: "text-green-400",
   error: "text-red-400",
+  warning: "text-amber-400",
   info: "text-blue-400",
 };
 

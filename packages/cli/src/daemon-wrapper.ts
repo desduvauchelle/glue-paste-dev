@@ -23,7 +23,7 @@ function log(msg: string) {
 }
 
 async function runServer(): Promise<number> {
-  const logFile = Bun.file(LOG_FILE).writer();
+  const logFile = Bun.file(LOG_FILE);
 
   const proc = Bun.spawn(["bun", "run", serverPath!], {
     env: process.env,

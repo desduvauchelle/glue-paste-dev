@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useMemo } from "react";
+import { Plus } from "lucide-react";
 
 interface KanbanColumnProps {
   title: string;
@@ -16,6 +17,7 @@ interface KanbanColumnProps {
   hasMore?: boolean;
   onLoadMore?: () => void;
   totalCount?: number;
+  onAddCard?: (status: string) => void;
 }
 
 const columnColors: Record<string, string> = {
@@ -24,7 +26,6 @@ const columnColors: Record<string, string> = {
   "in-progress": "border-t-amber-500",
   done: "border-t-green-500",
   failed: "border-t-red-500",
-  "rate-limited": "border-t-orange-500",
 };
 
 export function KanbanColumn({
@@ -37,6 +38,7 @@ export function KanbanColumn({
   hasMore,
   onLoadMore,
   totalCount,
+  onAddCard,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const cardIds = useMemo(() => cards.map((c) => c.id), [cards]);
@@ -45,7 +47,7 @@ export function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col bg-secondary/30 rounded-lg border-t-2 min-w-[280px] max-w-[320px] w-full transition-colors",
+        "group/col flex flex-col bg-secondary/30 rounded-lg border-t-2 min-w-[280px] max-w-[320px] w-full transition-colors",
         columnColors[status],
         isOver && "bg-secondary/60 ring-1 ring-primary/30"
       )}
@@ -57,6 +59,18 @@ export function KanbanColumn({
         <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
           {totalCount ?? cards.length}
         </span>
+      </div>
+      <div className="h-8 flex items-center justify-center px-2">
+        {onAddCard && (
+          <button
+            type="button"
+            onClick={() => onAddCard(status)}
+            className="opacity-0 group-hover/col:opacity-100 transition-opacity w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground rounded border border-dashed border-transparent hover:border-border py-1"
+          >
+            <Plus className="w-3 h-3" />
+            Add card
+          </button>
+        )}
       </div>
       <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
         <ScrollArea className="flex-1 px-2 pb-2">

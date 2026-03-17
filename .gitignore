@@ -1,2 +1,4 @@
 **/node_modules/**
 **/dist/**
+**/*.tsbuildinfo
+packages/dashboard/tsconfig.tsbuildinfo

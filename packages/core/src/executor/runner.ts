@@ -40,7 +40,7 @@ export interface RunResult {
   success: boolean;
   exitCode: number;
   output: string;
-  rateLimitInfo?: { isRateLimit: boolean; resetMessage?: string };
+  rateLimitInfo?: import("./rate-limit.js").RateLimitInfo;
 }
 
 /**
@@ -61,20 +61,29 @@ export async function runCard(
   const inProgressCard = cardsDb.getCard(db, card.id as CardId);
   if (inProgressCard) callbacks.onCardUpdated(inProgressCard);
 
-  let result: RunResult;
+  const THINKING_LEVEL_MODELS: Record<string, string> = {
+    smart: "claude-opus-4-6",
+    basic: "claude-sonnet-4-6",
+  };
 
-  if (config.planMode) {
+  let result: RunResult;
+  const hasPlan = config.planThinking !== null;
+
+  if (hasPlan) {
     // Phase 1: Plan
-    result = await executePhase(db, card, board, comments, config, "plan", callbacks);
+    const planConfig = { ...config, model: THINKING_LEVEL_MODELS[config.planThinking!] || config.model };
+    result = await executePhase(db, card, board, comments, planConfig, "plan", callbacks);
     if (!result.success) {
       return result;
     }
 
     // Phase 2: Execute (with plan context)
-    result = await executePhase(db, card, board, comments, config, "execute", callbacks, result.output);
+    const execConfig = { ...config, model: THINKING_LEVEL_MODELS[config.executeThinking ?? "smart"] || config.model };
+    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, result.output);
   } else {
     // Single phase: just execute directly
-    result = await executePhase(db, card, board, comments, config, "execute", callbacks);
+    const execConfig = { ...config, model: THINKING_LEVEL_MODELS[config.executeThinking ?? "smart"] || config.model };
+    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks);
   }
 
   return result;

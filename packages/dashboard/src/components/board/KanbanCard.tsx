@@ -1,11 +1,124 @@
-import type { CardWithTags } from "@/lib/api";
+import { useState, useEffect } from "react";
+import type { CardWithTags, Execution } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Check, X, GripVertical, Clock, Square } from "lucide-react";
+import { Play, Check, X, GripVertical, Square, Brain, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useExecutions } from "@/hooks/use-executions";
+
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function PhaseIcon({ phase, planThinking, executeThinking }: { phase: string; planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic" | null }) {
+  const level = phase === "plan" ? planThinking : executeThinking;
+  if (level === "smart" || level === null) return <Brain className="w-3 h-3 shrink-0" />;
+  return <Zap className="w-3 h-3 shrink-0" />;
+}
+
+function ElapsedTimer({ startedAt }: { startedAt: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = now - new Date(startedAt).getTime();
+  return <span>{formatElapsed(Math.max(0, elapsed))}</span>;
+}
+
+function getLatestRun(executions: Execution[]): Execution[] {
+  if (executions.length === 0) return [];
+  // Sort by started_at descending
+  const sorted = [...executions].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+  // Latest run = most recent execute + its preceding plan (if any)
+  const latest: Execution[] = [];
+  const lastExec = sorted.find((e) => e.phase === "execute");
+  const lastPlan = sorted.find((e) => e.phase === "plan");
+  if (lastPlan) latest.push(lastPlan);
+  if (lastExec) latest.push(lastExec);
+  // If only plan exists (plan still running), just return that
+  if (latest.length === 0 && sorted.length > 0) latest.push(sorted[0]!);
+  return latest;
+}
+
+export function CardExecutionInfo({ card }: { card: CardWithTags }) {
+  const needsExecInfo = card.status === "in-progress" || card.status === "done" || card.status === "failed";
+  const { executions } = useExecutions(needsExecInfo ? card.id : null);
+
+  if (!needsExecInfo || executions.length === 0) return null;
+
+  const run = getLatestRun(executions);
+  const planExec = run.find((e) => e.phase === "plan");
+  const executeExec = run.find((e) => e.phase === "execute");
+  const isRunning = card.status === "in-progress";
+
+  if (isRunning) {
+    return (
+      <div className="mt-1.5 ml-5 space-y-0.5 text-[11px] text-muted-foreground">
+        {planExec && (
+          <div className="flex items-center gap-1">
+            <PhaseIcon phase="plan" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
+            <span className="opacity-70">Plan</span>
+            {planExec.finished_at ? (
+              <span>{formatElapsed(new Date(planExec.finished_at).getTime() - new Date(planExec.started_at).getTime())}</span>
+            ) : (
+              <ElapsedTimer startedAt={planExec.started_at} />
+            )}
+          </div>
+        )}
+        {executeExec && (
+          <div className="flex items-center gap-1">
+            <PhaseIcon phase="execute" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
+            <span className="opacity-70">Execute</span>
+            {executeExec.finished_at ? (
+              <span>{formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}</span>
+            ) : (
+              <ElapsedTimer startedAt={executeExec.started_at} />
+            )}
+          </div>
+        )}
+        {!planExec && !executeExec && run[0] && (
+          <div className="flex items-center gap-1">
+            <PhaseIcon phase={run[0].phase} planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
+            <span className="opacity-70">{run[0].phase === "plan" ? "Plan" : "Execute"}</span>
+            {run[0].finished_at ? (
+              <span>{formatElapsed(new Date(run[0].finished_at).getTime() - new Date(run[0].started_at).getTime())}</span>
+            ) : (
+              <ElapsedTimer startedAt={run[0].started_at} />
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Done / Failed — compact summary
+  return (
+    <div className="mt-1.5 ml-5 flex items-center gap-2 text-[11px] text-muted-foreground">
+      {planExec && planExec.finished_at && (
+        <span className="flex items-center gap-0.5">
+          <PhaseIcon phase="plan" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
+          {formatElapsed(new Date(planExec.finished_at).getTime() - new Date(planExec.started_at).getTime())}
+        </span>
+      )}
+      {planExec && executeExec && <span>·</span>}
+      {executeExec && executeExec.finished_at && (
+        <span className="flex items-center gap-0.5">
+          <PhaseIcon phase="execute" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
+          {formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}
+        </span>
+      )}
+    </div>
+  );
+}
 
 interface KanbanCardProps {
   card: CardWithTags;
@@ -21,7 +134,6 @@ const statusColors: Record<string, string> = {
   "in-progress": "bg-amber-900/30 border-amber-500/30",
   done: "bg-green-900/30 border-green-500/30",
   failed: "bg-red-900/30 border-red-500/30",
-  "rate-limited": "bg-orange-900/30 border-orange-500/30",
 };
 
 export function KanbanCard({ card, onPlay, onStop, onClick, isDragOverlay }: KanbanCardProps) {
@@ -99,9 +211,6 @@ export function KanbanCard({ card, onPlay, onStop, onClick, isDragOverlay }: Kan
           )}
           {card.status === "failed" && (
             <X className="w-4 h-4 shrink-0 text-red-400" />
-          )}
-          {card.status === "rate-limited" && (
-            <Clock className="w-4 h-4 shrink-0 text-orange-400" />
           )}
         </div>
 

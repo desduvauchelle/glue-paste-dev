@@ -42,7 +42,8 @@ export function BoardSettingsDialog({
   const [model, setModel] = useState("");
   const [maxBudgetUsd, setMaxBudgetUsd] = useState(10);
   const [autoConfirm, setAutoConfirm] = useState(true);
-  const [planMode, setPlanMode] = useState(true);
+  const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>("smart");
+  const [executeThinking, setExecuteThinking] = useState<"smart" | "basic">("smart");
   const [customInstructions, setCustomInstructions] = useState("");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "cli" | "execution">("general");
@@ -60,7 +61,8 @@ export function BoardSettingsDialog({
         setModel(cfg.model);
         setMaxBudgetUsd(cfg.maxBudgetUsd);
         setAutoConfirm(cfg.autoConfirm);
-        setPlanMode(cfg.planMode);
+        setPlanThinking(cfg.planThinking);
+        setExecuteThinking(cfg.executeThinking);
         setCustomInstructions(cfg.customInstructions);
       }).catch(() => {
         // Use defaults
@@ -84,7 +86,8 @@ export function BoardSettingsDialog({
         model: model.trim(),
         maxBudgetUsd,
         autoConfirm,
-        planMode,
+        planThinking,
+        executeThinking,
         customInstructions: customInstructions.trim(),
       });
 
@@ -241,15 +244,43 @@ export function BoardSettingsDialog({
                 <span className="text-sm font-medium">Auto-confirm permissions</span>
               </label>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={planMode}
-                  onChange={(e) => setPlanMode(e.target.checked)}
-                  className="accent-primary"
-                />
-                <span className="text-sm font-medium">Plan before execute (2-phase)</span>
-              </label>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Plan Thinking</label>
+                <div className="flex items-center gap-3">
+                  {(["smart", "basic"] as const).map((level) => (
+                    <label key={level} className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={planThinking === level}
+                        onChange={() => setPlanThinking(planThinking === level ? null : level)}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm">{level === "smart" ? "Smart" : "Normal"}</span>
+                    </label>
+                  ))}
+                  {planThinking === null && (
+                    <span className="text-xs text-muted-foreground">— No plan phase</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1 block">Execute Thinking</label>
+                <div className="flex items-center gap-3">
+                  {(["smart", "basic"] as const).map((level) => (
+                    <label key={level} className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name="board-execute-thinking"
+                        checked={executeThinking === level}
+                        onChange={() => setExecuteThinking(level)}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm">{level === "smart" ? "Smart" : "Normal"}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <label className="text-sm font-medium mb-1 block">Custom Instructions</label>

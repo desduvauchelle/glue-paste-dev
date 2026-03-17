@@ -9,7 +9,7 @@ export function tagRoutes(db: Database) {
   // GET /api/tags/defaults
   app.get("/defaults", (c) => {
     const config = getGlobalConfig(db);
-    const defaults = [...DEFAULT_TAGS, ...config.customTags];
+    const defaults = [...DEFAULT_TAGS, ...(config.customTags ?? [])];
     return c.json([...new Set(defaults)]);
   });
 

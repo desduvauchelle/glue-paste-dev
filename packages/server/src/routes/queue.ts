@@ -54,13 +54,23 @@ function makeCallbacks(broadcast: (event: unknown) => void): QueueCallbacks {
         },
       });
     },
-    onRateLimited(boardId: string, cardTitle: string, resetMessage?: string) {
+    onRateLimited(boardId: string, cardTitle: string, retryInSeconds: number, resetMessage?: string) {
       broadcast({
         type: "notification",
         payload: {
           level: "warning",
           title: "Rate Limited",
-          message: `CLI rate limited on "${cardTitle}". ${resetMessage ?? "Check provider dashboard for reset time."} Queue paused.`,
+          message: `Rate limited on "${cardTitle}". Restarting in ${retryInSeconds}s.`,
+        },
+      });
+    },
+    onOverloaded(boardId: string, cardTitle: string, retryInSeconds: number) {
+      broadcast({
+        type: "notification",
+        payload: {
+          level: "warning",
+          title: "Servers Overloaded",
+          message: `Claude servers are overloaded. Retrying "${cardTitle}" in ${retryInSeconds}s.`,
         },
       });
     },
@@ -72,7 +82,6 @@ function makeCallbacks(broadcast: (event: unknown) => void): QueueCallbacks {
       const notifMap: Record<string, { level: string; title: string; message: string }> = {
         done: { level: "success", title: "Card Completed", message: "Execution completed successfully" },
         failed: { level: "error", title: "Card Failed", message: "Execution failed" },
-        "rate-limited": { level: "warning", title: "Card Rate Limited", message: "CLI provider rate limit hit" },
       };
       const notif = notifMap[card.status as string];
       if (notif) {

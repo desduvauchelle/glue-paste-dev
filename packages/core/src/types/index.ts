@@ -12,6 +12,7 @@ import type {
   CreateCardSchema,
   UpdateCardSchema,
   MoveCardSchema,
+  ReorderCardsSchema,
   CardStatus,
 } from "../schemas/card.js";
 import type {
@@ -44,14 +45,15 @@ export type UpdateBoard = z.infer<typeof UpdateBoardSchema>;
 // Card types
 export type Card = z.infer<typeof CardSchema>;
 export type CardWithTags = z.infer<typeof CardWithTagsSchema>;
-export type CreateCard = z.infer<typeof CreateCardSchema>;
+export type CreateCard = z.input<typeof CreateCardSchema>;
 export type UpdateCard = z.infer<typeof UpdateCardSchema>;
 export type MoveCard = z.infer<typeof MoveCardSchema>;
+export type ReorderCards = z.infer<typeof ReorderCardsSchema>;
 export type CardStatusType = z.infer<typeof CardStatus>;
 
 // Comment types
 export type Comment = z.infer<typeof CommentSchema>;
-export type CreateComment = z.infer<typeof CreateCommentSchema>;
+export type CreateComment = z.input<typeof CreateCommentSchema>;
 export type CommentAuthorType = z.infer<typeof CommentAuthor>;
 
 // Execution types

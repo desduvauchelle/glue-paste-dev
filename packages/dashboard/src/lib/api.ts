@@ -53,6 +53,11 @@ export const cards = {
       method: "PATCH",
       body: JSON.stringify(data),
     }),
+  reorder: (updates: Array<{ id: string; status: string; position: number }>) =>
+    request<{ ok: boolean }>("/cards/reorder", {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    }),
   delete: (id: string) =>
     request<{ ok: boolean }>(`/cards/${id}`, { method: "DELETE" }),
   execute: (id: string) =>
@@ -136,8 +141,8 @@ interface CardWithTags {
   status: string;
   position: number;
   blocking: boolean;
-  thinking_level: "smart" | "basic" | null;
-  plan_mode: boolean | null;
+  plan_thinking: "smart" | "basic" | null;
+  execute_thinking: "smart" | "basic" | null;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -148,8 +153,8 @@ interface CreateCard {
   description?: string;
   tags?: string[];
   blocking?: boolean;
-  thinking_level?: "smart" | "basic" | null;
-  plan_mode?: boolean | null;
+  plan_thinking?: "smart" | "basic" | null;
+  execute_thinking?: "smart" | "basic" | null;
 }
 
 interface UpdateCard {
@@ -159,8 +164,8 @@ interface UpdateCard {
   status?: string;
   position?: number;
   blocking?: boolean;
-  thinking_level?: "smart" | "basic" | null;
-  plan_mode?: boolean | null;
+  plan_thinking?: "smart" | "basic" | null;
+  execute_thinking?: "smart" | "basic" | null;
 }
 
 interface Comment {
@@ -200,8 +205,8 @@ interface ConfigData {
   model: string;
   maxBudgetUsd: number;
   autoConfirm: boolean;
-  planMode: boolean;
-  thinkingLevel: "smart" | "basic";
+  planThinking: "smart" | "basic" | null;
+  executeThinking: "smart" | "basic";
   customTags: string[];
   customInstructions: string;
 }

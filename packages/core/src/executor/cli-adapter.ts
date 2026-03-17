@@ -20,7 +20,7 @@ export function buildCliCommand(
   sessionId: string,
   phase: "plan" | "execute"
 ): CliCommand {
-  const provider = config.cliProvider;
+  const provider = config.cliProvider ?? "claude";
 
   switch (provider) {
     case "claude":
@@ -63,7 +63,7 @@ function buildClaudeCommand(
     args.push("--model", config.model);
   }
 
-  if (config.maxBudgetUsd > 0) {
+  if (config.maxBudgetUsd && config.maxBudgetUsd > 0) {
     args.push("--max-budget-usd", String(config.maxBudgetUsd));
   }
 
@@ -130,7 +130,7 @@ function buildCustomCommand(
   config: Required<ConfigInput>,
   prompt: string
 ): CliCommand {
-  const customCmd = config.cliCustomCommand.trim();
+  const customCmd = (config.cliCustomCommand ?? "").trim();
   if (!customCmd) {
     throw new Error("Custom CLI provider selected but no command configured. Set cliCustomCommand in config.");
   }

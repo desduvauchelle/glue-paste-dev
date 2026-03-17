@@ -3,7 +3,7 @@ import { useWebSocket } from "./ws";
 
 export interface Toast {
   id: string;
-  level: "success" | "error" | "info";
+  level: "success" | "error" | "info" | "warning";
   title: string;
   message: string;
   timestamp: number;

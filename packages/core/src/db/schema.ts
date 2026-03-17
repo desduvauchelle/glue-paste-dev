@@ -17,7 +17,7 @@ export function initSchema(db: Database): void {
       board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo','queued','in-progress','done','failed','rate-limited')),
+      status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo','queued','in-progress','done','failed')),
       position INTEGER NOT NULL DEFAULT 0,
       blocking INTEGER NOT NULL DEFAULT 0,
       thinking_level TEXT DEFAULT NULL,
@@ -104,21 +104,22 @@ export function initSchema(db: Database): void {
     // Column already exists — ignore
   }
 
-  // Migration: update cards CHECK constraint to include 'rate-limited' status
-  // SQLite doesn't allow ALTER CHECK, so we recreate the table if needed
+  // Migration: remove 'rate-limited' status — move any such cards to 'todo'
+  // and recreate table with updated CHECK constraint
   try {
-    // Test if the new status value is accepted
+    // Test if old schema still accepts 'rate-limited' by temporarily disabling FK checks
+    db.exec(`PRAGMA foreign_keys = OFF`);
     db.exec(`INSERT INTO cards (id, board_id, title, status) VALUES ('__migration_test__', '__none__', 'test', 'rate-limited')`);
     db.exec(`DELETE FROM cards WHERE id = '__migration_test__'`);
-  } catch {
-    // Old CHECK constraint rejects 'rate-limited' — recreate the table
+    // Old schema still accepts 'rate-limited' — migrate the table
+    db.exec(`UPDATE cards SET status = 'todo' WHERE status = 'rate-limited'`);
     db.exec(`
       CREATE TABLE IF NOT EXISTS cards_new (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
         board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
         title TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
-        status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo','queued','in-progress','done','failed','rate-limited')),
+        status TEXT NOT NULL DEFAULT 'todo' CHECK(status IN ('todo','queued','in-progress','done','failed')),
         position INTEGER NOT NULL DEFAULT 0,
         blocking INTEGER NOT NULL DEFAULT 0,
         thinking_level TEXT DEFAULT NULL,
@@ -126,12 +127,17 @@ export function initSchema(db: Database): void {
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
-      INSERT INTO cards_new SELECT * FROM cards;
+      INSERT INTO cards_new (id, board_id, title, description, status, position, blocking, thinking_level, plan_mode, created_at, updated_at)
+        SELECT id, board_id, title, description, status, position, blocking, thinking_level, plan_mode, created_at, updated_at FROM cards;
       DROP TABLE cards;
       ALTER TABLE cards_new RENAME TO cards;
       CREATE INDEX IF NOT EXISTS idx_cards_board_id ON cards(board_id);
       CREATE INDEX IF NOT EXISTS idx_cards_status ON cards(status);
     `);
+    db.exec(`PRAGMA foreign_keys = ON`);
+  } catch {
+    // New schema already in place — no migration needed
+    db.exec(`PRAGMA foreign_keys = ON`);
   }
 
   // Migration: add cli_provider and cli_custom_command to config
@@ -144,5 +150,36 @@ export function initSchema(db: Database): void {
     db.exec(`ALTER TABLE config ADD COLUMN cli_custom_command TEXT NOT NULL DEFAULT ''`);
   } catch {
     // Column already exists — ignore
+  }
+
+  // Migration: replace thinking_level + plan_mode with plan_thinking + execute_thinking
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN plan_thinking TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN execute_thinking TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN plan_thinking TEXT DEFAULT 'smart'`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN execute_thinking TEXT NOT NULL DEFAULT 'smart'`);
+  } catch {
+    // Column already exists — ignore
+  }
+  // Migrate existing data from old columns to new columns
+  try {
+    db.exec(`UPDATE cards SET plan_thinking = thinking_level WHERE plan_thinking IS NULL AND thinking_level IS NOT NULL AND (plan_mode IS NULL OR plan_mode != 0)`);
+    db.exec(`UPDATE cards SET execute_thinking = thinking_level WHERE execute_thinking IS NULL AND thinking_level IS NOT NULL`);
+    db.exec(`UPDATE config SET plan_thinking = CASE WHEN plan_mode = 0 THEN NULL ELSE thinking_level END WHERE plan_thinking = 'smart' AND thinking_level != 'smart'`);
+    db.exec(`UPDATE config SET execute_thinking = thinking_level WHERE execute_thinking = 'smart' AND thinking_level != 'smart'`);
+  } catch {
+    // Migration already applied or old columns don't exist
   }
 }

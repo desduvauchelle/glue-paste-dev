@@ -16,6 +16,7 @@ const listeners = new Set<WSListener>();
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectDelay = 1000;
+let wasConnected = false;
 
 function connect() {
   if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) {
@@ -30,6 +31,13 @@ function connect() {
   ws.onopen = () => {
     dbg("Connected to", url);
     reconnectDelay = 1000;
+    if (wasConnected) {
+      dbg("Reconnected — notifying listeners");
+      for (const listener of listeners) {
+        listener({ type: "ws:reconnected", payload: null });
+      }
+    }
+    wasConnected = true;
   };
 
   ws.onmessage = (event) => {

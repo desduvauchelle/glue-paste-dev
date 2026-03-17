@@ -1,6 +1,6 @@
 {
   "name": "glue-paste-dev",
-  "version": "0.1.4",
+  "version": "0.1.12",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -11,8 +11,8 @@
     "build": "bun run build:dashboard && bun run build:server",
     "build:dashboard": "bun run --cwd packages/dashboard build",
     "build:server": "bun run --cwd packages/server build",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -1,5 +1,7 @@
 # GluePasteDev
 
+<img src="assets/image.jpg" alt="GluePasteDev" width="600" />
+
 A visual Kanban board that turns your coding tasks into automated AI sessions. Add cards, hit play, and Claude CLI builds your features one by one.
 
 ## What it does
