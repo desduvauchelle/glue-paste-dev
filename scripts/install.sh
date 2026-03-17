@@ -25,18 +25,18 @@ if ! command -v claude &> /dev/null; then
   echo "GluePasteDev requires Claude CLI to execute tasks."
 fi
 
-# Download latest release
-echo "Downloading latest release..."
-DOWNLOAD_URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-  | grep '"browser_download_url"' \
-  | grep 'glue-paste-dev.tar.gz' \
-  | head -1 \
-  | cut -d '"' -f 4)
+# Fetch latest release info
+RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest")
+
+VERSION=$(echo "$RELEASE_JSON" | grep '"tag_name"' | head -1 | cut -d '"' -f 4)
+DOWNLOAD_URL=$(echo "$RELEASE_JSON" | grep '"browser_download_url"' | grep 'glue-paste-dev.tar.gz' | head -1 | cut -d '"' -f 4)
 
 if [ -z "$DOWNLOAD_URL" ]; then
   echo -e "${RED}Failed to find latest release. Check https://github.com/$REPO/releases${NC}"
   exit 1
 fi
+
+echo "Downloading ${VERSION}..."
 
 # Stop daemon if running
 if [ -f "$INSTALL_DIR/glue-paste-dev.pid" ]; then
@@ -93,7 +93,7 @@ if ! echo "$PATH" | grep -q "$BIN_DIR"; then
 fi
 
 echo ""
-echo -e "${GREEN}GluePasteDev installed successfully!${NC}"
+echo -e "${GREEN}GluePasteDev ${VERSION} installed successfully!${NC}"
 echo ""
 echo "Usage:"
 echo "  glue-paste-dev start    Start the server and open dashboard"
