@@ -64,48 +64,49 @@ export function CardExecutionInfo({ card }: { card: CardWithTags }) {
   if (isRunning) {
     const planSkipped = card.plan_thinking === null;
     return (
-      <div className="mt-1.5 ml-5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        {/* Plan phase */}
-        {planSkipped ? (
-          <span className="flex items-center gap-0.5 opacity-40 line-through">Plan</span>
-        ) : planExec?.finished_at ? (
-          <span className="flex items-center gap-0.5 text-green-400">
-            <Check className="w-3 h-3" />
-            <span>Plan</span>
-            <span>{formatElapsed(new Date(planExec.finished_at).getTime() - new Date(planExec.started_at).getTime())}</span>
-          </span>
-        ) : planExec ? (
-          <span className="flex items-center gap-0.5 animate-pulse">
-            <PhaseIcon phase="plan" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
-            <span>Plan</span>
-            <ElapsedTimer startedAt={planExec.started_at} />
-          </span>
-        ) : (
-          <span className="flex items-center gap-0.5 opacity-40">
-            <Circle className="w-2.5 h-2.5" />
-            <span>Plan</span>
-          </span>
-        )}
-        <span className="opacity-30">·</span>
-        {/* Execute phase */}
-        {executeExec?.finished_at ? (
-          <span className="flex items-center gap-0.5 text-green-400">
-            <Check className="w-3 h-3" />
-            <span>Execute</span>
-            <span>{formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}</span>
-          </span>
-        ) : executeExec ? (
-          <span className="flex items-center gap-0.5 animate-pulse">
-            <PhaseIcon phase="execute" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
-            <span>Execute</span>
-            <ElapsedTimer startedAt={executeExec.started_at} />
-          </span>
-        ) : (
-          <span className="flex items-center gap-0.5 opacity-40">
-            <Circle className="w-2.5 h-2.5" />
-            <span>Execute</span>
-          </span>
-        )}
+      <div className="mt-1.5 ml-5 flex flex-col gap-0.5 text-[11px] text-muted-foreground">
+        {/* Plan phase line */}
+        <div className="flex items-center gap-1">
+          <span className="w-10 shrink-0">Plan</span>
+          {planSkipped ? (
+            <span className="opacity-40 line-through">Skipped</span>
+          ) : planExec?.finished_at ? (
+            <span className="flex items-center gap-0.5 text-green-400">
+              <Check className="w-3 h-3" />
+              <span>{formatElapsed(new Date(planExec.finished_at).getTime() - new Date(planExec.started_at).getTime())}</span>
+            </span>
+          ) : planExec ? (
+            <span className="flex items-center gap-0.5 animate-pulse">
+              <PhaseIcon phase="plan" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
+              <ElapsedTimer startedAt={planExec.started_at} />
+            </span>
+          ) : (
+            <span className="flex items-center gap-0.5 opacity-40">
+              <Circle className="w-2.5 h-2.5" />
+              <span>Pending</span>
+            </span>
+          )}
+        </div>
+        {/* Execute phase line */}
+        <div className="flex items-center gap-1">
+          <span className="w-10 shrink-0">Exec</span>
+          {executeExec?.finished_at ? (
+            <span className="flex items-center gap-0.5 text-green-400">
+              <Check className="w-3 h-3" />
+              <span>{formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}</span>
+            </span>
+          ) : executeExec ? (
+            <span className="flex items-center gap-0.5 animate-pulse">
+              <PhaseIcon phase="execute" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
+              <ElapsedTimer startedAt={executeExec.started_at} />
+            </span>
+          ) : (
+            <span className="flex items-center gap-0.5 opacity-40">
+              <Circle className="w-2.5 h-2.5" />
+              <span>Pending</span>
+            </span>
+          )}
+        </div>
       </div>
     );
   }
