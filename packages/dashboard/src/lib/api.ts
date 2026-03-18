@@ -120,6 +120,8 @@ export const tags = {
 export const files = {
   browse: (boardId: string, path?: string) =>
     request<FileEntry[]>(`/files/board/${boardId}${path ? `?path=${encodeURIComponent(path)}` : ""}`),
+  tree: (boardId: string) =>
+    request<{ entries: FileEntry[]; truncated: boolean }>(`/files/board/${boardId}/tree`),
 };
 
 // Chat

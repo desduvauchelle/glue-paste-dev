@@ -75,5 +75,50 @@ export function fileRoutes(db: Database) {
     }
   });
 
+  // GET /api/files/board/:boardId/tree — recursive file tree for fuzzy search
+  app.get("/board/:boardId/tree", (c) => {
+    const boardId = c.req.param("boardId") as BoardId;
+    const board = boardsDb.getBoard(db, boardId);
+    if (!board) {
+      return c.json({ error: "Board not found" }, 404);
+    }
+
+    const rootDir = resolve(board.directory);
+    const maxFiles = 10000;
+    const maxDepth = 20;
+    const entries: FileEntry[] = [];
+    let truncated = false;
+
+    function walk(dir: string, depth: number) {
+      if (depth > maxDepth || truncated) return;
+      let names: string[];
+      try {
+        names = readdirSync(dir);
+      } catch {
+        return;
+      }
+      for (const name of names) {
+        if (IGNORED.has(name)) continue;
+        if (entries.length >= maxFiles) {
+          truncated = true;
+          return;
+        }
+        try {
+          const fullPath = join(dir, name);
+          const stat = statSync(fullPath);
+          const relPath = relative(rootDir, fullPath);
+          const isDir = stat.isDirectory();
+          entries.push({ name, type: isDir ? "directory" : "file", path: relPath });
+          if (isDir) walk(fullPath, depth + 1);
+        } catch {
+          // skip unreadable
+        }
+      }
+    }
+
+    walk(rootDir, 0);
+    return c.json({ entries, truncated });
+  });
+
   return app;
 }
