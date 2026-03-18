@@ -122,6 +122,7 @@ interface Board {
   name: string;
   description: string;
   directory: string;
+  color: string | null;
   session_id: string | null;
   created_at: string;
   updated_at: string;
@@ -131,6 +132,7 @@ interface CreateBoard {
   name: string;
   description?: string;
   directory: string;
+  color?: string | null;
 }
 
 interface CardWithTags {

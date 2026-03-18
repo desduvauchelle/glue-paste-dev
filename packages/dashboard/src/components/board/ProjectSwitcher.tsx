@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { useLocation } from "wouter"
 import { boards as boardsApi, type Board } from "@/lib/api"
+import { getBoardColor } from "@/lib/colors"
 
 interface ProjectSwitcherProps {
 	currentBoardId?: string
@@ -76,7 +77,15 @@ export function ProjectSwitcher({ currentBoardId, onClose }: ProjectSwitcherProp
 									onClose()
 								}}
 							>
-								<span className="font-medium text-sm">{board.name}</span>
+								<span className="font-medium text-sm flex items-center gap-2">
+								{getBoardColor(board.color) && (
+									<span
+										className="w-2.5 h-2.5 rounded-full shrink-0 inline-block"
+										style={{ backgroundColor: getBoardColor(board.color)!.bg }}
+									/>
+								)}
+								{board.name}
+							</span>
 								{board.directory && (
 									<span className="text-xs text-muted-foreground font-mono">{board.directory}</span>
 								)}

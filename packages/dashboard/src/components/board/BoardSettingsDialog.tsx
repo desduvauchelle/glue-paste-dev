@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { BOARD_COLORS } from "@/lib/colors";
+import { Check, X } from "lucide-react";
 
 const CLI_PROVIDERS: { value: CliProvider; label: string; description: string }[] = [
   { value: "claude", label: "Claude Code", description: "Anthropic Claude CLI" },
@@ -45,6 +47,7 @@ export function BoardSettingsDialog({
   const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>("smart");
   const [executeThinking, setExecuteThinking] = useState<"smart" | "basic">("smart");
   const [customInstructions, setCustomInstructions] = useState("");
+  const [color, setColor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "cli" | "execution">("general");
 
@@ -53,6 +56,7 @@ export function BoardSettingsDialog({
       setName(board.name);
       setDescription(board.description);
       setDirectory(board.directory);
+      setColor(board.color ?? null);
 
       // Load board config
       configApi.getForBoard(board.id).then((cfg: ConfigData) => {
@@ -78,6 +82,7 @@ export function BoardSettingsDialog({
         name: name.trim(),
         description: description.trim(),
         directory: directory.trim(),
+        color,
       });
 
       await configApi.updateForBoard(board.id, {
@@ -156,6 +161,32 @@ export function BoardSettingsDialog({
                 <p className="text-xs text-muted-foreground mt-1">
                   The directory where the CLI will execute tasks
                 </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Color</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors"
+                    style={{ borderColor: color === null ? "currentColor" : "transparent" }}
+                    onClick={() => setColor(null)}
+                    title="No color"
+                  >
+                    <X className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                  {BOARD_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      className="w-7 h-7 rounded-full flex items-center justify-center transition-transform hover:scale-110"
+                      style={{ backgroundColor: c.bg, outline: color === c.value ? "2px solid currentColor" : "none", outlineOffset: "2px" }}
+                      onClick={() => setColor(c.value)}
+                      title={c.name}
+                    >
+                      {color === c.value && <Check className="w-3.5 h-3.5 text-white" />}
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}

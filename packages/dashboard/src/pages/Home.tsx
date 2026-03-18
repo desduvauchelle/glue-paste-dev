@@ -14,7 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FolderOpen, Trash2 } from "lucide-react";
+import { Plus, FolderOpen, Trash2, Check, X } from "lucide-react";
+import { BOARD_COLORS, getBoardColor } from "@/lib/colors";
 
 export function Home() {
   const { boards, loading, create, remove } = useBoards();
@@ -23,6 +24,7 @@ export function Home() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [directory, setDirectory] = useState("");
+  const [color, setColor] = useState<string | null>(null);
   const [activeBoards, setActiveBoards] = useState<Set<string>>(new Set());
 
   const fetchAllQueueStatuses = useCallback(async (boardIds: string[]) => {
@@ -83,11 +85,12 @@ export function Home() {
 
   const handleCreate = async () => {
     if (!name.trim() || !directory.trim()) return;
-    const board = await create({ name: name.trim(), description: description.trim(), directory: directory.trim() });
+    const board = await create({ name: name.trim(), description: description.trim(), directory: directory.trim(), color });
     setDialogOpen(false);
     setName("");
     setDescription("");
     setDirectory("");
+    setColor(null);
     setLocation(`/boards/${board.id}`);
   };
 
@@ -136,6 +139,32 @@ export function Home() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">Paste the full path to your project</p>
               </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Color</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors"
+                    style={{ borderColor: color === null ? "currentColor" : "transparent" }}
+                    onClick={() => setColor(null)}
+                    title="No color"
+                  >
+                    <X className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                  {BOARD_COLORS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      className="w-7 h-7 rounded-full flex items-center justify-center transition-transform hover:scale-110"
+                      style={{ backgroundColor: c.bg, outline: color === c.value ? "2px solid currentColor" : "none", outlineOffset: "2px" }}
+                      onClick={() => setColor(c.value)}
+                      title={c.name}
+                    >
+                      {color === c.value && <Check className="w-3.5 h-3.5 text-white" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -164,7 +193,8 @@ export function Home() {
           {boards.map((board) => (
             <Card
               key={board.id}
-              className="cursor-pointer hover:border-foreground/20 transition-colors"
+              className="cursor-pointer hover:border-foreground/20 transition-colors overflow-hidden"
+              style={getBoardColor(board.color) ? { borderLeftWidth: "4px", borderLeftColor: getBoardColor(board.color)!.border } : undefined}
               onClick={() => setLocation(`/boards/${board.id}`)}
             >
               <CardHeader>

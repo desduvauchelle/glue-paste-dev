@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
 import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight } from "lucide-react"
+import { getBoardColor } from "@/lib/colors"
 
 interface BoardViewProps {
 	params: { boardId: string }
@@ -166,13 +167,21 @@ export function BoardView({ params }: BoardViewProps) {
 
 					<button
 						type="button"
-						className="text-left hover:opacity-80 transition-opacity"
+						className="text-left hover:opacity-80 transition-opacity flex items-center gap-2"
 						onClick={() => setSettingsOpen(true)}
 					>
-						<h1 className="text-lg font-semibold">{board.name}</h1>
-						{board.directory && (
-							<p className="text-xs text-muted-foreground font-mono">{board.directory}</p>
+						{getBoardColor(board.color) && (
+							<span
+								className="w-3 h-3 rounded-full shrink-0"
+								style={{ backgroundColor: getBoardColor(board.color)!.bg }}
+							/>
 						)}
+						<div>
+							<h1 className="text-lg font-semibold">{board.name}</h1>
+							{board.directory && (
+								<p className="text-xs text-muted-foreground font-mono">{board.directory}</p>
+							)}
+						</div>
 					</button>
 					<button
 						type="button"

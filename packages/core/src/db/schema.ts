@@ -152,6 +152,13 @@ export function initSchema(db: Database): void {
     // Column already exists — ignore
   }
 
+  // Migration: add color to boards
+  try {
+    db.exec(`ALTER TABLE boards ADD COLUMN color TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: replace thinking_level + plan_mode with plan_thinking + execute_thinking
   try {
     db.exec(`ALTER TABLE cards ADD COLUMN plan_thinking TEXT DEFAULT NULL`);

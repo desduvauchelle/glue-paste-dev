@@ -18,11 +18,11 @@ export function createBoard(db: Database, input: CreateBoard): Board {
   const sessionId = crypto.randomUUID();
   const row = db
     .query(
-      `INSERT INTO boards (name, description, directory, session_id)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO boards (name, description, directory, session_id, color)
+       VALUES (?, ?, ?, ?, ?)
        RETURNING *`
     )
-    .get(input.name, input.description, input.directory, sessionId) as Board;
+    .get(input.name, input.description, input.directory, sessionId, input.color ?? null) as Board;
   return row;
 }
 
@@ -37,14 +37,15 @@ export function updateBoard(
   const name = input.name ?? current.name;
   const description = input.description ?? current.description;
   const directory = input.directory ?? current.directory;
+  const color = input.color !== undefined ? input.color : current.color;
 
   const row = db
     .query(
-      `UPDATE boards SET name = ?, description = ?, directory = ?, updated_at = datetime('now')
+      `UPDATE boards SET name = ?, description = ?, directory = ?, color = ?, updated_at = datetime('now')
        WHERE id = ?
        RETURNING *`
     )
-    .get(name, description, directory, id) as Board;
+    .get(name, description, directory, color, id) as Board;
   return row;
 }
 
