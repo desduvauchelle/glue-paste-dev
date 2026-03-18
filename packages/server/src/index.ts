@@ -11,6 +11,7 @@ import { queueRoutes, cardExecuteRoutes } from "./routes/queue.js";
 import { configRoutes } from "./routes/config.js";
 import { tagRoutes } from "./routes/tags.js";
 import { statsRoutes } from "./routes/stats.js";
+import { fileRoutes } from "./routes/files.js";
 import { checkAndToggleCaffeinate, stopCaffeinate } from "./caffeinate.js";
 
 import type { ServerWebSocket } from "bun";
@@ -74,6 +75,7 @@ app.route("/api/cards", cardExecuteRoutes(db, broadcast));
 app.route("/api/config", configRoutes(db));
 app.route("/api/tags", tagRoutes(db));
 app.route("/api/stats", statsRoutes(db));
+app.route("/api/files", fileRoutes(db));
 
 
 // WebSocket endpoint

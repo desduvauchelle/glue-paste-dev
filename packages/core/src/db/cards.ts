@@ -48,6 +48,27 @@ function setTagsForCard(
   }
 }
 
+function getFilesForCard(db: Database, cardId: string): string[] {
+  const rows = db
+    .query("SELECT file_path FROM card_files WHERE card_id = ? ORDER BY file_path")
+    .all(cardId) as Array<{ file_path: string }>;
+  return rows.map((r) => r.file_path);
+}
+
+function setFilesForCard(
+  db: Database,
+  cardId: string,
+  files: string[]
+): void {
+  db.query("DELETE FROM card_files WHERE card_id = ?").run(cardId);
+  const stmt = db.query(
+    "INSERT INTO card_files (card_id, file_path) VALUES (?, ?)"
+  );
+  for (const filePath of files) {
+    stmt.run(cardId, filePath);
+  }
+}
+
 function toCardWithTags(db: Database, row: CardRow): CardWithTags {
   return {
     ...row,
@@ -56,6 +77,7 @@ function toCardWithTags(db: Database, row: CardRow): CardWithTags {
     execute_thinking: row.execute_thinking as "smart" | "basic" | null,
     auto_commit: row.auto_commit === null ? null : row.auto_commit !== 0,
     tags: getTagsForCard(db, row.id),
+    files: getFilesForCard(db, row.id),
   } as CardWithTags;
 }
 
@@ -118,6 +140,9 @@ export function createCard(
   if (input.tags.length > 0) {
     setTagsForCard(db, row.id, input.tags);
   }
+  if (input.files.length > 0) {
+    setFilesForCard(db, row.id, input.files);
+  }
 
   return toCardWithTags(db, row);
 }
@@ -153,6 +178,9 @@ export function updateCard(
 
   if (input.tags !== undefined) {
     setTagsForCard(db, row.id, input.tags);
+  }
+  if (input.files !== undefined) {
+    setFilesForCard(db, row.id, input.files);
   }
 
   return toCardWithTags(db, row);

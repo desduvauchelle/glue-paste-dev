@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, Paperclip, FolderOpen, X } from "lucide-react"
+import { FileBrowser } from "./FileBrowser"
 import { useExecutions } from "@/hooks/use-executions"
 import type { Execution } from "@/lib/api"
 
@@ -48,6 +49,9 @@ export function CardDialog({
 	const [executeThinking, setExecuteThinking] = useState<"smart" | "basic" | null>(null)
 	const [autoCommit, setAutoCommit] = useState<boolean | null>(null)
 	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic"; autoCommit: boolean }>({ planThinking: "smart", executeThinking: "smart", autoCommit: true })
+	const [files, setFiles] = useState<string[]>([])
+	const [fileInput, setFileInput] = useState("")
+	const [showFileBrowser, setShowFileBrowser] = useState(false)
 	const [commentText, setCommentText] = useState("")
 	const [confirmDelete, setConfirmDelete] = useState(false)
 	const [expandedExecutions, setExpandedExecutions] = useState<Set<string>>(new Set())
@@ -72,6 +76,7 @@ export function CardDialog({
 			setTitle(card.title)
 			setDescription(card.description)
 			setSelectedTags(card.tags)
+			setFiles(card.files ?? [])
 			setBlocking(card.blocking)
 			setPlanThinking(card.plan_thinking)
 			setExecuteThinking(card.execute_thinking)
@@ -80,11 +85,13 @@ export function CardDialog({
 			setTitle("")
 			setDescription("")
 			setSelectedTags([])
+			setFiles([])
 			setBlocking(false)
 			setPlanThinking(null)
 			setExecuteThinking(null)
 			setAutoCommit(null)
 		}
+		setShowFileBrowser(false)
 		setConfirmDelete(false)
 	}, [card, open])
 
@@ -99,6 +106,7 @@ export function CardDialog({
 				title: title.trim(),
 				description: description.trim(),
 				tags: selectedTags,
+				files,
 				blocking,
 				plan_thinking: planThinking,
 				execute_thinking: executeThinking,
@@ -109,6 +117,7 @@ export function CardDialog({
 				title: title.trim(),
 				description: description.trim(),
 				tags: selectedTags,
+				files,
 				blocking,
 				plan_thinking: planThinking,
 				execute_thinking: executeThinking,
@@ -279,6 +288,87 @@ export function CardDialog({
 								<span className="text-sm">Off</span>
 							</label>
 						</div>
+					</div>
+
+					{/* Reference Files */}
+					<div>
+						<label className="text-sm font-medium mb-1 block">
+							<Paperclip className="w-3.5 h-3.5 inline mr-1" />
+							Reference Files ({files.length})
+						</label>
+						{files.length > 0 && (
+							<div className="flex flex-wrap gap-1 mb-2">
+								{files.map((f) => (
+									<span
+										key={f}
+										className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded"
+									>
+										<span className="truncate max-w-[200px]">{f}</span>
+										<button
+											type="button"
+											className="hover:text-destructive"
+											onClick={() => setFiles((prev) => prev.filter((p) => p !== f))}
+										>
+											<X className="w-3 h-3" />
+										</button>
+									</span>
+								))}
+							</div>
+						)}
+						<div className="flex gap-2">
+							<Input
+								placeholder="path/to/file (relative to project)"
+								value={fileInput}
+								onChange={(e) => setFileInput(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter") {
+										e.preventDefault()
+										const val = fileInput.trim()
+										if (val && !files.includes(val)) {
+											setFiles((prev) => [...prev, val])
+											setFileInput("")
+										}
+									}
+								}}
+							/>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								disabled={!fileInput.trim() || files.includes(fileInput.trim())}
+								onClick={() => {
+									const val = fileInput.trim()
+									if (val && !files.includes(val)) {
+										setFiles((prev) => [...prev, val])
+										setFileInput("")
+									}
+								}}
+							>
+								Add
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								size="icon"
+								onClick={() => setShowFileBrowser(!showFileBrowser)}
+								title="Browse project files"
+							>
+								<FolderOpen className="w-4 h-4" />
+							</Button>
+						</div>
+						{showFileBrowser && (
+							<div className="mt-2">
+								<FileBrowser
+									boardId={boardId}
+									onSelect={(path) => {
+										if (!files.includes(path)) {
+											setFiles((prev) => [...prev, path])
+										}
+									}}
+									onClose={() => setShowFileBrowser(false)}
+								/>
+							</div>
+						)}
 					</div>
 
 					{/* Comments (only when editing) */}

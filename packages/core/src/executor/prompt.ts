@@ -40,6 +40,16 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push("");
   }
 
+  // Reference files
+  if (card.files && card.files.length > 0) {
+    parts.push(`## Reference Files`);
+    parts.push(`Read the following files for additional context on this task:`);
+    for (const filePath of card.files) {
+      parts.push(`- ${filePath}`);
+    }
+    parts.push("");
+  }
+
   // Comments (feedback history)
   if (comments.length > 0) {
     parts.push(`## History & Feedback`);

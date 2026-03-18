@@ -69,10 +69,17 @@ export function initSchema(db: Database): void {
       custom_instructions TEXT NOT NULL DEFAULT ''
     );
 
+    CREATE TABLE IF NOT EXISTS card_files (
+      card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      file_path TEXT NOT NULL,
+      PRIMARY KEY (card_id, file_path)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_cards_board_id ON cards(board_id);
     CREATE INDEX IF NOT EXISTS idx_cards_status ON cards(status);
     CREATE INDEX IF NOT EXISTS idx_comments_card_id ON comments(card_id);
     CREATE INDEX IF NOT EXISTS idx_executions_card_id ON executions(card_id);
+    CREATE INDEX IF NOT EXISTS idx_card_files_card_id ON card_files(card_id);
 
     -- Insert default global config if not exists
     INSERT OR IGNORE INTO config (key) VALUES ('global');

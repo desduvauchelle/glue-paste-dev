@@ -116,6 +116,12 @@ export const tags = {
   forBoard: (boardId: string) => request<string[]>(`/tags/board/${boardId}`),
 };
 
+// Files
+export const files = {
+  browse: (boardId: string, path?: string) =>
+    request<FileEntry[]>(`/files/board/${boardId}${path ? `?path=${encodeURIComponent(path)}` : ""}`),
+};
+
 // Stats
 export const stats = {
   boardCounts: () => request<BoardStatusCounts>("/stats/boards"),
@@ -154,6 +160,7 @@ interface CardWithTags {
   execute_thinking: "smart" | "basic" | null;
   auto_commit: boolean | null;
   tags: string[];
+  files: string[];
   created_at: string;
   updated_at: string;
 }
@@ -162,6 +169,7 @@ interface CreateCard {
   title: string;
   description?: string;
   tags?: string[];
+  files?: string[];
   blocking?: boolean;
   plan_thinking?: "smart" | "basic" | null;
   execute_thinking?: "smart" | "basic" | null;
@@ -172,6 +180,7 @@ interface UpdateCard {
   title?: string;
   description?: string;
   tags?: string[];
+  files?: string[];
   status?: string;
   position?: number;
   blocking?: boolean;
@@ -226,6 +235,12 @@ interface ConfigData {
 
 type StatusKey = "todo" | "queued" | "in-progress" | "done" | "failed";
 type BoardStatusCounts = Record<string, Record<StatusKey, number>>;
+interface FileEntry {
+  name: string;
+  type: "file" | "directory";
+  path: string;
+}
+
 interface DonePerDay {
   date: string;
   count: number;
@@ -244,5 +259,6 @@ export type {
   CliProvider,
   StatusKey,
   BoardStatusCounts,
+  FileEntry,
   DonePerDay,
 };

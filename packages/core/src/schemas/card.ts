@@ -32,12 +32,14 @@ export const CardSchema = z.object({
 
 export const CardWithTagsSchema = CardSchema.extend({
   tags: z.array(z.string()),
+  files: z.array(z.string()),
 });
 
 export const CreateCardSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional().default(""),
   tags: z.array(z.string()).optional().default([]),
+  files: z.array(z.string()).optional().default([]),
   position: z.number().int().optional(),
   status: CardStatus.optional().default("todo"),
   blocking: z.boolean().optional().default(true),
@@ -50,6 +52,7 @@ export const UpdateCardSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  files: z.array(z.string()).optional(),
   status: CardStatus.optional(),
   position: z.number().int().optional(),
   blocking: z.boolean().optional(),
