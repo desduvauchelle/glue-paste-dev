@@ -14,7 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FolderOpen, Trash2, Check, X } from "lucide-react";
+import { Plus, FolderOpen, Trash2, Check, X, Settings } from "lucide-react";
 import { BOARD_COLORS, getBoardColor } from "@/lib/colors";
 
 export function Home() {
@@ -104,10 +104,15 @@ export function Home() {
           <p className="text-muted-foreground mt-1">AI-powered Kanban boards for automated coding</p>
           </div>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          New Board
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/settings")} title="Global Settings">
+            <Settings className="w-4 h-4" />
+          </Button>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Board
+          </Button>
+        </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
