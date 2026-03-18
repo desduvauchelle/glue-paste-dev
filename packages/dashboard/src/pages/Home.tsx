@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useBoards } from "@/hooks/use-boards";
+import { useWebSocket } from "@/lib/ws";
+import { queue } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -21,6 +23,63 @@ export function Home() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [directory, setDirectory] = useState("");
+  const [activeBoards, setActiveBoards] = useState<Set<string>>(new Set());
+
+  const fetchAllQueueStatuses = useCallback(async (boardIds: string[]) => {
+    const statuses = await Promise.all(
+      boardIds.map((id) => queue.status(id).catch(() => null))
+    );
+    const active = new Set<string>();
+    statuses.forEach((s, i) => {
+      const id = boardIds[i];
+      if (s && s.isRunning && s.current !== null && id) {
+        active.add(id);
+      }
+    });
+    setActiveBoards(active);
+  }, []);
+
+  useEffect(() => {
+    if (boards.length > 0) {
+      void fetchAllQueueStatuses(boards.map((b) => b.id));
+    }
+  }, [boards, fetchAllQueueStatuses]);
+
+  useWebSocket(useCallback((event) => {
+    const payload = event.payload as Record<string, unknown> | null;
+    if (event.type === "queue:updated" && payload) {
+      const boardId = payload.boardId as string;
+      setActiveBoards((prev) => {
+        const next = new Set(prev);
+        if (payload.current !== null) {
+          next.add(boardId);
+        } else if (!payload.isRunning) {
+          next.delete(boardId);
+        }
+        return next;
+      });
+    } else if (event.type === "queue:stopped" && payload) {
+      const boardId = payload.boardId as string;
+      setActiveBoards((prev) => {
+        const next = new Set(prev);
+        next.delete(boardId);
+        return next;
+      });
+    } else if (event.type === "card:updated" && payload) {
+      const boardId = payload.board_id as string;
+      if (payload.status === "in-progress") {
+        setActiveBoards((prev) => {
+          const next = new Set(prev);
+          next.add(boardId);
+          return next;
+        });
+      }
+    } else if (event.type === "ws:reconnected") {
+      if (boards.length > 0) {
+        void fetchAllQueueStatuses(boards.map((b) => b.id));
+      }
+    }
+  }, [boards, fetchAllQueueStatuses]));
 
   const handleCreate = async () => {
     if (!name.trim() || !directory.trim()) return;
@@ -110,7 +169,15 @@ export function Home() {
             >
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">{board.name}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">{board.name}</CardTitle>
+                    {activeBoards.has(board.id) && (
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+                      </span>
+                    )}
+                  </div>
                   <Button
                     variant="ghost"
                     size="icon"
