@@ -57,6 +57,10 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
     return { filteredDoneCards: filtered, hasDoneMore: hasMore };
   }, [displayGrouped, doneWeeksLoaded]);
 
+  const hasCardInProgress = useMemo(() => {
+    return (grouped["in-progress"]?.length ?? 0) > 0;
+  }, [grouped]);
+
   const sortedInProgressCards = useMemo(() => {
     const cards = displayGrouped["in-progress"] ?? [];
     return [...cards].sort((a, b) => {
@@ -221,6 +225,7 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
               hasMore={isDone ? hasDoneMore : undefined}
               onLoadMore={isDone ? () => setDoneWeeksLoaded((w) => w + 1) : undefined}
               totalCount={isDone ? (displayGrouped["done"]?.length ?? 0) : undefined}
+              hasCardInProgress={hasCardInProgress}
               onAddCard={ADD_CARD_STATUSES.has(status) ? onAddCard : undefined}
             />
           );

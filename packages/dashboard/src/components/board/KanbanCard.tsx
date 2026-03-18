@@ -151,6 +151,7 @@ interface KanbanCardProps {
   onStop: (id: string) => void;
   onClick: (card: CardWithTags) => void;
   onCoPlan?: (card: CardWithTags) => void;
+  hasCardInProgress?: boolean;
   isDragOverlay?: boolean;
 }
 
@@ -162,7 +163,7 @@ const statusColors: Record<string, string> = {
   failed: "bg-red-900/30 border-red-500/30",
 };
 
-export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, isDragOverlay }: KanbanCardProps) {
+export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInProgress, isDragOverlay }: KanbanCardProps) {
   const isRunning = card.status === "in-progress";
 
   const {
@@ -224,7 +225,9 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, isDragOver
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 shrink-0"
+              className={cn("h-6 w-6 shrink-0", hasCardInProgress && "opacity-30 cursor-not-allowed")}
+              disabled={hasCardInProgress}
+              title={hasCardInProgress ? "A card is already in progress" : undefined}
               onClick={(e) => {
                 e.stopPropagation();
                 onPlay(card.id);

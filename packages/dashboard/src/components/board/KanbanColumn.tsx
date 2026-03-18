@@ -18,6 +18,7 @@ interface KanbanColumnProps {
   hasMore?: boolean;
   onLoadMore?: () => void;
   totalCount?: number;
+  hasCardInProgress?: boolean;
   onAddCard?: (status: string) => void;
 }
 
@@ -40,6 +41,7 @@ export function KanbanColumn({
   hasMore,
   onLoadMore,
   totalCount,
+  hasCardInProgress,
   onAddCard,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
@@ -85,6 +87,7 @@ export function KanbanColumn({
                 onStop={onStopCard}
                 onClick={onClickCard}
                 onCoPlan={onCoPlanCard}
+                hasCardInProgress={hasCardInProgress}
               />
             ))}
             {hasMore && onLoadMore && (
