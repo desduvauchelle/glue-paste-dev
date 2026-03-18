@@ -25,8 +25,22 @@ export function parseStreamLine(line: string): ParsedStreamEvent | null {
 
       const toolParts = parsed.message.content
         .filter((c: { type: string }) => c.type === "tool_use")
-        .map((c: { name?: string }) => `[Tool: ${c.name ?? "unknown"}]`)
-        .join(", ");
+        .map((c: { name?: string; input?: Record<string, unknown> }) => {
+          const name = c.name ?? "unknown";
+
+          if (name === "Write" && c.input?.content) {
+            const filePath = c.input.file_path ?? "unknown file";
+            return `[Tool: Write to ${filePath}]\n${c.input.content}`;
+          }
+
+          if (name === "Edit" && c.input?.new_string) {
+            const filePath = c.input.file_path ?? "unknown file";
+            return `[Tool: Edit ${filePath}]\nNew content:\n${c.input.new_string}`;
+          }
+
+          return `[Tool: ${name}]`;
+        })
+        .join("\n");
       if (toolParts) {
         return { type: "tool_use", content: toolParts };
       }
