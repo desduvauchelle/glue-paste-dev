@@ -12,6 +12,12 @@ export const ExecutionStatus = z.enum([
   "cancelled",
 ]);
 
+export const FileChangeSchema = z.object({
+  path: z.string(),
+  additions: z.number(),
+  deletions: z.number(),
+});
+
 export const ExecutionSchema = z.object({
   id: ExecutionIdSchema,
   card_id: CardIdSchema,
@@ -25,4 +31,5 @@ export const ExecutionSchema = z.object({
   exit_code: z.number().int().nullable(),
   retry_count: z.number().int().default(0),
   pid: z.number().int().nullable(),
+  files_changed: z.string().nullable().default(null),
 });

@@ -13,10 +13,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, Paperclip, FolderOpen, X } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, Paperclip, FolderOpen, X, FileCode } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { useExecutions } from "@/hooks/use-executions"
 import type { Execution } from "@/lib/api"
+import { parseFilesChanged } from "@/lib/api"
 
 interface CardDialogProps {
 	open: boolean
@@ -429,6 +430,31 @@ export function CardDialog({
 																{execution.output}
 															</pre>
 														)}
+														{isExpanded && (() => {
+															const filesChanged = parseFilesChanged(execution.files_changed);
+															if (filesChanged.length === 0) return null;
+															const totalAdd = filesChanged.reduce((s, f) => s + f.additions, 0);
+															const totalDel = filesChanged.reduce((s, f) => s + f.deletions, 0);
+															return (
+																<div className="mt-1.5 text-xs bg-muted/50 rounded p-2">
+																	<div className="flex items-center gap-1.5 mb-1 font-semibold text-muted-foreground">
+																		<FileCode className="w-3 h-3" />
+																		{filesChanged.length} {filesChanged.length === 1 ? "file" : "files"} changed,{" "}
+																		<span className="text-green-400">{totalAdd} insertions(+)</span>,{" "}
+																		<span className="text-red-400">{totalDel} deletions(-)</span>
+																	</div>
+																	<div className="space-y-0.5">
+																		{filesChanged.map((f) => (
+																			<div key={f.path} className="flex items-center gap-2 font-mono">
+																				<span className="text-green-400 w-10 text-right">+{f.additions}</span>
+																				<span className="text-red-400 w-10 text-right">-{f.deletions}</span>
+																				<span className="text-foreground truncate">{f.path}</span>
+																			</div>
+																		))}
+																	</div>
+																</div>
+															);
+														})()}
 													</div>
 												)
 											}

@@ -26,6 +26,7 @@ import type {
   ExecutionIdSchema,
   ExecutionPhase,
   ExecutionStatus,
+  FileChangeSchema,
 } from "../schemas/execution.js";
 import type { ConfigSchema, ConfigInputSchema } from "../schemas/config.js";
 import type { WSEventSchema } from "../schemas/ws-events.js";
@@ -60,6 +61,7 @@ export type CommentAuthorType = z.infer<typeof CommentAuthor>;
 export type Execution = z.infer<typeof ExecutionSchema>;
 export type ExecutionPhaseType = z.infer<typeof ExecutionPhase>;
 export type ExecutionStatusType = z.infer<typeof ExecutionStatus>;
+export type FileChange = z.infer<typeof FileChangeSchema>;
 
 // Config types
 export type Config = z.infer<typeof ConfigSchema>;

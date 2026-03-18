@@ -222,4 +222,11 @@ export function initSchema(db: Database): void {
   } catch {
     // Column already exists — ignore
   }
+
+  // Migration: add files_changed to executions
+  try {
+    db.exec(`ALTER TABLE executions ADD COLUMN files_changed TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
 }

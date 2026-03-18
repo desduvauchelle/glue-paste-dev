@@ -29,11 +29,8 @@ export function useExecutions(cardId: string | null) {
 
   useWSEvent("execution:completed", (payload) => {
     const { executionId } = payload as { executionId: string; status: string; exitCode: number };
-    setData((prev) =>
-      prev.map((e) =>
-        e.id === executionId ? { ...e, status: (payload as { status: string }).status } : e
-      )
-    );
+    const relevant = data.some((e) => e.id === executionId);
+    if (relevant) void refresh();
   });
 
   useWSEvent("execution:output", (payload) => {

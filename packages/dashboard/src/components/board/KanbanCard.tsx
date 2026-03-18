@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import type { CardWithTags, Execution } from "@/lib/api";
+import { parseFilesChanged } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle, MessageSquare } from "lucide-react";
+import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle, MessageSquare, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -110,6 +111,10 @@ export function CardExecutionInfo({ card }: { card: CardWithTags }) {
   }
 
   // Done / Failed — compact summary
+  const filesChanged = executeExec ? parseFilesChanged(executeExec.files_changed) : [];
+  const totalAdditions = filesChanged.reduce((sum, f) => sum + f.additions, 0);
+  const totalDeletions = filesChanged.reduce((sum, f) => sum + f.deletions, 0);
+
   return (
     <div className="mt-1.5 ml-5 flex items-center gap-2 text-[11px] text-muted-foreground">
       {planExec && planExec.finished_at && (
@@ -124,6 +129,17 @@ export function CardExecutionInfo({ card }: { card: CardWithTags }) {
           <PhaseIcon phase="execute" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
           {formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}
         </span>
+      )}
+      {filesChanged.length > 0 && (
+        <>
+          <span>·</span>
+          <span className="flex items-center gap-0.5">
+            <FileCode className="w-3 h-3" />
+            {filesChanged.length} {filesChanged.length === 1 ? "file" : "files"}
+            <span className="text-green-400">+{totalAdditions}</span>
+            <span className="text-red-400">-{totalDeletions}</span>
+          </span>
+        </>
       )}
     </div>
   );

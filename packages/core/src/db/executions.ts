@@ -5,6 +5,7 @@ import type {
   CardId,
   ExecutionPhaseType,
   ExecutionStatusType,
+  FileChange,
 } from "../types/index.js";
 
 export function listExecutions(
@@ -99,6 +100,17 @@ export function getCompletedPlanOutput(
     )
     .get(cardId) as { output: string } | null;
   return row?.output ?? null;
+}
+
+export function updateExecutionFilesChanged(
+  db: Database,
+  id: ExecutionId,
+  filesChanged: FileChange[]
+): void {
+  db.query("UPDATE executions SET files_changed = ? WHERE id = ?").run(
+    JSON.stringify(filesChanged),
+    id
+  );
 }
 
 export function cancelRunningExecutions(db: Database): number {

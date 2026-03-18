@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import type { Board, CardWithTags, ConfigInput, CardId, Comment } from "../types/index.js";
+import type { Board, CardWithTags, ConfigInput, CardId, Comment, ExecutionId, FileChange } from "../types/index.js";
 import * as executionsDb from "../db/executions.js";
 import * as commentsDb from "../db/comments.js";
 import * as cardsDb from "../db/cards.js";
@@ -105,6 +105,52 @@ export async function runCard(
   return result;
 }
 
+async function captureGitSha(directory: string): Promise<string | null> {
+  try {
+    const proc = Bun.spawn(["git", "rev-parse", "HEAD"], {
+      cwd: directory,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) return null;
+    return output.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function captureFileChanges(directory: string, shaBefore: string): Promise<FileChange[]> {
+  try {
+    // Capture both committed and uncommitted changes relative to pre-execution state
+    const proc = Bun.spawn(["git", "diff", "--numstat", shaBefore], {
+      cwd: directory,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) return [];
+
+    const files: FileChange[] = [];
+    for (const line of output.trim().split("\n")) {
+      if (!line.trim()) continue;
+      const parts = line.split("\t");
+      if (parts.length < 3) continue;
+      const [addStr, delStr, ...pathParts] = parts;
+      const path = pathParts.join("\t");
+      // Binary files show "-" for additions/deletions
+      const additions = addStr === "-" ? 0 : parseInt(addStr!, 10) || 0;
+      const deletions = delStr === "-" ? 0 : parseInt(delStr!, 10) || 0;
+      files.push({ path, additions, deletions });
+    }
+    return files;
+  } catch {
+    return [];
+  }
+}
+
 async function executePhase(
   db: Database,
   card: CardWithTags,
@@ -129,6 +175,15 @@ async function executePhase(
   );
 
   callbacks.onExecutionStarted(card.id, execution.id, phase);
+
+  // Capture git SHA before execution for file change tracking
+  let shaBefore: string | null = null;
+  if (phase === "execute") {
+    shaBefore = await captureGitSha(board.directory);
+    if (shaBefore) {
+      log.debug("runner", `Captured pre-execution git SHA: ${shaBefore}`);
+    }
+  }
 
   // Build CLI command using the configured provider
   const cliCmd = buildCliCommand(config, prompt, sessionId, phase);
@@ -228,6 +283,17 @@ async function executePhase(
 
   // Update execution record
   executionsDb.updateExecutionStatus(db, execution.id, status, exitCode);
+
+  // Capture file changes after execute phase
+  if (phase === "execute" && shaBefore) {
+    try {
+      const filesChanged = await captureFileChanges(board.directory, shaBefore);
+      executionsDb.updateExecutionFilesChanged(db, execution.id as ExecutionId, filesChanged);
+      log.info("runner", `Captured ${filesChanged.length} file changes for execution ${execution.id}`);
+    } catch (err) {
+      log.warn("runner", `Failed to capture file changes:`, err);
+    }
+  }
 
   // Add system comment with summary
   const phaseName = phase === "plan" ? "Plan" : "Execution";

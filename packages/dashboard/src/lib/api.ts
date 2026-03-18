@@ -211,6 +211,12 @@ interface Comment {
   created_at: string;
 }
 
+interface FileChange {
+  path: string;
+  additions: number;
+  deletions: number;
+}
+
 interface Execution {
   id: string;
   card_id: string;
@@ -221,6 +227,16 @@ interface Execution {
   exit_code: number | null;
   started_at: string;
   finished_at: string | null;
+  files_changed: string | null;
+}
+
+function parseFilesChanged(raw: string | null): FileChange[] {
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as FileChange[];
+  } catch {
+    return [];
+  }
 }
 
 interface QueueStatus {
@@ -261,6 +277,7 @@ interface DonePerDay {
   count: number;
 }
 
+export { parseFilesChanged };
 export type {
   Board,
   CreateBoard,
@@ -269,6 +286,7 @@ export type {
   UpdateCard,
   Comment,
   Execution,
+  FileChange,
   QueueStatus,
   ConfigData,
   CliProvider,
