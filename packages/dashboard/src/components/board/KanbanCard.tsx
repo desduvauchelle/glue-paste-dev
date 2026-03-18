@@ -229,6 +229,8 @@ export function KanbanCard({ card, onPlay, onStop, onClick, isDragOverlay }: Kan
           </p>
         )}
 
+        <CardExecutionInfo card={card} />
+
         {(card.tags.length > 0 || card.blocking) && (
           <div className="flex flex-wrap gap-1 mt-2 ml-5">
             {card.blocking && (
