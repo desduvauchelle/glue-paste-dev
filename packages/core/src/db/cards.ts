@@ -330,6 +330,44 @@ export function countDonePerDay(
   return result;
 }
 
+export function countDonePerDayByBoard(
+  db: Database,
+  days: number = 14
+): Record<string, Array<{ date: string; count: number }>> {
+  const rows = db
+    .query(
+      `SELECT board_id, date(updated_at) as day, COUNT(*) as count
+       FROM cards
+       WHERE status = 'done' AND updated_at >= date('now', '-' || ? || ' days')
+       GROUP BY board_id, date(updated_at)
+       ORDER BY board_id, day ASC`
+    )
+    .all(days) as Array<{ board_id: string; day: string; count: number }>;
+
+  // Group by board_id
+  const byBoard = new Map<string, Map<string, number>>();
+  for (const row of rows) {
+    if (!byBoard.has(row.board_id)) byBoard.set(row.board_id, new Map());
+    byBoard.get(row.board_id)!.set(row.day, row.count);
+  }
+
+  // Zero-fill gaps for each board
+  const result: Record<string, Array<{ date: string; count: number }>> = {};
+  const now = new Date();
+  for (const [boardId, map] of byBoard) {
+    const series: Array<{ date: string; count: number }> = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      series.push({ date: key, count: map.get(key) ?? 0 });
+    }
+    result[boardId] = series;
+  }
+
+  return result;
+}
+
 export function getDistinctTags(db: Database, boardId: BoardId): string[] {
   const rows = db
     .query(

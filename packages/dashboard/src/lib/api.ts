@@ -140,6 +140,8 @@ export const stats = {
   boardCounts: () => request<BoardStatusCounts>("/stats/boards"),
   donePerDay: (days?: number) =>
     request<DonePerDay[]>(`/stats/done-per-day${days ? `?days=${days}` : ""}`),
+  donePerDayByBoard: (days?: number) =>
+    request<DonePerDayByBoard>(`/stats/done-per-day-by-board${days ? `?days=${days}` : ""}`),
 };
 
 // Types (simplified for frontend use)
@@ -277,6 +279,8 @@ interface DonePerDay {
   count: number;
 }
 
+type DonePerDayByBoard = Record<string, DonePerDay[]>;
+
 export { parseFilesChanged };
 export type {
   Board,
@@ -294,4 +298,5 @@ export type {
   BoardStatusCounts,
   FileEntry,
   DonePerDay,
+  DonePerDayByBoard,
 };

@@ -29,7 +29,7 @@ const STATUS_PILL_COLORS: Record<StatusKey, { bg: string; text: string; label: s
 
 export function Home() {
   const { boards, loading, create, remove } = useBoards();
-  const { boardCounts, donePerDay } = useBoardStats();
+  const { boardCounts, donePerDay, donePerDayByBoard } = useBoardStats();
   const [, setLocation] = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
@@ -216,22 +216,24 @@ export function Home() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-end gap-1" style={{ height: 120 }}>
+                <div className="flex gap-1" style={{ height: 120 }}>
                   {donePerDay.map((d) => {
                     const pct = (d.count / maxCount) * 100;
                     const date = new Date(d.date + "T00:00:00");
                     const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
                     return (
-                      <div key={d.date} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                      <div key={d.date} className="flex-1 flex flex-col items-center min-w-0">
                         {d.count > 0 && (
-                          <span className="text-[10px] text-muted-foreground">{d.count}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{d.count}</span>
                         )}
-                        <div
-                          className="w-full rounded-sm bg-green-500/80 transition-all"
-                          style={{ height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%` }}
-                          title={`${label}: ${d.count}`}
-                        />
-                        <span className="text-[9px] text-muted-foreground truncate w-full text-center">
+                        <div className="w-full flex-1 flex items-end">
+                          <div
+                            className="w-full rounded-sm bg-green-500/80 transition-all"
+                            style={{ height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%` }}
+                            title={`${label}: ${d.count}`}
+                          />
+                        </div>
+                        <span className="text-[9px] text-muted-foreground truncate w-full text-center shrink-0">
                           {label}
                         </span>
                       </div>
@@ -303,6 +305,52 @@ export function Home() {
             </Card>
           ))}
         </div>
+
+        {boards
+          .filter((b) => donePerDayByBoard[b.id]?.some((d) => d.count > 0))
+          .map((board) => {
+            const series = donePerDayByBoard[board.id]!;
+            const maxCount = Math.max(...series.map((d) => d.count), 1);
+            const boardColor = getBoardColor(board.color);
+            return (
+              <Card key={board.id} className="mt-4">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {board.name} — Last 14 Days
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-1" style={{ height: 120 }}>
+                    {series.map((d) => {
+                      const pct = (d.count / maxCount) * 100;
+                      const date = new Date(d.date + "T00:00:00");
+                      const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                      return (
+                        <div key={d.date} className="flex-1 flex flex-col items-center min-w-0">
+                          {d.count > 0 && (
+                            <span className="text-[10px] text-muted-foreground shrink-0">{d.count}</span>
+                          )}
+                          <div className="w-full flex-1 flex items-end">
+                            <div
+                              className="w-full rounded-sm transition-all"
+                              style={{
+                                height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%`,
+                                backgroundColor: boardColor ? `${boardColor.bg}cc` : "rgb(34 197 94 / 0.8)",
+                              }}
+                              title={`${label}: ${d.count}`}
+                            />
+                          </div>
+                          <span className="text-[9px] text-muted-foreground truncate w-full text-center shrink-0">
+                            {label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </>
       )}
     </div>

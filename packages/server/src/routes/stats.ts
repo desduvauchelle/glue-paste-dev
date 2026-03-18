@@ -16,5 +16,11 @@ export function statsRoutes(db: Database) {
     return c.json(cardsDb.countDonePerDay(db, days));
   });
 
+  // GET /api/stats/done-per-day-by-board?days=14 — completed cards per day per board
+  app.get("/done-per-day-by-board", (c) => {
+    const days = Math.min(Number(c.req.query("days")) || 14, 90);
+    return c.json(cardsDb.countDonePerDayByBoard(db, days));
+  });
+
   return app;
 }

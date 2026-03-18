@@ -32,6 +32,7 @@ vi.mock("@/lib/api", () => ({
   stats: {
     boardCounts: vi.fn(() => Promise.resolve({})),
     donePerDay: vi.fn(() => Promise.resolve([])),
+    donePerDayByBoard: vi.fn(() => Promise.resolve({})),
   },
 }));
 
