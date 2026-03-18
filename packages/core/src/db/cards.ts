@@ -252,6 +252,56 @@ export function countActiveCards(db: Database): number {
   return row.count;
 }
 
+export function countCardsByStatusAllBoards(
+  db: Database
+): Record<string, Record<CardStatusType, number>> {
+  const rows = db
+    .query("SELECT board_id, status, COUNT(*) as count FROM cards GROUP BY board_id, status")
+    .all() as Array<{ board_id: string; status: string; count: number }>;
+
+  const result: Record<string, Record<CardStatusType, number>> = {};
+  const statuses: CardStatusType[] = ["todo", "queued", "in-progress", "done", "failed"];
+
+  for (const row of rows) {
+    if (!result[row.board_id]) {
+      result[row.board_id] = { todo: 0, queued: 0, "in-progress": 0, done: 0, failed: 0 };
+    }
+    if (statuses.includes(row.status as CardStatusType)) {
+      result[row.board_id]![row.status as CardStatusType] = row.count;
+    }
+  }
+
+  return result;
+}
+
+export function countDonePerDay(
+  db: Database,
+  days: number = 14
+): Array<{ date: string; count: number }> {
+  const rows = db
+    .query(
+      `SELECT date(updated_at) as day, COUNT(*) as count
+       FROM cards
+       WHERE status = 'done' AND updated_at >= date('now', '-' || ? || ' days')
+       GROUP BY date(updated_at)
+       ORDER BY day ASC`
+    )
+    .all(days) as Array<{ day: string; count: number }>;
+
+  // Zero-fill gaps
+  const map = new Map(rows.map((r) => [r.day, r.count]));
+  const result: Array<{ date: string; count: number }> = [];
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    result.push({ date: key, count: map.get(key) ?? 0 });
+  }
+
+  return result;
+}
+
 export function getDistinctTags(db: Database, boardId: BoardId): string[] {
   const rows = db
     .query(

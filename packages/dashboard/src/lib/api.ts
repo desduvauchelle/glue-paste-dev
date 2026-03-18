@@ -116,6 +116,13 @@ export const tags = {
   forBoard: (boardId: string) => request<string[]>(`/tags/board/${boardId}`),
 };
 
+// Stats
+export const stats = {
+  boardCounts: () => request<BoardStatusCounts>("/stats/boards"),
+  donePerDay: (days?: number) =>
+    request<DonePerDay[]>(`/stats/done-per-day${days ? `?days=${days}` : ""}`),
+};
+
 // Types (simplified for frontend use)
 interface Board {
   id: string;
@@ -217,6 +224,13 @@ interface ConfigData {
   customInstructions: string;
 }
 
+type StatusKey = "todo" | "queued" | "in-progress" | "done" | "failed";
+type BoardStatusCounts = Record<string, Record<StatusKey, number>>;
+interface DonePerDay {
+  date: string;
+  count: number;
+}
+
 export type {
   Board,
   CreateBoard,
@@ -228,4 +242,7 @@ export type {
   QueueStatus,
   ConfigData,
   CliProvider,
+  StatusKey,
+  BoardStatusCounts,
+  DonePerDay,
 };

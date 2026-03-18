@@ -14,6 +14,8 @@ import {
   recoverInterruptedCards,
   getDistinctTags,
   listCardsByStatus,
+  countCardsByStatusAllBoards,
+  countDonePerDay,
 } from "../../db/cards.js";
 import { createExecution, getCompletedPlanOutput, updateExecutionStatus } from "../../db/executions.js";
 import type { BoardId, CardId, ExecutionId } from "../../types/index.js";
@@ -179,6 +181,39 @@ describe("cards", () => {
 
     const recovered = getCard(db, card.id as CardId);
     expect(recovered?.status).toBe("queued");
+  });
+
+  it("should count cards by status across all boards", () => {
+    createCard(db, boardId, { title: "T1", description: "", tags: [] });
+    createCard(db, boardId, { title: "T2", description: "", tags: [] });
+    const card3 = createCard(db, boardId, { title: "T3", description: "", tags: [] });
+    updateCardStatus(db, card3.id as CardId, "done");
+
+    const counts = countCardsByStatusAllBoards(db);
+    expect(counts[boardId]).toBeDefined();
+    expect(counts[boardId]!.todo).toBe(2);
+    expect(counts[boardId]!.done).toBe(1);
+    expect(counts[boardId]!.queued).toBe(0);
+    expect(counts[boardId]!["in-progress"]).toBe(0);
+    expect(counts[boardId]!.failed).toBe(0);
+  });
+
+  it("should return done-per-day with zero-filled gaps", () => {
+    const card = createCard(db, boardId, { title: "Done card", description: "", tags: [] });
+    updateCardStatus(db, card.id as CardId, "done");
+
+    const result = countDonePerDay(db, 7);
+    expect(result).toHaveLength(7);
+    // Last entry (today) should have count >= 1
+    const today = new Date().toISOString().slice(0, 10);
+    const todayEntry = result.find((r) => r.date === today);
+    expect(todayEntry).toBeDefined();
+    expect(todayEntry!.count).toBeGreaterThanOrEqual(1);
+    // Other days should be 0
+    const otherDays = result.filter((r) => r.date !== today);
+    for (const d of otherDays) {
+      expect(d.count).toBe(0);
+    }
   });
 
   it("should retrieve completed plan output", () => {

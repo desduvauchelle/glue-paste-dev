@@ -29,6 +29,10 @@ vi.mock("@/lib/api", () => ({
       return Promise.resolve({ boardId: "b2", queue: [], current: null, isRunning: false, isPaused: false });
     }),
   },
+  stats: {
+    boardCounts: vi.fn(() => Promise.resolve({})),
+    donePerDay: vi.fn(() => Promise.resolve([])),
+  },
 }));
 
 vi.mock("@/lib/ws", () => ({
