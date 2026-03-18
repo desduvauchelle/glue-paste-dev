@@ -3,7 +3,7 @@ import type { CardWithTags, Execution } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Check, X, GripVertical, Square, Brain, Zap } from "lucide-react";
+import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -61,40 +61,49 @@ export function CardExecutionInfo({ card }: { card: CardWithTags }) {
   const isRunning = card.status === "in-progress";
 
   if (isRunning) {
+    const planSkipped = card.plan_thinking === null;
     return (
-      <div className="mt-1.5 ml-5 space-y-0.5 text-[11px] text-muted-foreground">
-        {planExec && (
-          <div className="flex items-center gap-1">
+      <div className="mt-1.5 ml-5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        {/* Plan phase */}
+        {planSkipped ? (
+          <span className="flex items-center gap-0.5 opacity-40 line-through">Plan</span>
+        ) : planExec?.finished_at ? (
+          <span className="flex items-center gap-0.5 text-green-400">
+            <Check className="w-3 h-3" />
+            <span>Plan</span>
+            <span>{formatElapsed(new Date(planExec.finished_at).getTime() - new Date(planExec.started_at).getTime())}</span>
+          </span>
+        ) : planExec ? (
+          <span className="flex items-center gap-0.5 animate-pulse">
             <PhaseIcon phase="plan" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
-            <span className="opacity-70">Plan</span>
-            {planExec.finished_at ? (
-              <span>{formatElapsed(new Date(planExec.finished_at).getTime() - new Date(planExec.started_at).getTime())}</span>
-            ) : (
-              <ElapsedTimer startedAt={planExec.started_at} />
-            )}
-          </div>
+            <span>Plan</span>
+            <ElapsedTimer startedAt={planExec.started_at} />
+          </span>
+        ) : (
+          <span className="flex items-center gap-0.5 opacity-40">
+            <Circle className="w-2.5 h-2.5" />
+            <span>Plan</span>
+          </span>
         )}
-        {executeExec && (
-          <div className="flex items-center gap-1">
+        <span className="opacity-30">·</span>
+        {/* Execute phase */}
+        {executeExec?.finished_at ? (
+          <span className="flex items-center gap-0.5 text-green-400">
+            <Check className="w-3 h-3" />
+            <span>Execute</span>
+            <span>{formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}</span>
+          </span>
+        ) : executeExec ? (
+          <span className="flex items-center gap-0.5 animate-pulse">
             <PhaseIcon phase="execute" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
-            <span className="opacity-70">Execute</span>
-            {executeExec.finished_at ? (
-              <span>{formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}</span>
-            ) : (
-              <ElapsedTimer startedAt={executeExec.started_at} />
-            )}
-          </div>
-        )}
-        {!planExec && !executeExec && run[0] && (
-          <div className="flex items-center gap-1">
-            <PhaseIcon phase={run[0].phase} planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
-            <span className="opacity-70">{run[0].phase === "plan" ? "Plan" : "Execute"}</span>
-            {run[0].finished_at ? (
-              <span>{formatElapsed(new Date(run[0].finished_at).getTime() - new Date(run[0].started_at).getTime())}</span>
-            ) : (
-              <ElapsedTimer startedAt={run[0].started_at} />
-            )}
-          </div>
+            <span>Execute</span>
+            <ElapsedTimer startedAt={executeExec.started_at} />
+          </span>
+        ) : (
+          <span className="flex items-center gap-0.5 opacity-40">
+            <Circle className="w-2.5 h-2.5" />
+            <span>Execute</span>
+          </span>
         )}
       </div>
     );
