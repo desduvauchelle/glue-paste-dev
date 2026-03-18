@@ -13,6 +13,7 @@ import { tagRoutes } from "./routes/tags.js";
 import { statsRoutes } from "./routes/stats.js";
 import { fileRoutes } from "./routes/files.js";
 import { chatRoutes } from "./routes/chat.js";
+import { updateRoutes, startUpdateChecker } from "./routes/update.js";
 import { checkAndToggleCaffeinate, stopCaffeinate } from "./caffeinate.js";
 
 import type { ServerWebSocket } from "bun";
@@ -78,6 +79,7 @@ app.route("/api/tags", tagRoutes(db));
 app.route("/api/stats", statsRoutes(db));
 app.route("/api/files", fileRoutes(db));
 app.route("/api/cards", chatRoutes(db, broadcast));
+app.route("/api/update", updateRoutes(broadcast));
 
 
 // WebSocket endpoint
@@ -107,8 +109,10 @@ const PORT = Number(process.env.PORT) || 4242;
 // Caffeinate: keep machine awake while tasks are active
 checkAndToggleCaffeinate(db);
 const caffeinateInterval = setInterval(() => checkAndToggleCaffeinate(db), 300_000);
+const updateCheckInterval = startUpdateChecker(broadcast);
 function gracefulShutdown() {
   clearInterval(caffeinateInterval);
+  clearInterval(updateCheckInterval);
   stopCaffeinate();
   executionsDb.cancelRunningExecutions(db);
   process.exit(0);

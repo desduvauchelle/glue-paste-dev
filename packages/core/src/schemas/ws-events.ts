@@ -64,4 +64,11 @@ export const WSEventSchema = z.discriminatedUnion("type", [
       message: z.string(),
     }),
   }),
+  z.object({
+    type: z.literal("update:available"),
+    payload: z.object({
+      currentVersion: z.string(),
+      latestVersion: z.string(),
+    }),
+  }),
 ]);

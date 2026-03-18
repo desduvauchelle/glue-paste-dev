@@ -135,6 +135,14 @@ export const chat = {
     }),
 };
 
+// Update
+export const update = {
+  check: () =>
+    request<{ available: boolean; currentVersion: string; latestVersion: string }>("/update"),
+  apply: () =>
+    request<{ ok: boolean }>("/update/apply", { method: "POST" }),
+};
+
 // Stats
 export const stats = {
   boardCounts: () => request<BoardStatusCounts>("/stats/boards"),
