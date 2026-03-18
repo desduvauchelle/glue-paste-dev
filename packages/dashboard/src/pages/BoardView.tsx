@@ -8,7 +8,7 @@ import { CardDialog } from "@/components/board/CardDialog"
 import { Button } from "@/components/ui/button"
 import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
-import { ArrowLeft, Plus, Pause, Square, Settings } from "lucide-react"
+import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight } from "lucide-react"
 
 interface BoardViewProps {
 	params: { boardId: string }
@@ -50,17 +50,7 @@ export function BoardView({ params }: BoardViewProps) {
 				e.preventDefault()
 				setSwitcherOpen((v) => !v)
 			}
-			if (
-				e.key === "n" &&
-				!e.metaKey &&
-				!e.ctrlKey &&
-				!e.altKey &&
-				!dialogOpen &&
-				!settingsOpen &&
-				!(e.target instanceof HTMLInputElement) &&
-				!(e.target instanceof HTMLTextAreaElement) &&
-				!(e.target instanceof HTMLSelectElement)
-			) {
+			if ((e.metaKey || e.ctrlKey) && e.key === "j" && !dialogOpen && !settingsOpen) {
 				e.preventDefault()
 				handleNewCard()
 			}
@@ -184,6 +174,15 @@ export function BoardView({ params }: BoardViewProps) {
 							<p className="text-xs text-muted-foreground font-mono">{board.directory}</p>
 						)}
 					</button>
+					<button
+						type="button"
+						className="flex items-center gap-1 px-1.5 py-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+						onClick={() => setSwitcherOpen(true)}
+						title="Switch project"
+					>
+						<ArrowLeftRight className="w-3.5 h-3.5" />
+						<kbd className="px-1 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">⌘K</kbd>
+					</button>
 				</div>
 				<div className="flex items-center gap-2">
 					<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSettingsOpen(true)}>
@@ -192,7 +191,7 @@ export function BoardView({ params }: BoardViewProps) {
 					<Button variant="outline" size="sm" onClick={handleNewCard}>
 						<Plus className="w-4 h-4 mr-1" />
 						Add Card
-						<kbd className="ml-1.5 px-1.5 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">N</kbd>
+						<kbd className="ml-1.5 px-1.5 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">⌘J</kbd>
 					</Button>
 					<Button
 						variant={autoRun ? "default" : "outline"}
