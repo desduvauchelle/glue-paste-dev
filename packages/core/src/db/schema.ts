@@ -210,4 +210,16 @@ export function initSchema(db: Database): void {
   } catch {
     // Column already exists — ignore
   }
+
+  // Migration: add plan_model and execute_model to config
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN plan_model TEXT NOT NULL DEFAULT ''`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN execute_model TEXT NOT NULL DEFAULT ''`);
+  } catch {
+    // Column already exists — ignore
+  }
 }

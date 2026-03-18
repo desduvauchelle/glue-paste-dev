@@ -67,6 +67,13 @@ export async function runCard(
     basic: "claude-sonnet-4-6",
   };
 
+  /** Resolve model for a phase: explicit config model > thinking-level default > fallback */
+  const resolveModel = (phase: "plan" | "execute", thinkingLevel: string): string => {
+    const configModel = phase === "plan" ? config.planModel : config.executeModel;
+    if (configModel) return configModel;
+    return THINKING_LEVEL_MODELS[thinkingLevel] ?? config.model ?? "claude-opus-4-6";
+  };
+
   let result: RunResult;
   const hasPlan = config.planThinking !== null;
 
@@ -78,7 +85,7 @@ export async function runCard(
       log.info("runner", `Reusing existing plan output for card ${card.id}`);
     } else {
       // Phase 1: Plan
-      const planConfig = { ...config, model: THINKING_LEVEL_MODELS[config.planThinking!] || config.model };
+      const planConfig = { ...config, model: resolveModel("plan", config.planThinking!) };
       result = await executePhase(db, card, board, comments, planConfig, "plan", callbacks);
       if (!result.success) {
         return result;
@@ -87,11 +94,11 @@ export async function runCard(
 
     // Phase 2: Execute (with plan context)
     const planOutput = existingPlan ?? result!.output;
-    const execConfig = { ...config, model: THINKING_LEVEL_MODELS[config.executeThinking ?? "smart"] || config.model };
+    const execConfig = { ...config, model: resolveModel("execute", config.executeThinking ?? "smart") };
     result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, planOutput);
   } else {
     // Single phase: just execute directly
-    const execConfig = { ...config, model: THINKING_LEVEL_MODELS[config.executeThinking ?? "smart"] || config.model };
+    const execConfig = { ...config, model: resolveModel("execute", config.executeThinking ?? "smart") };
     result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks);
   }
 

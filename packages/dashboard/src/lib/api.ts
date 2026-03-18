@@ -224,6 +224,8 @@ interface ConfigData {
   cliProvider: CliProvider;
   cliCustomCommand: string;
   model: string;
+  planModel: string;
+  executeModel: string;
   maxBudgetUsd: number;
   autoConfirm: boolean;
   autoCommit: boolean;

@@ -25,6 +25,8 @@ export function GlobalSettings() {
   const [cliProvider, setCliProvider] = useState<CliProvider>("claude");
   const [cliCustomCommand, setCliCustomCommand] = useState("");
   const [model, setModel] = useState("");
+  const [planModel, setPlanModel] = useState("");
+  const [executeModel, setExecuteModel] = useState("");
   const [maxBudgetUsd, setMaxBudgetUsd] = useState(10);
   const [autoConfirm, setAutoConfirm] = useState(true);
   const [autoCommit, setAutoCommit] = useState(true);
@@ -39,6 +41,8 @@ export function GlobalSettings() {
       setCliProvider(cfg.cliProvider || "claude");
       setCliCustomCommand(cfg.cliCustomCommand || "");
       setModel(cfg.model);
+      setPlanModel(cfg.planModel || "");
+      setExecuteModel(cfg.executeModel || "");
       setMaxBudgetUsd(cfg.maxBudgetUsd);
       setAutoConfirm(cfg.autoConfirm);
       setAutoCommit(cfg.autoCommit);
@@ -59,6 +63,8 @@ export function GlobalSettings() {
         cliProvider,
         cliCustomCommand: cliCustomCommand.trim(),
         model: model.trim(),
+        planModel: planModel.trim(),
+        executeModel: executeModel.trim(),
         maxBudgetUsd,
         autoConfirm,
         autoCommit,
@@ -180,7 +186,31 @@ export function GlobalSettings() {
                 onChange={(e) => setModel(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Model name passed to the CLI (provider-specific)
+                Fallback model when no phase-specific model is set
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1 block">Plan Phase Model</label>
+              <Input
+                placeholder="Leave empty to use thinking-level default"
+                value={planModel}
+                onChange={(e) => setPlanModel(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Override model used during the plan phase
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-1 block">Execute Phase Model</label>
+              <Input
+                placeholder="Leave empty to use thinking-level default"
+                value={executeModel}
+                onChange={(e) => setExecuteModel(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Override model used during the execute phase
               </p>
             </div>
           </>

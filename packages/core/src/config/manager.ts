@@ -7,6 +7,8 @@ interface ConfigRow {
   cli_provider: string;
   cli_custom_command: string;
   model: string;
+  plan_model: string;
+  execute_model: string;
   max_budget_usd: number;
   auto_confirm: number;
   auto_commit: number;
@@ -21,6 +23,8 @@ function rowToConfigInput(row: ConfigRow): Required<ConfigInput> {
     cliProvider: (row.cli_provider || "claude") as CliProvider,
     cliCustomCommand: row.cli_custom_command || "",
     model: row.model,
+    planModel: row.plan_model || "",
+    executeModel: row.execute_model || "",
     maxBudgetUsd: row.max_budget_usd,
     autoConfirm: row.auto_confirm === 1,
     autoCommit: row.auto_commit !== 0,
@@ -63,6 +67,8 @@ export function getMergedConfig(
     cliProvider: project.cliProvider ?? global.cliProvider,
     cliCustomCommand: project.cliCustomCommand ?? global.cliCustomCommand,
     model: project.model ?? global.model,
+    planModel: project.planModel || global.planModel,
+    executeModel: project.executeModel || global.executeModel,
     maxBudgetUsd: project.maxBudgetUsd ?? global.maxBudgetUsd,
     autoConfirm: project.autoConfirm ?? global.autoConfirm,
     autoCommit: project.autoCommit ?? global.autoCommit,
@@ -105,6 +111,8 @@ function upsertConfig(
     cliProvider: input.cliProvider ?? current.cliProvider,
     cliCustomCommand: input.cliCustomCommand ?? current.cliCustomCommand,
     model: input.model ?? current.model,
+    planModel: input.planModel !== undefined ? input.planModel : current.planModel,
+    executeModel: input.executeModel !== undefined ? input.executeModel : current.executeModel,
     maxBudgetUsd: input.maxBudgetUsd ?? current.maxBudgetUsd,
     autoConfirm: input.autoConfirm ?? current.autoConfirm,
     autoCommit: input.autoCommit ?? current.autoCommit,
@@ -115,12 +123,14 @@ function upsertConfig(
   };
 
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, auto_commit, plan_thinking, execute_thinking, custom_tags, custom_instructions)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_confirm, auto_commit, plan_thinking, execute_thinking, custom_tags, custom_instructions)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
        cli_custom_command = excluded.cli_custom_command,
        model = excluded.model,
+       plan_model = excluded.plan_model,
+       execute_model = excluded.execute_model,
        max_budget_usd = excluded.max_budget_usd,
        auto_confirm = excluded.auto_confirm,
        auto_commit = excluded.auto_commit,
@@ -133,6 +143,8 @@ function upsertConfig(
     merged.cliProvider ?? "claude",
     merged.cliCustomCommand ?? "",
     merged.model ?? "",
+    merged.planModel ?? "",
+    merged.executeModel ?? "",
     merged.maxBudgetUsd ?? 10,
     merged.autoConfirm ? 1 : 0,
     merged.autoCommit ? 1 : 0,
