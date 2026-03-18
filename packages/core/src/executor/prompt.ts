@@ -85,7 +85,9 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push(`- Implement the changes completely`);
     parts.push(`- Follow existing code patterns and conventions`);
     parts.push(`- Write tests if the project has a test framework`);
-    parts.push(`- Commit your changes with a clear message when done`);
+    if (config.autoCommit) {
+      parts.push(`- Commit your changes with a clear message when done`);
+    }
   }
 
   return parts.join("\n");

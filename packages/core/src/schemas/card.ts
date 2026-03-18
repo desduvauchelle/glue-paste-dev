@@ -25,6 +25,7 @@ export const CardSchema = z.object({
   blocking: z.boolean().default(false),
   plan_thinking: ThinkingLevel.nullable().default(null),
   execute_thinking: ThinkingLevel.nullable().default(null),
+  auto_commit: z.boolean().nullable().default(null),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -42,6 +43,7 @@ export const CreateCardSchema = z.object({
   blocking: z.boolean().optional().default(true),
   plan_thinking: ThinkingLevel.nullable().optional().default(null),
   execute_thinking: ThinkingLevel.nullable().optional().default(null),
+  auto_commit: z.boolean().nullable().optional().default(null),
 });
 
 export const UpdateCardSchema = z.object({
@@ -53,6 +55,7 @@ export const UpdateCardSchema = z.object({
   blocking: z.boolean().optional(),
   plan_thinking: ThinkingLevel.nullable().optional(),
   execute_thinking: ThinkingLevel.nullable().optional(),
+  auto_commit: z.boolean().nullable().optional(),
 });
 
 export const MoveCardSchema = z.object({

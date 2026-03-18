@@ -189,4 +189,18 @@ export function initSchema(db: Database): void {
   } catch {
     // Migration already applied or old columns don't exist
   }
+
+  // Migration: add auto_commit to config
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN auto_commit INTEGER NOT NULL DEFAULT 1`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add auto_commit to cards
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN auto_commit INTEGER DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
 }

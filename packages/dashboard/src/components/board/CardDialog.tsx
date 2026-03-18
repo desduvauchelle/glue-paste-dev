@@ -46,7 +46,8 @@ export function CardDialog({
 	const [blocking, setBlocking] = useState(true)
 	const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>(null)
 	const [executeThinking, setExecuteThinking] = useState<"smart" | "basic" | null>(null)
-	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic" }>({ planThinking: "smart", executeThinking: "smart" })
+	const [autoCommit, setAutoCommit] = useState<boolean | null>(null)
+	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic"; autoCommit: boolean }>({ planThinking: "smart", executeThinking: "smart", autoCommit: true })
 	const [commentText, setCommentText] = useState("")
 	const [confirmDelete, setConfirmDelete] = useState(false)
 	const [expandedExecutions, setExpandedExecutions] = useState<Set<string>>(new Set())
@@ -74,6 +75,7 @@ export function CardDialog({
 			setBlocking(card.blocking)
 			setPlanThinking(card.plan_thinking)
 			setExecuteThinking(card.execute_thinking)
+			setAutoCommit(card.auto_commit)
 		} else {
 			setTitle("")
 			setDescription("")
@@ -81,12 +83,13 @@ export function CardDialog({
 			setBlocking(false)
 			setPlanThinking(null)
 			setExecuteThinking(null)
+			setAutoCommit(null)
 		}
 		setConfirmDelete(false)
 	}, [card, open])
 
 	useEffect(() => {
-		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking }))
+		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit }))
 	}, [boardId])
 
 	const handleSave = async () => {
@@ -99,6 +102,7 @@ export function CardDialog({
 				blocking,
 				plan_thinking: planThinking,
 				execute_thinking: executeThinking,
+				auto_commit: autoCommit,
 			})
 		} else {
 			await onCreate({
@@ -108,6 +112,7 @@ export function CardDialog({
 				blocking,
 				plan_thinking: planThinking,
 				execute_thinking: executeThinking,
+				auto_commit: autoCommit,
 				...(defaultStatus ? { status: defaultStatus as "todo" | "queued" } : {}),
 			})
 		}
@@ -236,6 +241,43 @@ export function CardDialog({
 									</label>
 								)
 							})}
+						</div>
+					</div>
+
+					{/* Auto-commit override */}
+					<div>
+						<label className="text-sm font-medium mb-2 block">Auto-commit</label>
+						<div className="flex items-center gap-3">
+							<label className="flex items-center gap-1.5 cursor-pointer select-none">
+								<input
+									type="radio"
+									name="card-auto-commit"
+									checked={autoCommit === null}
+									onChange={() => setAutoCommit(null)}
+									className="accent-primary"
+								/>
+								<span className="text-sm text-muted-foreground">Inherit ({configDefaults.autoCommit ? "on" : "off"})</span>
+							</label>
+							<label className="flex items-center gap-1.5 cursor-pointer select-none">
+								<input
+									type="radio"
+									name="card-auto-commit"
+									checked={autoCommit === true}
+									onChange={() => setAutoCommit(true)}
+									className="accent-primary"
+								/>
+								<span className="text-sm">On</span>
+							</label>
+							<label className="flex items-center gap-1.5 cursor-pointer select-none">
+								<input
+									type="radio"
+									name="card-auto-commit"
+									checked={autoCommit === false}
+									onChange={() => setAutoCommit(false)}
+									className="accent-primary"
+								/>
+								<span className="text-sm">Off</span>
+							</label>
 						</div>
 					</div>
 

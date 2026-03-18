@@ -24,15 +24,16 @@ export interface QueueCallbacks extends RunnerCallbacks {
   onOverloaded?: (boardId: string, cardTitle: string, retryInSeconds: number) => void;
 }
 
-/** Apply per-card plan_thinking and execute_thinking overrides to config */
+/** Apply per-card overrides (plan_thinking, execute_thinking, auto_commit) to config */
 function applyCardOverrides(
   config: Required<ConfigInput>,
   card: CardWithTags
 ): Required<ConfigInput> {
   const planThinking = card.plan_thinking !== null && card.plan_thinking !== undefined ? card.plan_thinking : config.planThinking;
   const executeThinking = card.execute_thinking ?? config.executeThinking ?? "smart";
+  const autoCommit = card.auto_commit !== null && card.auto_commit !== undefined ? card.auto_commit : config.autoCommit;
 
-  return { ...config, planThinking, executeThinking };
+  return { ...config, planThinking, executeThinking, autoCommit };
 }
 
 const queues = new Map<string, QueueState>();

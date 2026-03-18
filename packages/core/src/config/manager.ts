@@ -9,6 +9,7 @@ interface ConfigRow {
   model: string;
   max_budget_usd: number;
   auto_confirm: number;
+  auto_commit: number;
   plan_thinking: string | null;
   execute_thinking: string;
   custom_tags: string;
@@ -22,6 +23,7 @@ function rowToConfigInput(row: ConfigRow): Required<ConfigInput> {
     model: row.model,
     maxBudgetUsd: row.max_budget_usd,
     autoConfirm: row.auto_confirm === 1,
+    autoCommit: row.auto_commit !== 0,
     planThinking: (row.plan_thinking as "smart" | "basic" | null) ?? "smart",
     executeThinking: (row.execute_thinking || "smart") as "smart" | "basic",
     customTags: JSON.parse(row.custom_tags) as string[],
@@ -63,6 +65,7 @@ export function getMergedConfig(
     model: project.model ?? global.model,
     maxBudgetUsd: project.maxBudgetUsd ?? global.maxBudgetUsd,
     autoConfirm: project.autoConfirm ?? global.autoConfirm,
+    autoCommit: project.autoCommit ?? global.autoCommit,
     planThinking: project.planThinking !== undefined ? project.planThinking : global.planThinking,
     executeThinking: project.executeThinking ?? global.executeThinking,
     customTags: project.customTags ?? global.customTags,
@@ -104,6 +107,7 @@ function upsertConfig(
     model: input.model ?? current.model,
     maxBudgetUsd: input.maxBudgetUsd ?? current.maxBudgetUsd,
     autoConfirm: input.autoConfirm ?? current.autoConfirm,
+    autoCommit: input.autoCommit ?? current.autoCommit,
     planThinking: input.planThinking !== undefined ? input.planThinking : current.planThinking,
     executeThinking: input.executeThinking ?? current.executeThinking,
     customTags: input.customTags ?? current.customTags,
@@ -111,14 +115,15 @@ function upsertConfig(
   };
 
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, plan_thinking, execute_thinking, custom_tags, custom_instructions)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, auto_commit, plan_thinking, execute_thinking, custom_tags, custom_instructions)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
        cli_custom_command = excluded.cli_custom_command,
        model = excluded.model,
        max_budget_usd = excluded.max_budget_usd,
        auto_confirm = excluded.auto_confirm,
+       auto_commit = excluded.auto_commit,
        plan_thinking = excluded.plan_thinking,
        execute_thinking = excluded.execute_thinking,
        custom_tags = excluded.custom_tags,
@@ -130,6 +135,7 @@ function upsertConfig(
     merged.model ?? "",
     merged.maxBudgetUsd ?? 10,
     merged.autoConfirm ? 1 : 0,
+    merged.autoCommit ? 1 : 0,
     merged.planThinking ?? null,
     merged.executeThinking ?? "smart",
     JSON.stringify(merged.customTags ?? []),

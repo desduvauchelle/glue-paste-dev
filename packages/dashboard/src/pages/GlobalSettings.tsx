@@ -27,6 +27,7 @@ export function GlobalSettings() {
   const [model, setModel] = useState("");
   const [maxBudgetUsd, setMaxBudgetUsd] = useState(10);
   const [autoConfirm, setAutoConfirm] = useState(true);
+  const [autoCommit, setAutoCommit] = useState(true);
   const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>("smart");
   const [executeThinking, setExecuteThinking] = useState<"smart" | "basic">("smart");
   const [customInstructions, setCustomInstructions] = useState("");
@@ -40,6 +41,7 @@ export function GlobalSettings() {
       setModel(cfg.model);
       setMaxBudgetUsd(cfg.maxBudgetUsd);
       setAutoConfirm(cfg.autoConfirm);
+      setAutoCommit(cfg.autoCommit);
       setPlanThinking(cfg.planThinking);
       setExecuteThinking(cfg.executeThinking);
       setCustomInstructions(cfg.customInstructions);
@@ -59,6 +61,7 @@ export function GlobalSettings() {
         model: model.trim(),
         maxBudgetUsd,
         autoConfirm,
+        autoCommit,
         planThinking,
         executeThinking,
         customInstructions: customInstructions.trim(),
@@ -205,6 +208,16 @@ export function GlobalSettings() {
                 className="accent-primary"
               />
               <span className="text-sm font-medium">Auto-confirm permissions</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoCommit}
+                onChange={(e) => setAutoCommit(e.target.checked)}
+                className="accent-primary"
+              />
+              <span className="text-sm font-medium">Auto-commit changes when done</span>
             </label>
 
             <div>
