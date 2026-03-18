@@ -116,6 +116,13 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
 
     if (!activeColumn || !overColumn || activeColumn === overColumn) return;
 
+    // Prevent dropping into in-progress if another card is already there
+    if (overColumn === "in-progress") {
+      const inProgressCards = grouped["in-progress"] ?? [];
+      const hasOtherInProgress = inProgressCards.some((c) => c.id !== activeId);
+      if (hasOtherInProgress) return;
+    }
+
     // Move card to the new column
     setLocalGrouped((prev) => {
       if (!prev) return prev;
@@ -164,6 +171,16 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
 
     // Default to the same column if no target column found
     if (!overColumn) overColumn = activeColumn;
+
+    // Prevent dropping into in-progress if another card is already there
+    if (overColumn === "in-progress" && activeColumn !== "in-progress") {
+      const inProgressCards = grouped["in-progress"] ?? [];
+      const hasOtherInProgress = inProgressCards.some((c) => c.id !== activeId);
+      if (hasOtherInProgress) {
+        setLocalGrouped(null);
+        return;
+      }
+    }
 
     let destCards = [...(localGrouped[overColumn] ?? [])];
 
