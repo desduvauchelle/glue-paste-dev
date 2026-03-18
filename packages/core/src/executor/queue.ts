@@ -3,6 +3,7 @@ import type { BoardId, CardId, CardWithTags, ConfigInput } from "../types/index.
 import * as boardsDb from "../db/boards.js";
 import * as cardsDb from "../db/cards.js";
 import * as commentsDb from "../db/comments.js";
+import * as executionsDb from "../db/executions.js";
 import { getMergedConfig } from "../config/manager.js";
 import { runCard, killCardProcess, type RunnerCallbacks } from "./runner.js";
 import type { RateLimitInfo } from "./rate-limit.js";
@@ -96,7 +97,8 @@ export async function executeSingleCard(
   const comments = commentsDb.listComments(db, cardId);
   const config = applyCardOverrides(getMergedConfig(db, card.board_id as BoardId), card);
 
-  const result = await runCard(db, card, board, comments, config, callbacks);
+  const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
+  const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
 
   if (result.success) {
     cardsDb.updateCardStatus(db, cardId, "done");
@@ -213,8 +215,9 @@ async function processQueue(
   const comments = commentsDb.listComments(db, cardId);
   const config = applyCardOverrides(getMergedConfig(db, boardId as BoardId), card);
 
-  // Run the card
-  const result = await runCard(db, card, board, comments, config, callbacks);
+  // Run the card (reuse existing plan output if available from a recovered execution)
+  const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
+  const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
 
   if (result.success) {
     cardsDb.updateCardStatus(db, cardId, "done");

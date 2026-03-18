@@ -205,6 +205,39 @@ export function resetStaleCards(db: Database): number {
   return result.changes;
 }
 
+export function recoverInterruptedCards(db: Database): { requeued: number; reset: number } {
+  const inProgressIds = db
+    .query("SELECT id FROM cards WHERE status = 'in-progress'")
+    .all() as Array<{ id: string }>;
+
+  let requeued = 0;
+  let reset = 0;
+
+  for (const { id } of inProgressIds) {
+    // Cancel any running executions for this card
+    db.query(
+      "UPDATE executions SET status = 'cancelled', finished_at = datetime('now') WHERE card_id = ? AND status = 'running'"
+    ).run(id);
+
+    // Check if a plan phase completed successfully
+    const planDone = db
+      .query(
+        "SELECT id FROM executions WHERE card_id = ? AND phase = 'plan' AND status = 'success' ORDER BY started_at DESC LIMIT 1"
+      )
+      .get(id);
+
+    if (planDone) {
+      db.query("UPDATE cards SET status = 'queued', updated_at = datetime('now') WHERE id = ?").run(id);
+      requeued++;
+    } else {
+      db.query("UPDATE cards SET status = 'todo', updated_at = datetime('now') WHERE id = ?").run(id);
+      reset++;
+    }
+  }
+
+  return { requeued, reset };
+}
+
 export function countActiveCards(db: Database): number {
   const row = db
     .query(

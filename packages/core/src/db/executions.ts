@@ -86,3 +86,27 @@ export function updateExecutionCost(
     id
   );
 }
+
+export function getCompletedPlanOutput(
+  db: Database,
+  cardId: CardId
+): string | null {
+  const row = db
+    .query(
+      `SELECT output FROM executions
+       WHERE card_id = ? AND phase = 'plan' AND status = 'success'
+       ORDER BY started_at DESC LIMIT 1`
+    )
+    .get(cardId) as { output: string } | null;
+  return row?.output ?? null;
+}
+
+export function cancelRunningExecutions(db: Database): number {
+  const result = db
+    .query(
+      `UPDATE executions SET status = 'cancelled', finished_at = datetime('now')
+       WHERE status = 'running'`
+    )
+    .run();
+  return result.changes;
+}

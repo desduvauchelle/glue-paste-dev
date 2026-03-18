@@ -11,10 +11,12 @@ import {
   deleteCard,
   updateCardStatus,
   resetStaleCards,
+  recoverInterruptedCards,
   getDistinctTags,
   listCardsByStatus,
 } from "../../db/cards.js";
-import type { BoardId, CardId } from "../../types/index.js";
+import { createExecution, getCompletedPlanOutput, updateExecutionStatus } from "../../db/executions.js";
+import type { BoardId, CardId, ExecutionId } from "../../types/index.js";
 
 let db: Database;
 let boardId: BoardId;
@@ -142,5 +144,54 @@ describe("cards", () => {
 
     const tags = getDistinctTags(db, boardId);
     expect(tags).toEqual(["UX", "backend", "design"]);
+  });
+
+  it("should recover interrupted card with no plan → todo", () => {
+    const card = createCard(db, boardId, { title: "No plan", description: "", tags: [] });
+    updateCardStatus(db, card.id as CardId, "in-progress");
+    // Create a running execution (simulates crash mid-execute)
+    createExecution(db, card.id as CardId, "session-1", "execute");
+
+    const result = recoverInterruptedCards(db);
+    expect(result.reset).toBe(1);
+    expect(result.requeued).toBe(0);
+
+    const recovered = getCard(db, card.id as CardId);
+    expect(recovered?.status).toBe("todo");
+  });
+
+  it("should recover interrupted card with completed plan → queued", () => {
+    const card = createCard(db, boardId, { title: "Has plan", description: "", tags: [] });
+    updateCardStatus(db, card.id as CardId, "in-progress");
+
+    // Create a successful plan execution
+    const planExec = createExecution(db, card.id as CardId, "session-1", "plan");
+    updateExecutionStatus(db, planExec.id as ExecutionId, "success", 0);
+    // Simulate plan output
+    db.query("UPDATE executions SET output = ? WHERE id = ?").run("Plan output here", planExec.id);
+
+    // Create a running execute execution (simulates crash mid-execute)
+    createExecution(db, card.id as CardId, "session-2", "execute");
+
+    const result = recoverInterruptedCards(db);
+    expect(result.reset).toBe(0);
+    expect(result.requeued).toBe(1);
+
+    const recovered = getCard(db, card.id as CardId);
+    expect(recovered?.status).toBe("queued");
+  });
+
+  it("should retrieve completed plan output", () => {
+    const card = createCard(db, boardId, { title: "Plan test", description: "", tags: [] });
+
+    // No plan yet
+    expect(getCompletedPlanOutput(db, card.id as CardId)).toBeNull();
+
+    // Add successful plan
+    const planExec = createExecution(db, card.id as CardId, "session-1", "plan");
+    updateExecutionStatus(db, planExec.id as ExecutionId, "success", 0);
+    db.query("UPDATE executions SET output = ? WHERE id = ?").run("The plan", planExec.id);
+
+    expect(getCompletedPlanOutput(db, card.id as CardId)).toBe("The plan");
   });
 });

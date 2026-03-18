@@ -53,7 +53,8 @@ export async function runCard(
   board: Board,
   comments: Comment[],
   config: Required<ConfigInput>,
-  callbacks: RunnerCallbacks
+  callbacks: RunnerCallbacks,
+  options?: { existingPlanOutput?: string }
 ): Promise<RunResult> {
   log.info("runner", `Running card "${card.title}" (${card.id}) on board "${board.name}"`);
   log.debug("runner", `Starting execution for card ${card.id}`);
@@ -70,16 +71,24 @@ export async function runCard(
   const hasPlan = config.planThinking !== null;
 
   if (hasPlan) {
-    // Phase 1: Plan
-    const planConfig = { ...config, model: THINKING_LEVEL_MODELS[config.planThinking!] || config.model };
-    result = await executePhase(db, card, board, comments, planConfig, "plan", callbacks);
-    if (!result.success) {
-      return result;
+    const existingPlan = options?.existingPlanOutput;
+
+    if (existingPlan) {
+      // Reuse existing plan output (recovered after crash)
+      log.info("runner", `Reusing existing plan output for card ${card.id}`);
+    } else {
+      // Phase 1: Plan
+      const planConfig = { ...config, model: THINKING_LEVEL_MODELS[config.planThinking!] || config.model };
+      result = await executePhase(db, card, board, comments, planConfig, "plan", callbacks);
+      if (!result.success) {
+        return result;
+      }
     }
 
     // Phase 2: Execute (with plan context)
+    const planOutput = existingPlan ?? result!.output;
     const execConfig = { ...config, model: THINKING_LEVEL_MODELS[config.executeThinking ?? "smart"] || config.model };
-    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, result.output);
+    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, planOutput);
   } else {
     // Single phase: just execute directly
     const execConfig = { ...config, model: THINKING_LEVEL_MODELS[config.executeThinking ?? "smart"] || config.model };

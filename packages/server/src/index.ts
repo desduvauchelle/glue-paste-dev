@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { createBunWebSocket } from "hono/bun";
-import { getDb, log } from "@glue-paste-dev/core";
+import { getDb, log, cardsDb, executionsDb } from "@glue-paste-dev/core";
 import { boardRoutes } from "./routes/boards.js";
 import { cardRoutes } from "./routes/cards.js";
 import { commentRoutes } from "./routes/comments.js";
@@ -18,6 +18,12 @@ const { upgradeWebSocket, websocket } = createBunWebSocket();
 
 // Initialize database
 const db = getDb();
+
+// Recover cards that were interrupted by a previous shutdown/crash
+const recovered = cardsDb.recoverInterruptedCards(db);
+if (recovered.requeued + recovered.reset > 0) {
+  log.info("server", `Recovered ${recovered.reset} interrupted card(s) → todo, ${recovered.requeued} card(s) → queued (plan preserved)`);
+}
 
 // Track connected WebSocket clients
 const clients = new Set<ServerWebSocket<unknown>>();
@@ -95,8 +101,14 @@ const PORT = Number(process.env.PORT) || 4242;
 // Caffeinate: keep machine awake while tasks are active
 checkAndToggleCaffeinate(db);
 const caffeinateInterval = setInterval(() => checkAndToggleCaffeinate(db), 300_000);
-process.on("SIGTERM", () => { clearInterval(caffeinateInterval); stopCaffeinate(); });
-process.on("SIGINT", () => { clearInterval(caffeinateInterval); stopCaffeinate(); });
+function gracefulShutdown() {
+  clearInterval(caffeinateInterval);
+  stopCaffeinate();
+  executionsDb.cancelRunningExecutions(db);
+  process.exit(0);
+}
+process.on("SIGTERM", gracefulShutdown);
+process.on("SIGINT", gracefulShutdown);
 
 console.log(`GluePasteDev server running on http://localhost:${PORT}`);
 log.info("server", "Debug logging enabled (GPD_DEBUG)");
