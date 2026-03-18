@@ -3,7 +3,7 @@ import type { CardWithTags, Execution } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle } from "lucide-react";
+import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -134,6 +134,7 @@ interface KanbanCardProps {
   onPlay: (id: string) => void;
   onStop: (id: string) => void;
   onClick: (card: CardWithTags) => void;
+  onCoPlan?: (card: CardWithTags) => void;
   isDragOverlay?: boolean;
 }
 
@@ -145,7 +146,7 @@ const statusColors: Record<string, string> = {
   failed: "bg-red-900/30 border-red-500/30",
 };
 
-export function KanbanCard({ card, onPlay, onStop, onClick, isDragOverlay }: KanbanCardProps) {
+export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, isDragOverlay }: KanbanCardProps) {
   const isRunning = card.status === "in-progress";
 
   const {
@@ -167,7 +168,7 @@ export function KanbanCard({ card, onPlay, onStop, onClick, isDragOverlay }: Kan
       ref={setNodeRef}
       style={style}
       className={cn(
-        "cursor-pointer hover:border-foreground/20 transition-all",
+        "cursor-pointer hover:border-foreground/20 transition-all group",
         statusColors[card.status],
         isDragging && "opacity-30",
       )}
@@ -189,6 +190,20 @@ export function KanbanCard({ card, onPlay, onStop, onClick, isDragOverlay }: Kan
             </button>
             <h4 className="font-medium text-sm leading-tight">{card.title}</h4>
           </div>
+          {!isRunning && onCoPlan && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCoPlan(card);
+              }}
+              title="Co-Plan"
+            >
+              <MessageSquare className="w-3 h-3" />
+            </Button>
+          )}
           {card.status === "todo" && (
             <Button
               variant="ghost"

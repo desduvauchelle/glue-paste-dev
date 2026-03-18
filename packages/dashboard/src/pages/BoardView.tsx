@@ -8,6 +8,7 @@ import { CardDialog } from "@/components/board/CardDialog"
 import { Button } from "@/components/ui/button"
 import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
+import { CoPlanSidebar } from "@/components/board/CoPlanSidebar"
 import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight } from "lucide-react"
 import { getBoardColor } from "@/lib/colors"
 
@@ -26,6 +27,7 @@ export function BoardView({ params }: BoardViewProps) {
 	const [queuePaused, setQueuePaused] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [switcherOpen, setSwitcherOpen] = useState(false)
+	const [coPlanCard, setCoPlanCard] = useState<CardWithTags | null>(null)
 	const [autoRun, setAutoRun] = useState(() => {
 		const stored = localStorage.getItem(`queue-autorun-${boardId}`)
 		return stored === null ? true : stored === "true"
@@ -225,21 +227,31 @@ export function BoardView({ params }: BoardViewProps) {
 				</div>
 			</header>
 
-			{/* Kanban Board */}
-			<main className="flex-1 overflow-hidden pt-4">
-				{loading ? (
-					<p className="text-muted-foreground">Loading cards...</p>
-				) : (
-					<KanbanBoard
-						grouped={grouped}
-						onPlayCard={(id) => void handlePlayCard(id)}
-						onStopCard={(id) => void handleStopCard(id)}
-						onClickCard={handleClickCard}
-						onReorderCards={(updates) => void handleReorderCards(updates)}
-						onAddCard={handleNewCardWithStatus}
+			{/* Kanban Board + Co-Plan Sidebar */}
+			<div className="flex-1 flex overflow-hidden">
+				<main className="flex-1 overflow-hidden pt-4">
+					{loading ? (
+						<p className="text-muted-foreground">Loading cards...</p>
+					) : (
+						<KanbanBoard
+							grouped={grouped}
+							onPlayCard={(id) => void handlePlayCard(id)}
+							onStopCard={(id) => void handleStopCard(id)}
+							onClickCard={handleClickCard}
+							onCoPlanCard={(card) => setCoPlanCard(card)}
+							onReorderCards={(updates) => void handleReorderCards(updates)}
+							onAddCard={handleNewCardWithStatus}
+						/>
+					)}
+				</main>
+
+				{coPlanCard && (
+					<CoPlanSidebar
+						card={coPlanCard}
+						onClose={() => setCoPlanCard(null)}
 					/>
 				)}
-			</main>
+			</div>
 
 			{/* Card Dialog */}
 			<CardDialog

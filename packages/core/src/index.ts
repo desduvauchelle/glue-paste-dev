@@ -33,3 +33,5 @@ export { buildCliCommand } from "./executor/cli-adapter.js";
 export type { CliCommand } from "./executor/cli-adapter.js";
 export { detectRateLimit } from "./executor/rate-limit.js";
 export type { RateLimitInfo } from "./executor/rate-limit.js";
+export { runChat, killChatProcess, hasChatProcess } from "./executor/chat.js";
+export type { ChatCallbacks, ChatOptions } from "./executor/chat.js";

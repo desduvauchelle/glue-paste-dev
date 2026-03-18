@@ -19,6 +19,7 @@ interface KanbanBoardProps {
   onPlayCard: (id: string) => void;
   onStopCard: (id: string) => void;
   onClickCard: (card: CardWithTags) => void;
+  onCoPlanCard?: (card: CardWithTags) => void;
   onReorderCards: (updates: Array<{ id: string; status: string; position: number }>) => void;
   onAddCard?: (status: string) => void;
 }
@@ -33,7 +34,7 @@ const COLUMNS = [
 
 const ADD_CARD_STATUSES = new Set(["todo", "queued"]);
 
-export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onReorderCards, onAddCard }: KanbanBoardProps) {
+export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<CardWithTags | null>(null);
   // Local state for optimistic column updates during drag
   const [localGrouped, setLocalGrouped] = useState<Record<string, CardWithTags[]> | null>(null);
@@ -216,6 +217,7 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onRe
               onPlayCard={onPlayCard}
               onStopCard={onStopCard}
               onClickCard={onClickCard}
+              onCoPlanCard={onCoPlanCard}
               hasMore={isDone ? hasDoneMore : undefined}
               onLoadMore={isDone ? () => setDoneWeeksLoaded((w) => w + 1) : undefined}
               totalCount={isDone ? (displayGrouped["done"]?.length ?? 0) : undefined}

@@ -14,6 +14,7 @@ interface KanbanColumnProps {
   onPlayCard: (id: string) => void;
   onStopCard: (id: string) => void;
   onClickCard: (card: CardWithTags) => void;
+  onCoPlanCard?: (card: CardWithTags) => void;
   hasMore?: boolean;
   onLoadMore?: () => void;
   totalCount?: number;
@@ -35,6 +36,7 @@ export function KanbanColumn({
   onPlayCard,
   onStopCard,
   onClickCard,
+  onCoPlanCard,
   hasMore,
   onLoadMore,
   totalCount,
@@ -82,6 +84,7 @@ export function KanbanColumn({
                 onPlay={onPlayCard}
                 onStop={onStopCard}
                 onClick={onClickCard}
+                onCoPlan={onCoPlanCard}
               />
             ))}
             {hasMore && onLoadMore && (

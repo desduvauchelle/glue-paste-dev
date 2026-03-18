@@ -122,6 +122,19 @@ export const files = {
     request<FileEntry[]>(`/files/board/${boardId}${path ? `?path=${encodeURIComponent(path)}` : ""}`),
 };
 
+// Chat
+export const chat = {
+  send: (cardId: string, data: { message: string; mode: "plan" | "execute"; thinking: "smart" | "basic" }) =>
+    request<{ ok: boolean }>(`/cards/${cardId}/chat`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  stop: (cardId: string) =>
+    request<{ ok: boolean; killed: boolean }>(`/cards/${cardId}/chat`, {
+      method: "DELETE",
+    }),
+};
+
 // Stats
 export const stats = {
   boardCounts: () => request<BoardStatusCounts>("/stats/boards"),
