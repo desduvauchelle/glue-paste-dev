@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, Paperclip, FolderOpen, X, FileCode, Settings, History } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, FolderOpen, X, FileCode, Settings, History } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
@@ -208,6 +208,66 @@ export function CardDialog({
 									className="min-h-[120px]"
 									autoFocus={!isEditing}
 								/>
+							</div>
+
+							{/* Reference Files */}
+							<div>
+								<label className="text-sm font-medium mb-1 block">Reference Files</label>
+								{files.length > 0 && (
+									<div className="flex flex-wrap gap-1 mb-2">
+										{files.map((f) => (
+											<span
+												key={f}
+												className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded"
+											>
+												<span className="truncate max-w-[180px]">{f}</span>
+												<button
+													type="button"
+													className="hover:text-destructive"
+													onClick={() => setFiles((prev) => prev.filter((p) => p !== f))}
+												>
+													<X className="w-3 h-3" />
+												</button>
+											</span>
+										))}
+									</div>
+								)}
+								<div className="flex gap-1.5">
+									<div className="flex-1 min-w-0">
+										<FileSearchInput
+											boardId={boardId}
+											selectedFiles={files}
+											onSelect={(path) => {
+												if (!files.includes(path)) {
+													setFiles((prev) => [...prev, path])
+												}
+											}}
+										/>
+									</div>
+									<Button
+										type="button"
+										variant="outline"
+										size="icon"
+										className="h-8 w-8 shrink-0"
+										onClick={() => setShowFileBrowser(!showFileBrowser)}
+										title="Browse project files"
+									>
+										<FolderOpen className="w-3.5 h-3.5" />
+									</Button>
+								</div>
+								{showFileBrowser && (
+									<div className="mt-2">
+										<FileBrowser
+											boardId={boardId}
+											onSelect={(path) => {
+												if (!files.includes(path)) {
+													setFiles((prev) => [...prev, path])
+												}
+											}}
+											onClose={() => setShowFileBrowser(false)}
+										/>
+									</div>
+								)}
 							</div>
 
 							{/* Activity / User Comments (only when editing) */}
@@ -437,71 +497,7 @@ export function CardDialog({
 								</div>
 							</SidebarPanel>
 
-							{/* Reference Files Panel */}
-							<SidebarPanel
-								label="Reference Files"
-								icon={<Paperclip className="w-3.5 h-3.5" />}
-								badge={files.length}
-								defaultOpen={files.length > 0}
-							>
-								{files.length > 0 && (
-									<div className="flex flex-wrap gap-1 mb-2">
-										{files.map((f) => (
-											<span
-												key={f}
-												className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded"
-											>
-												<span className="truncate max-w-[180px]">{f}</span>
-												<button
-													type="button"
-													className="hover:text-destructive"
-													onClick={() => setFiles((prev) => prev.filter((p) => p !== f))}
-												>
-													<X className="w-3 h-3" />
-												</button>
-											</span>
-										))}
-									</div>
-								)}
-								<div className="flex gap-1.5">
-									<div className="flex-1 min-w-0">
-										<FileSearchInput
-											boardId={boardId}
-											selectedFiles={files}
-											onSelect={(path) => {
-												if (!files.includes(path)) {
-													setFiles((prev) => [...prev, path])
-												}
-											}}
-										/>
-									</div>
-									<Button
-										type="button"
-										variant="outline"
-										size="icon"
-										className="h-8 w-8 shrink-0"
-										onClick={() => setShowFileBrowser(!showFileBrowser)}
-										title="Browse project files"
-									>
-										<FolderOpen className="w-3.5 h-3.5" />
-									</Button>
-								</div>
-								{showFileBrowser && (
-									<div className="mt-2">
-										<FileBrowser
-											boardId={boardId}
-											onSelect={(path) => {
-												if (!files.includes(path)) {
-													setFiles((prev) => [...prev, path])
-												}
-											}}
-											onClose={() => setShowFileBrowser(false)}
-										/>
-									</div>
-								)}
-							</SidebarPanel>
-
-							{/* Execution History Panel (only when editing and has executions) */}
+								{/* Execution History Panel (only when editing and has executions) */}
 							{isEditing && systemComments.length > 0 && (
 								<SidebarPanel
 									label="Execution History"
