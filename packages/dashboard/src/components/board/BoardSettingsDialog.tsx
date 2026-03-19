@@ -46,7 +46,8 @@ export function BoardSettingsDialog({
   const [executeModel, setExecuteModel] = useState("");
   const [maxBudgetUsd, setMaxBudgetUsd] = useState(10);
   const [autoConfirm, setAutoConfirm] = useState(true);
-  const [autoCommit, setAutoCommit] = useState(true);
+  const [autoCommit, setAutoCommit] = useState(false);
+  const [autoPush, setAutoPush] = useState(false);
   const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>("smart");
   const [executeThinking, setExecuteThinking] = useState<"smart" | "basic">("smart");
   const [customInstructions, setCustomInstructions] = useState("");
@@ -71,6 +72,7 @@ export function BoardSettingsDialog({
         setMaxBudgetUsd(cfg.maxBudgetUsd);
         setAutoConfirm(cfg.autoConfirm);
         setAutoCommit(cfg.autoCommit);
+        setAutoPush(cfg.autoPush);
         setPlanThinking(cfg.planThinking);
         setExecuteThinking(cfg.executeThinking);
         setCustomInstructions(cfg.customInstructions);
@@ -100,6 +102,7 @@ export function BoardSettingsDialog({
         maxBudgetUsd,
         autoConfirm,
         autoCommit,
+        autoPush,
         planThinking,
         executeThinking,
         customInstructions: customInstructions.trim(),
@@ -316,6 +319,17 @@ export function BoardSettingsDialog({
                   className="accent-primary"
                 />
                 <span className="text-sm font-medium">Auto-commit changes when done</span>
+              </label>
+
+              <label className={`flex items-center gap-2 cursor-pointer ${!autoCommit ? "opacity-50" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={autoPush}
+                  onChange={(e) => setAutoPush(e.target.checked)}
+                  disabled={!autoCommit}
+                  className="accent-primary"
+                />
+                <span className="text-sm font-medium">Auto-push after commit</span>
               </label>
 
               <div>

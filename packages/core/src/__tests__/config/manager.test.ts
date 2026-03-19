@@ -103,4 +103,25 @@ describe("config manager", () => {
     const merged = getMergedConfig(db, boardId);
     expect(merged.cliProvider).toBe("gemini");
   });
+
+  it("should default autoCommit to false in DEFAULT_CONFIG", () => {
+    // Note: DB migration still creates global row with auto_commit=1 for backwards compat.
+    // New configs created via upsertConfig use DEFAULT_CONFIG which defaults to false.
+    const { DEFAULT_CONFIG } = require("../../schemas/config.js");
+    expect(DEFAULT_CONFIG.autoCommit).toBe(false);
+  });
+
+  it("should default autoPush to false", () => {
+    const config = getGlobalConfig(db);
+    expect(config.autoPush).toBe(false);
+  });
+
+  it("should persist and merge autoPush at global and project levels", () => {
+    updateGlobalConfig(db, { autoPush: true });
+    expect(getGlobalConfig(db).autoPush).toBe(true);
+
+    updateProjectConfig(db, boardId, { autoPush: false });
+    const merged = getMergedConfig(db, boardId);
+    expect(merged.autoPush).toBe(false);
+  });
 });

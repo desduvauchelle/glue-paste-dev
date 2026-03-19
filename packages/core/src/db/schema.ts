@@ -223,6 +223,23 @@ export function initSchema(db: Database): void {
     // Column already exists — ignore
   }
 
+  // Migration: add auto_push to config
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN auto_push INTEGER NOT NULL DEFAULT 0`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add auto_push to cards
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN auto_push INTEGER DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: change auto_commit default to 0
+  // (only affects new rows via the schema; existing rows keep their values)
+
   // Migration: add files_changed to executions
   try {
     db.exec(`ALTER TABLE executions ADD COLUMN files_changed TEXT DEFAULT NULL`);

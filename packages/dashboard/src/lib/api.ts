@@ -184,6 +184,7 @@ interface CardWithTags {
   plan_thinking: "smart" | "basic" | null;
   execute_thinking: "smart" | "basic" | null;
   auto_commit: boolean | null;
+  auto_push: boolean | null;
   tags: string[];
   files: string[];
   created_at: string;
@@ -199,6 +200,7 @@ interface CreateCard {
   plan_thinking?: "smart" | "basic" | null;
   execute_thinking?: "smart" | "basic" | null;
   auto_commit?: boolean | null;
+  auto_push?: boolean | null;
 }
 
 interface UpdateCard {
@@ -212,6 +214,7 @@ interface UpdateCard {
   plan_thinking?: "smart" | "basic" | null;
   execute_thinking?: "smart" | "basic" | null;
   auto_commit?: boolean | null;
+  auto_push?: boolean | null;
 }
 
 interface Comment {
@@ -270,6 +273,7 @@ interface ConfigData {
   maxBudgetUsd: number;
   autoConfirm: boolean;
   autoCommit: boolean;
+  autoPush: boolean;
   planThinking: "smart" | "basic" | null;
   executeThinking: "smart" | "basic";
   customTags: string[];

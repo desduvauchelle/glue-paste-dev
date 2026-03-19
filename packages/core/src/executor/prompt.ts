@@ -97,6 +97,9 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push(`- Write tests if the project has a test framework`);
     if (config.autoCommit) {
       parts.push(`- Commit your changes with a clear message when done`);
+      if (config.autoPush) {
+        parts.push(`- Push your changes to the remote after committing`);
+      }
     }
   }
 

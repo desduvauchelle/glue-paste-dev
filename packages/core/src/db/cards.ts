@@ -23,6 +23,7 @@ interface CardRow {
   plan_thinking: string | null;
   execute_thinking: string | null;
   auto_commit: number | null;
+  auto_push: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,6 +77,7 @@ function toCardWithTags(db: Database, row: CardRow): CardWithTags {
     plan_thinking: row.plan_thinking as "smart" | "basic" | null,
     execute_thinking: row.execute_thinking as "smart" | "basic" | null,
     auto_commit: row.auto_commit === null ? null : row.auto_commit !== 0,
+    auto_push: row.auto_push === null ? null : row.auto_push !== 0,
     tags: getTagsForCard(db, row.id),
     files: getFilesForCard(db, row.id),
   } as CardWithTags;
@@ -131,11 +133,11 @@ export function createCard(
 
   const row = db
     .query(
-      `INSERT INTO cards (board_id, title, description, status, position, blocking, plan_thinking, execute_thinking, auto_commit)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO cards (board_id, title, description, status, position, blocking, plan_thinking, execute_thinking, auto_commit, auto_push)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING *`
     )
-    .get(boardId, input.title, input.description, status, position, input.blocking ? 1 : 0, input.plan_thinking ?? null, input.execute_thinking ?? null, input.auto_commit === undefined ? null : input.auto_commit === null ? null : (input.auto_commit ? 1 : 0)) as CardRow;
+    .get(boardId, input.title, input.description, status, position, input.blocking ? 1 : 0, input.plan_thinking ?? null, input.execute_thinking ?? null, input.auto_commit === undefined ? null : input.auto_commit === null ? null : (input.auto_commit ? 1 : 0), input.auto_push === undefined ? null : input.auto_push === null ? null : (input.auto_push ? 1 : 0)) as CardRow;
 
   if (input.tags.length > 0) {
     setTagsForCard(db, row.id, input.tags);
@@ -167,14 +169,17 @@ export function updateCard(
   const autoCommit = input.auto_commit !== undefined
     ? (input.auto_commit === null ? null : (input.auto_commit ? 1 : 0))
     : current.auto_commit;
+  const autoPush = input.auto_push !== undefined
+    ? (input.auto_push === null ? null : (input.auto_push ? 1 : 0))
+    : current.auto_push;
 
   const row = db
     .query(
-      `UPDATE cards SET title = ?, description = ?, status = ?, position = ?, blocking = ?, plan_thinking = ?, execute_thinking = ?, auto_commit = ?, updated_at = datetime('now')
+      `UPDATE cards SET title = ?, description = ?, status = ?, position = ?, blocking = ?, plan_thinking = ?, execute_thinking = ?, auto_commit = ?, auto_push = ?, updated_at = datetime('now')
        WHERE id = ?
        RETURNING *`
     )
-    .get(title, description, status, position, blocking, planThinking, executeThinking, autoCommit, id) as CardRow;
+    .get(title, description, status, position, blocking, planThinking, executeThinking, autoCommit, autoPush, id) as CardRow;
 
   if (input.tags !== undefined) {
     setTagsForCard(db, row.id, input.tags);

@@ -51,7 +51,8 @@ export function CardDialog({
 	const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>(null)
 	const [executeThinking, setExecuteThinking] = useState<"smart" | "basic" | null>(null)
 	const [autoCommit, setAutoCommit] = useState<boolean | null>(null)
-	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic"; autoCommit: boolean }>({ planThinking: "smart", executeThinking: "smart", autoCommit: true })
+	const [autoPush, setAutoPush] = useState<boolean | null>(null)
+	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic"; autoCommit: boolean; autoPush: boolean }>({ planThinking: "smart", executeThinking: "smart", autoCommit: false, autoPush: false })
 	const [files, setFiles] = useState<string[]>([])
 	const [showFileBrowser, setShowFileBrowser] = useState(false)
 	const [commentText, setCommentText] = useState("")
@@ -87,6 +88,7 @@ export function CardDialog({
 			setPlanThinking(card.plan_thinking)
 			setExecuteThinking(card.execute_thinking)
 			setAutoCommit(card.auto_commit)
+			setAutoPush(card.auto_push)
 		} else {
 			setTitle("")
 			setDescription("")
@@ -96,13 +98,14 @@ export function CardDialog({
 			setPlanThinking(null)
 			setExecuteThinking(null)
 			setAutoCommit(null)
+			setAutoPush(null)
 		}
 		setShowFileBrowser(false)
 		setConfirmDelete(false)
 	}, [card, open])
 
 	useEffect(() => {
-		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit }))
+		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit, autoPush: c.autoPush }))
 	}, [boardId])
 
 	const handleSave = async () => {
@@ -117,6 +120,7 @@ export function CardDialog({
 				plan_thinking: planThinking,
 				execute_thinking: executeThinking,
 				auto_commit: autoCommit,
+				auto_push: autoPush,
 			})
 		} else {
 			await onCreate({
@@ -128,6 +132,7 @@ export function CardDialog({
 				plan_thinking: planThinking,
 				execute_thinking: executeThinking,
 				auto_commit: autoCommit,
+				auto_push: autoPush,
 				...(defaultStatus ? { status: defaultStatus as "todo" | "queued" } : {}),
 			})
 		}
@@ -366,6 +371,43 @@ export function CardDialog({
 													name="card-auto-commit"
 													checked={autoCommit === false}
 													onChange={() => setAutoCommit(false)}
+													className="accent-primary h-3.5 w-3.5"
+												/>
+												<span className="text-xs">Off</span>
+											</label>
+										</div>
+									</div>
+
+									{/* Auto-push */}
+									<div>
+										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Auto-push</label>
+										<div className="flex items-center gap-2">
+											<label className="flex items-center gap-1 cursor-pointer select-none">
+												<input
+													type="radio"
+													name="card-auto-push"
+													checked={autoPush === null}
+													onChange={() => setAutoPush(null)}
+													className="accent-primary h-3.5 w-3.5"
+												/>
+												<span className="text-xs text-muted-foreground">Inherit ({configDefaults.autoPush ? "on" : "off"})</span>
+											</label>
+											<label className="flex items-center gap-1 cursor-pointer select-none">
+												<input
+													type="radio"
+													name="card-auto-push"
+													checked={autoPush === true}
+													onChange={() => setAutoPush(true)}
+													className="accent-primary h-3.5 w-3.5"
+												/>
+												<span className="text-xs">On</span>
+											</label>
+											<label className="flex items-center gap-1 cursor-pointer select-none">
+												<input
+													type="radio"
+													name="card-auto-push"
+													checked={autoPush === false}
+													onChange={() => setAutoPush(false)}
 													className="accent-primary h-3.5 w-3.5"
 												/>
 												<span className="text-xs">Off</span>

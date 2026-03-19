@@ -32,8 +32,9 @@ function applyCardOverrides(
   const planThinking = card.plan_thinking !== null && card.plan_thinking !== undefined ? card.plan_thinking : config.planThinking;
   const executeThinking = card.execute_thinking ?? config.executeThinking ?? "smart";
   const autoCommit = card.auto_commit !== null && card.auto_commit !== undefined ? card.auto_commit : config.autoCommit;
+  const autoPush = card.auto_push !== null && card.auto_push !== undefined ? card.auto_push : config.autoPush;
 
-  return { ...config, planThinking, executeThinking, autoCommit };
+  return { ...config, planThinking, executeThinking, autoCommit, autoPush };
 }
 
 const queues = new Map<string, QueueState>();
