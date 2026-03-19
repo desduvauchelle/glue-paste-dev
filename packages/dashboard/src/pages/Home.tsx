@@ -7,7 +7,7 @@ import { queue } from "@/lib/api";
 import type { StatusKey } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -116,7 +116,7 @@ export function Home() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-8">
+    <div className="max-w-6xl mx-auto p-8">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <img src="/fav-original.jpeg" alt="GluePasteDev logo" className="w-12 h-12 rounded-xl object-cover" />
@@ -256,125 +256,117 @@ export function Home() {
           );
         })()}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {boards.map((board) => (
+        <div className="flex flex-col gap-4">
+          {boards.map((board) => {
+            const series = donePerDayByBoard[board.id];
+            const hasActivity = series?.some((d) => d.count > 0);
+            const maxCount = hasActivity ? Math.max(...series!.map((d) => d.count), 1) : 1;
+            const boardColor = getBoardColor(board.color);
+            return (
             <Card
               key={board.id}
               className="cursor-pointer hover:border-foreground/20 transition-colors overflow-hidden"
               style={getBoardColor(board.color) ? { borderLeftWidth: "4px", borderLeftColor: getBoardColor(board.color)!.border } : undefined}
               onClick={() => setLocation(`/boards/${board.id}`)}
             >
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg">{board.name}</CardTitle>
-                    {activeBoards.has(board.id) && (
-                      <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCardDialogBoardId(board.id);
-                      }}
-                      title="Add card"
-                    >
-                      <Plus className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void remove(board.id);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                  </div>
-                </div>
-                {board.description && (
-                  <CardDescription>{board.description}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground font-mono truncate">
-                  {board.directory}
-                </p>
-                {boardCounts[board.id] && (
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {(Object.keys(STATUS_PILL_COLORS) as StatusKey[]).map((status) => {
-                      const count = boardCounts[board.id]?.[status] ?? 0;
-                      if (count === 0) return null;
-                      const pill = STATUS_PILL_COLORS[status];
-                      return (
-                        <span
-                          key={status}
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${pill.bg} ${pill.text}`}
-                          title={pill.label}
-                        >
-                          {count} {pill.label}
+              <div className="flex flex-col md:flex-row">
+                <div className="flex-shrink-0 md:w-2/5 p-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold leading-none tracking-tight">{board.name}</h3>
+                      {activeBoards.has(board.id) && (
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
                         </span>
-                      );
-                    })}
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCardDialogBoardId(board.id);
+                        }}
+                        title="Add card"
+                      >
+                        <Plus className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void remove(board.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {boards
-          .filter((b) => donePerDayByBoard[b.id]?.some((d) => d.count > 0))
-          .map((board) => {
-            const series = donePerDayByBoard[board.id]!;
-            const maxCount = Math.max(...series.map((d) => d.count), 1);
-            const boardColor = getBoardColor(board.color);
-            return (
-              <Card key={board.id} className="mt-4">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {board.name} — Last 14 Days
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-1" style={{ height: 120 }}>
-                    {series.map((d) => {
-                      const pct = (d.count / maxCount) * 100;
-                      const date = new Date(d.date + "T00:00:00");
-                      const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                      return (
-                        <div key={d.date} className="flex-1 flex flex-col items-center min-w-0">
-                          {d.count > 0 && (
-                            <span className="text-[10px] text-muted-foreground shrink-0">{d.count}</span>
-                          )}
-                          <div className="w-full flex-1 flex items-end">
-                            <div
-                              className="w-full rounded-sm transition-all"
-                              style={{
-                                height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%`,
-                                backgroundColor: boardColor ? `${boardColor.bg}cc` : "rgb(34 197 94 / 0.8)",
-                              }}
-                              title={`${label}: ${d.count}`}
-                            />
-                          </div>
-                          <span className="text-[9px] text-muted-foreground truncate w-full text-center shrink-0">
-                            {label}
+                  {board.description && (
+                    <p className="text-sm text-muted-foreground mt-1.5">{board.description}</p>
+                  )}
+                  {boardCounts[board.id] && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {(Object.keys(STATUS_PILL_COLORS) as StatusKey[]).map((status) => {
+                        const count = boardCounts[board.id]?.[status] ?? 0;
+                        if (count === 0) return null;
+                        const pill = STATUS_PILL_COLORS[status];
+                        return (
+                          <span
+                            key={status}
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${pill.bg} ${pill.text}`}
+                            title={pill.label}
+                          >
+                            {count} {pill.label}
                           </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 p-6 pt-0 md:pt-6 md:pl-0">
+                  {hasActivity ? (
+                    <div className="flex gap-1 h-full" style={{ minHeight: 100 }}>
+                      {series!.map((d) => {
+                        const pct = (d.count / maxCount) * 100;
+                        const date = new Date(d.date + "T00:00:00");
+                        const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                        return (
+                          <div key={d.date} className="flex-1 flex flex-col items-center min-w-0">
+                            {d.count > 0 && (
+                              <span className="text-[10px] text-muted-foreground shrink-0">{d.count}</span>
+                            )}
+                            <div className="w-full flex-1 flex items-end">
+                              <div
+                                className="w-full rounded-sm transition-all"
+                                style={{
+                                  height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%`,
+                                  backgroundColor: boardColor ? `${boardColor.bg}cc` : "rgb(34 197 94 / 0.8)",
+                                }}
+                                title={`${label}: ${d.count}`}
+                              />
+                            </div>
+                            <span className="text-[9px] text-muted-foreground truncate w-full text-center shrink-0">
+                              {label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-xs text-muted-foreground" style={{ minHeight: 100 }}>
+                      No activity yet
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
             );
           })}
+        </div>
         </>
       )}
       {cardDialogBoardId && (
