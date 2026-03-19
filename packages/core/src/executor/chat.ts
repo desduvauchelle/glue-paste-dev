@@ -1,9 +1,11 @@
 import type { Database } from "bun:sqlite";
 import type { Board, CardWithTags, ConfigInput, CardId, Comment } from "../types/index.js";
 import * as commentsDb from "../db/comments.js";
+import * as executionsDb from "../db/executions.js";
 import { buildPrompt } from "./prompt.js";
 import { buildCliCommand } from "./cli-adapter.js";
 import { parseStreamLine } from "./stream-parser.js";
+import { killProcessTreeSync } from "./process-cleanup.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
 
@@ -35,12 +37,23 @@ export function killChatProcess(cardId: string): boolean {
   const proc = activeChatProcesses.get(cardId);
   if (!proc) return false;
   try {
-    proc.kill("SIGTERM");
+    killProcessTreeSync(proc.pid);
   } catch {
     // process may have already exited
   }
   activeChatProcesses.delete(cardId);
   return true;
+}
+
+export function killAllChatProcesses(): void {
+  for (const [cardId, proc] of activeChatProcesses) {
+    try {
+      killProcessTreeSync(proc.pid);
+    } catch {
+      // process may have already exited
+    }
+    activeChatProcesses.delete(cardId);
+  }
 }
 
 export function hasChatProcess(cardId: string): boolean {
@@ -85,7 +98,8 @@ export async function runChat(
     userMessage,
   });
 
-  const sessionId = crypto.randomUUID();
+  // Reuse the card's last session so chat continues the same conversation
+  const sessionId = executionsDb.getLastSessionId(db, cardId) ?? crypto.randomUUID();
   const cliCmd = buildCliCommand(chatConfig, prompt, sessionId, mode);
   const args = cliCmd.args;
 

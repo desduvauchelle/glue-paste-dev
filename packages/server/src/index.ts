@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "hono/bun";
 import { createBunWebSocket } from "hono/bun";
-import { getDb, log, cardsDb, executionsDb } from "@glue-paste-dev/core";
+import { getDb, log, cardsDb, executionsDb, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync } from "@glue-paste-dev/core";
 import { boardRoutes } from "./routes/boards.js";
 import { cardRoutes } from "./routes/cards.js";
 import { commentRoutes } from "./routes/comments.js";
@@ -28,6 +28,18 @@ const db = getDb();
 const recovered = cardsDb.recoverInterruptedCards(db);
 if (recovered.requeued + recovered.reset > 0) {
   log.info("server", `Recovered ${recovered.reset} interrupted card(s) → todo, ${recovered.requeued} card(s) → queued (plan preserved)`);
+}
+
+// Kill stale CLI processes from a previous server run
+const stalePids = executionsDb.getRunningExecutionPids(db);
+for (const pid of stalePids) {
+  try {
+    process.kill(pid, 0); // Check if alive
+    killProcessTreeSync(pid);
+    log.info("server", `Killed stale process PID ${pid}`);
+  } catch {
+    // already dead
+  }
 }
 
 // Track connected WebSocket clients
@@ -116,6 +128,8 @@ function gracefulShutdown() {
   clearInterval(caffeinateInterval);
   clearInterval(updateCheckInterval);
   stopCaffeinate();
+  killAllCardProcesses();
+  killAllChatProcesses();
   executionsDb.cancelRunningExecutions(db);
   process.exit(0);
 }

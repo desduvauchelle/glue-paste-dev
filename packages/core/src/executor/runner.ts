@@ -7,6 +7,7 @@ import { buildPrompt } from "./prompt.js";
 import { parseStreamLine } from "./stream-parser.js";
 import { buildCliCommand } from "./cli-adapter.js";
 import { detectRateLimit } from "./rate-limit.js";
+import { killProcessTreeSync } from "./process-cleanup.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
 
@@ -21,12 +22,23 @@ export function killCardProcess(cardId: string): boolean {
   const entry = activeCardProcesses.get(cardId);
   if (!entry) return false;
   try {
-    entry.proc.kill("SIGTERM");
+    killProcessTreeSync(entry.proc.pid);
   } catch {
     // process may have already exited
   }
   activeCardProcesses.delete(cardId);
   return true;
+}
+
+export function killAllCardProcesses(): void {
+  for (const [cardId, entry] of activeCardProcesses) {
+    try {
+      killProcessTreeSync(entry.proc.pid);
+    } catch {
+      // process may have already exited
+    }
+    activeCardProcesses.delete(cardId);
+  }
 }
 
 export interface RunnerCallbacks {
@@ -75,6 +87,9 @@ export async function runCard(
     return THINKING_LEVEL_MODELS[thinkingLevel] ?? config.model ?? "claude-opus-4-6";
   };
 
+  // Use a single session for both plan and execute phases so execute inherits plan context
+  const sessionId = crypto.randomUUID();
+
   let result: RunResult;
   const hasPlan = config.planThinking !== null;
 
@@ -87,7 +102,7 @@ export async function runCard(
     } else {
       // Phase 1: Plan
       const planConfig = { ...config, model: resolveModel("plan", config.planThinking!) };
-      result = await executePhase(db, card, board, comments, planConfig, "plan", callbacks);
+      result = await executePhase(db, card, board, comments, planConfig, "plan", callbacks, sessionId);
       if (!result.success) {
         return result;
       }
@@ -96,11 +111,11 @@ export async function runCard(
     // Phase 2: Execute (with plan context)
     const planOutput = existingPlan ?? result!.output;
     const execConfig = { ...config, model: resolveModel("execute", config.executeThinking ?? "smart") };
-    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, planOutput);
+    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, sessionId, planOutput);
   } else {
     // Single phase: just execute directly
     const execConfig = { ...config, model: resolveModel("execute", config.executeThinking ?? "smart") };
-    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks);
+    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, sessionId);
   }
 
   return result;
@@ -160,10 +175,10 @@ async function executePhase(
   config: Required<ConfigInput>,
   phase: "plan" | "execute",
   callbacks: RunnerCallbacks,
+  sessionId: string,
   planOutput?: string
 ): Promise<RunResult> {
   log.info("runner", `Phase "${phase}" starting for card "${cardLabel(card)}" (${card.id})`);
-  const sessionId = crypto.randomUUID();
   log.debug("runner", `Phase "${phase}" using session ${sessionId}`);
   const prompt = buildPrompt({ card, board, comments, config, phase, planOutput });
 

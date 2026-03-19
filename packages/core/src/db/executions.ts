@@ -113,6 +113,24 @@ export function updateExecutionFilesChanged(
   );
 }
 
+export function getRunningExecutionPids(db: Database): number[] {
+  const rows = db
+    .query("SELECT pid FROM executions WHERE status = 'running' AND pid IS NOT NULL")
+    .all() as Array<{ pid: number }>;
+  return rows.map(r => r.pid);
+}
+
+export function getLastSessionId(db: Database, cardId: CardId): string | null {
+  const row = db
+    .query(
+      `SELECT session_id FROM executions
+       WHERE card_id = ? AND session_id IS NOT NULL
+       ORDER BY started_at DESC LIMIT 1`
+    )
+    .get(cardId) as { session_id: string } | null;
+  return row?.session_id ?? null;
+}
+
 export function cancelRunningExecutions(db: Database): number {
   const result = db
     .query(
