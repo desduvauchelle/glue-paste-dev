@@ -10,6 +10,10 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useExecutions } from "@/hooks/use-executions";
 
+function parseUTC(dt: string): number {
+  return new Date(dt.endsWith("Z") ? dt : dt + "Z").getTime();
+}
+
 function formatElapsed(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -31,14 +35,14 @@ function ElapsedTimer({ startedAt }: { startedAt: string }) {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  const elapsed = now - new Date(startedAt).getTime();
+  const elapsed = now - parseUTC(startedAt);
   return <span>{formatElapsed(Math.max(0, elapsed))}</span>;
 }
 
 function getLatestRun(executions: Execution[]): Execution[] {
   if (executions.length === 0) return [];
   // Sort by started_at descending
-  const sorted = [...executions].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+  const sorted = [...executions].sort((a, b) => parseUTC(b.started_at) - parseUTC(a.started_at));
   // Latest run = most recent execute + its preceding plan (if any)
   const latest: Execution[] = [];
   const lastExec = sorted.find((e) => e.phase === "execute");
@@ -73,7 +77,7 @@ export function CardExecutionInfo({ card }: { card: CardWithTags }) {
           ) : planExec?.finished_at ? (
             <span className="flex items-center gap-0.5 text-green-400">
               <Check className="w-3 h-3" />
-              <span>{formatElapsed(new Date(planExec.finished_at).getTime() - new Date(planExec.started_at).getTime())}</span>
+              <span>{formatElapsed(parseUTC(planExec.finished_at) - parseUTC(planExec.started_at))}</span>
             </span>
           ) : planExec ? (
             <span className="flex items-center gap-0.5 animate-pulse">
@@ -93,7 +97,7 @@ export function CardExecutionInfo({ card }: { card: CardWithTags }) {
           {executeExec?.finished_at ? (
             <span className="flex items-center gap-0.5 text-green-400">
               <Check className="w-3 h-3" />
-              <span>{formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}</span>
+              <span>{formatElapsed(parseUTC(executeExec.finished_at) - parseUTC(executeExec.started_at))}</span>
             </span>
           ) : executeExec ? (
             <span className="flex items-center gap-0.5 animate-pulse">
@@ -121,14 +125,14 @@ export function CardExecutionInfo({ card }: { card: CardWithTags }) {
       {planExec && planExec.finished_at && (
         <span className="flex items-center gap-0.5">
           <PhaseIcon phase="plan" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
-          {formatElapsed(new Date(planExec.finished_at).getTime() - new Date(planExec.started_at).getTime())}
+          {formatElapsed(parseUTC(planExec.finished_at) - parseUTC(planExec.started_at))}
         </span>
       )}
       {planExec && executeExec && <span>·</span>}
       {executeExec && executeExec.finished_at && (
         <span className="flex items-center gap-0.5">
           <PhaseIcon phase="execute" planThinking={card.plan_thinking} executeThinking={card.execute_thinking} />
-          {formatElapsed(new Date(executeExec.finished_at).getTime() - new Date(executeExec.started_at).getTime())}
+          {formatElapsed(parseUTC(executeExec.finished_at) - parseUTC(executeExec.started_at))}
         </span>
       )}
       {filesChanged.length > 0 && (
