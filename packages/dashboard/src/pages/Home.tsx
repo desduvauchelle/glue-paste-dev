@@ -19,6 +19,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, FolderOpen, Trash2, Check, X, Settings } from "lucide-react";
 import { CaffeineToggle } from "@/components/CaffeineToggle";
 import { BOARD_COLORS, getBoardColor } from "@/lib/colors";
+import { CardDialog } from "@/components/board/CardDialog";
+import { cards as cardsApi } from "@/lib/api";
+import type { CreateCard } from "@/lib/api";
 
 const STATUS_PILL_COLORS: Record<StatusKey, { bg: string; text: string; label: string }> = {
   todo: { bg: "bg-zinc-100 dark:bg-zinc-800", text: "text-zinc-600 dark:text-zinc-400", label: "Todo" },
@@ -38,6 +41,7 @@ export function Home() {
   const [directory, setDirectory] = useState("");
   const [color, setColor] = useState<string | null>(null);
   const [activeBoards, setActiveBoards] = useState<Set<string>>(new Set());
+  const [cardDialogBoardId, setCardDialogBoardId] = useState<string | null>(null);
 
   const fetchAllQueueStatuses = useCallback(async (boardIds: string[]) => {
     const statuses = await Promise.all(
@@ -271,16 +275,29 @@ export function Home() {
                       </span>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void remove(board.id);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4 text-muted-foreground" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCardDialogBoardId(board.id);
+                      }}
+                      title="Add card"
+                    >
+                      <Plus className="w-4 h-4 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void remove(board.id);
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 text-muted-foreground" />
+                    </Button>
+                  </div>
                 </div>
                 {board.description && (
                   <CardDescription>{board.description}</CardDescription>
@@ -359,6 +376,23 @@ export function Home() {
             );
           })}
         </>
+      )}
+      {cardDialogBoardId && (
+        <CardDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setCardDialogBoardId(null); }}
+          card={null}
+          boardId={cardDialogBoardId}
+          onCreate={async (input: CreateCard) => {
+            await cardsApi.create(cardDialogBoardId, input);
+            setCardDialogBoardId(null);
+          }}
+          onUpdate={async () => {}}
+          onDelete={async () => {}}
+          onPlay={() => {}}
+          defaultStatus="todo"
+          boardName={boards.find((b) => b.id === cardDialogBoardId)?.name}
+        />
       )}
     </div>
   );
