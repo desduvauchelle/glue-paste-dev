@@ -3,6 +3,7 @@ import type { Database } from "bun:sqlite";
 import {
   getGlobalConfig,
   getMergedConfig,
+  getProjectConfigRaw,
   updateGlobalConfig,
   updateProjectConfig,
   ConfigInputSchema,
@@ -36,6 +37,15 @@ export function configRoutes(db: Database) {
       c.req.param("boardId") as BoardId
     );
     return c.json(config);
+  });
+
+  // GET /api/config/board/:boardId/raw — project-only overrides (nulls = inherit)
+  app.get("/board/:boardId/raw", (c) => {
+    const raw = getProjectConfigRaw(
+      db,
+      c.req.param("boardId") as BoardId
+    );
+    return c.json(raw ?? {});
   });
 
   // PUT /api/config/board/:boardId

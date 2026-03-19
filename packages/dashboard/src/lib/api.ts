@@ -103,6 +103,7 @@ export const config = {
   updateGlobal: (data: Partial<ConfigData>) =>
     request<ConfigData>("/config", { method: "PUT", body: JSON.stringify(data) }),
   getForBoard: (boardId: string) => request<ConfigData>(`/config/board/${boardId}`),
+  getForBoardRaw: (boardId: string) => request<PartialConfigData>(`/config/board/${boardId}/raw`),
   updateForBoard: (boardId: string, data: Partial<ConfigData>) =>
     request<ConfigData>(`/config/board/${boardId}`, {
       method: "PUT",
@@ -287,6 +288,9 @@ interface ConfigData {
   customInstructions: string;
 }
 
+/** Partial config where undefined/missing fields mean "inherit from global" */
+type PartialConfigData = Partial<ConfigData>;
+
 type StatusKey = "todo" | "queued" | "in-progress" | "done" | "failed";
 type BoardStatusCounts = Record<string, Record<StatusKey, number>>;
 interface FileEntry {
@@ -314,6 +318,7 @@ export type {
   FileChange,
   QueueStatus,
   ConfigData,
+  PartialConfigData,
   CliProvider,
   StatusKey,
   BoardStatusCounts,

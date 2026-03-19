@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Board, ConfigData, CliProvider } from "@/lib/api";
+import type { Board, ConfigData, PartialConfigData, CliProvider } from "@/lib/api";
 import { boards as boardsApi, config as configApi } from "@/lib/api";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BOARD_COLORS } from "@/lib/colors";
 import { Check, X } from "lucide-react";
+import { ExecutionSettings } from "@/components/settings/ExecutionSettings";
 
 const CLI_PROVIDERS: { value: CliProvider; label: string; description: string }[] = [
   { value: "claude", label: "Claude Code", description: "Anthropic Claude CLI" },
@@ -62,20 +63,23 @@ export function BoardSettingsDialog({
       setDirectory(board.directory);
       setColor(board.color ?? null);
 
-      // Load board config
-      configApi.getForBoard(board.id).then((cfg: ConfigData) => {
-        setCliProvider(cfg.cliProvider || "claude");
-        setCliCustomCommand(cfg.cliCustomCommand || "");
-        setModel(cfg.model);
-        setPlanModel(cfg.planModel || "");
-        setExecuteModel(cfg.executeModel || "");
-        setMaxBudgetUsd(cfg.maxBudgetUsd);
-        setAutoConfirm(cfg.autoConfirm);
-        setAutoCommit(cfg.autoCommit);
-        setAutoPush(cfg.autoPush);
-        setPlanThinking(cfg.planThinking);
-        setExecuteThinking(cfg.executeThinking);
-        setCustomInstructions(cfg.customInstructions);
+      // Load raw project config (only explicitly set overrides) + global for fallback display
+      Promise.all([
+        configApi.getForBoardRaw(board.id),
+        configApi.getGlobal(),
+      ]).then(([raw, global]: [PartialConfigData, ConfigData]) => {
+        setCliProvider(raw.cliProvider ?? global.cliProvider ?? "claude");
+        setCliCustomCommand(raw.cliCustomCommand ?? global.cliCustomCommand ?? "");
+        setModel(raw.model ?? global.model ?? "");
+        setPlanModel(raw.planModel ?? global.planModel ?? "");
+        setExecuteModel(raw.executeModel ?? global.executeModel ?? "");
+        setMaxBudgetUsd(raw.maxBudgetUsd ?? global.maxBudgetUsd ?? 10);
+        setAutoConfirm(raw.autoConfirm ?? global.autoConfirm ?? true);
+        setAutoCommit(raw.autoCommit ?? global.autoCommit ?? false);
+        setAutoPush(raw.autoPush ?? global.autoPush ?? false);
+        setPlanThinking(raw.planThinking !== undefined ? raw.planThinking : global.planThinking ?? "smart");
+        setExecuteThinking(raw.executeThinking ?? global.executeThinking ?? "smart");
+        setCustomInstructions(raw.customInstructions ?? global.customInstructions ?? "");
       }).catch(() => {
         // Use defaults
       });
@@ -289,97 +293,23 @@ export function BoardSettingsDialog({
 
           {/* Execution Tab */}
           {activeTab === "execution" && (
-            <>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Max Budget (USD)</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={maxBudgetUsd}
-                  onChange={(e) => setMaxBudgetUsd(Number(e.target.value))}
-                />
-              </div>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoConfirm}
-                  onChange={(e) => setAutoConfirm(e.target.checked)}
-                  className="accent-primary"
-                />
-                <span className="text-sm font-medium">Auto-confirm permissions</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoCommit}
-                  onChange={(e) => setAutoCommit(e.target.checked)}
-                  className="accent-primary"
-                />
-                <span className="text-sm font-medium">Auto-commit changes when done</span>
-              </label>
-
-              <label className={`flex items-center gap-2 cursor-pointer ${!autoCommit ? "opacity-50" : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={autoPush}
-                  onChange={(e) => setAutoPush(e.target.checked)}
-                  disabled={!autoCommit}
-                  className="accent-primary"
-                />
-                <span className="text-sm font-medium">Auto-push after commit</span>
-              </label>
-
-              <div>
-                <label className="text-sm font-medium mb-1 block">Plan Thinking</label>
-                <div className="flex items-center gap-3">
-                  {(["smart", "basic"] as const).map((level) => (
-                    <label key={level} className="flex items-center gap-1.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={planThinking === level}
-                        onChange={() => setPlanThinking(planThinking === level ? null : level)}
-                        className="accent-primary"
-                      />
-                      <span className="text-sm">{level === "smart" ? "Smart" : "Normal"}</span>
-                    </label>
-                  ))}
-                  {planThinking === null && (
-                    <span className="text-xs text-muted-foreground">— No plan phase</span>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-1 block">Execute Thinking</label>
-                <div className="flex items-center gap-3">
-                  {(["smart", "basic"] as const).map((level) => (
-                    <label key={level} className="flex items-center gap-1.5 cursor-pointer select-none">
-                      <input
-                        type="radio"
-                        name="board-execute-thinking"
-                        checked={executeThinking === level}
-                        onChange={() => setExecuteThinking(level)}
-                        className="accent-primary"
-                      />
-                      <span className="text-sm">{level === "smart" ? "Smart" : "Normal"}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium mb-1 block">Custom Instructions</label>
-                <Textarea
-                  placeholder="Additional instructions for the AI..."
-                  value={customInstructions}
-                  onChange={(e) => setCustomInstructions(e.target.value)}
-                  className="min-h-[80px]"
-                />
-              </div>
-            </>
+            <ExecutionSettings
+              maxBudgetUsd={maxBudgetUsd}
+              onMaxBudgetUsdChange={setMaxBudgetUsd}
+              autoConfirm={autoConfirm}
+              onAutoConfirmChange={setAutoConfirm}
+              autoCommit={autoCommit}
+              onAutoCommitChange={setAutoCommit}
+              autoPush={autoPush}
+              onAutoPushChange={setAutoPush}
+              planThinking={planThinking}
+              onPlanThinkingChange={setPlanThinking}
+              executeThinking={executeThinking}
+              onExecuteThinkingChange={setExecuteThinking}
+              customInstructions={customInstructions}
+              onCustomInstructionsChange={setCustomInstructions}
+              radioPrefix="board"
+            />
           )}
         </div>
 

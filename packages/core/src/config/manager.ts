@@ -4,36 +4,56 @@ import { DEFAULT_CONFIG, type CliProvider } from "../schemas/config.js";
 
 interface ConfigRow {
   key: string;
-  cli_provider: string;
-  cli_custom_command: string;
-  model: string;
-  plan_model: string;
-  execute_model: string;
-  max_budget_usd: number;
-  auto_confirm: number;
-  auto_commit: number;
-  auto_push: number;
+  cli_provider: string | null;
+  cli_custom_command: string | null;
+  model: string | null;
+  plan_model: string | null;
+  execute_model: string | null;
+  max_budget_usd: number | null;
+  auto_confirm: number | null;
+  auto_commit: number | null;
+  auto_push: number | null;
   plan_thinking: string | null;
-  execute_thinking: string;
-  custom_tags: string;
-  custom_instructions: string;
+  execute_thinking: string | null;
+  custom_tags: string | null;
+  custom_instructions: string | null;
 }
 
+/** Fully resolved config — used for global config and merged results */
 function rowToConfigInput(row: ConfigRow): Required<ConfigInput> {
   return {
     cliProvider: (row.cli_provider || "claude") as CliProvider,
     cliCustomCommand: row.cli_custom_command || "",
-    model: row.model,
+    model: row.model || DEFAULT_CONFIG.model,
     planModel: row.plan_model || "",
     executeModel: row.execute_model || "",
-    maxBudgetUsd: row.max_budget_usd,
-    autoConfirm: row.auto_confirm === 1,
-    autoCommit: row.auto_commit !== 0,
-    autoPush: row.auto_push !== 0,
+    maxBudgetUsd: row.max_budget_usd ?? DEFAULT_CONFIG.maxBudgetUsd,
+    autoConfirm: row.auto_confirm === null ? DEFAULT_CONFIG.autoConfirm : row.auto_confirm === 1,
+    autoCommit: row.auto_commit === null ? DEFAULT_CONFIG.autoCommit : row.auto_commit === 1,
+    autoPush: row.auto_push === null ? DEFAULT_CONFIG.autoPush : row.auto_push === 1,
     planThinking: (row.plan_thinking as "smart" | "basic" | null) ?? "smart",
     executeThinking: (row.execute_thinking || "smart") as "smart" | "basic",
-    customTags: JSON.parse(row.custom_tags) as string[],
-    customInstructions: row.custom_instructions,
+    customTags: JSON.parse(row.custom_tags || "[]") as string[],
+    customInstructions: row.custom_instructions || "",
+  };
+}
+
+/** Partial config preserving NULL for "inherit" — used for raw project config */
+function rowToPartialConfig(row: ConfigRow): ConfigInput {
+  return {
+    cliProvider: row.cli_provider !== null ? (row.cli_provider as CliProvider) : undefined,
+    cliCustomCommand: row.cli_custom_command !== null ? row.cli_custom_command : undefined,
+    model: row.model !== null ? row.model : undefined,
+    planModel: row.plan_model !== null ? row.plan_model : undefined,
+    executeModel: row.execute_model !== null ? row.execute_model : undefined,
+    maxBudgetUsd: row.max_budget_usd !== null ? row.max_budget_usd : undefined,
+    autoConfirm: row.auto_confirm !== null ? row.auto_confirm === 1 : undefined,
+    autoCommit: row.auto_commit !== null ? row.auto_commit === 1 : undefined,
+    autoPush: row.auto_push !== null ? row.auto_push === 1 : undefined,
+    planThinking: row.plan_thinking !== null ? (row.plan_thinking as "smart" | "basic") : undefined,
+    executeThinking: row.execute_thinking !== null ? (row.execute_thinking as "smart" | "basic") : undefined,
+    customTags: row.custom_tags !== null ? (JSON.parse(row.custom_tags) as string[]) : undefined,
+    customInstructions: row.custom_instructions !== null ? row.custom_instructions : undefined,
   };
 }
 
@@ -56,21 +76,37 @@ export function getProjectConfig(
   return rowToConfigInput(row);
 }
 
+/** Get raw project config with NULLs preserved (undefined = inherit from global) */
+export function getProjectConfigRaw(
+  db: Database,
+  boardId: BoardId
+): ConfigInput | null {
+  const row = db
+    .query("SELECT * FROM config WHERE key = ?")
+    .get(boardId) as ConfigRow | null;
+  if (!row) return null;
+  return rowToPartialConfig(row);
+}
+
 /** Get merged config: project overrides global */
 export function getMergedConfig(
   db: Database,
   boardId: BoardId
 ): Required<ConfigInput> {
   const global = getGlobalConfig(db);
-  const project = getProjectConfig(db, boardId);
-  if (!project) return global;
+  const row = db
+    .query("SELECT * FROM config WHERE key = ?")
+    .get(boardId) as ConfigRow | null;
+  if (!row) return global;
+
+  const project = rowToPartialConfig(row);
 
   return {
     cliProvider: project.cliProvider ?? global.cliProvider,
     cliCustomCommand: project.cliCustomCommand ?? global.cliCustomCommand,
     model: project.model ?? global.model,
-    planModel: project.planModel || global.planModel,
-    executeModel: project.executeModel || global.executeModel,
+    planModel: project.planModel !== undefined ? project.planModel : global.planModel,
+    executeModel: project.executeModel !== undefined ? project.executeModel : global.executeModel,
     maxBudgetUsd: project.maxBudgetUsd ?? global.maxBudgetUsd,
     autoConfirm: project.autoConfirm ?? global.autoConfirm,
     autoCommit: project.autoCommit ?? global.autoCommit,
@@ -86,7 +122,7 @@ export function updateGlobalConfig(
   db: Database,
   input: ConfigInput
 ): Required<ConfigInput> {
-  return upsertConfig(db, "global", input);
+  return upsertGlobalConfig(db, input);
 }
 
 export function updateProjectConfig(
@@ -94,23 +130,22 @@ export function updateProjectConfig(
   boardId: BoardId,
   input: ConfigInput
 ): Required<ConfigInput> {
-  return upsertConfig(db, boardId, input);
+  return upsertProjectConfig(db, boardId, input);
 }
 
-function upsertConfig(
+function upsertGlobalConfig(
   db: Database,
-  key: string,
   input: ConfigInput
 ): Required<ConfigInput> {
   const existing = db
-    .query("SELECT * FROM config WHERE key = ?")
-    .get(key) as ConfigRow | null;
+    .query("SELECT * FROM config WHERE key = 'global'")
+    .get() as ConfigRow | null;
 
   const current = existing
     ? rowToConfigInput(existing)
     : { ...DEFAULT_CONFIG, customTags: [...DEFAULT_CONFIG.customTags] };
 
-  const merged = {
+  const merged: Required<ConfigInput> = {
     cliProvider: input.cliProvider ?? current.cliProvider,
     cliCustomCommand: input.cliCustomCommand ?? current.cliCustomCommand,
     model: input.model ?? current.model,
@@ -144,7 +179,7 @@ function upsertConfig(
        custom_tags = excluded.custom_tags,
        custom_instructions = excluded.custom_instructions`
   ).run(
-    key,
+    "global",
     merged.cliProvider ?? "claude",
     merged.cliCustomCommand ?? "",
     merged.model ?? "",
@@ -161,4 +196,48 @@ function upsertConfig(
   );
 
   return merged;
+}
+
+/** For project configs, store NULL in DB for fields that are undefined (meaning "inherit from global") */
+function upsertProjectConfig(
+  db: Database,
+  key: string,
+  input: ConfigInput
+): Required<ConfigInput> {
+  db.query(
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_confirm, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET
+       cli_provider = excluded.cli_provider,
+       cli_custom_command = excluded.cli_custom_command,
+       model = excluded.model,
+       plan_model = excluded.plan_model,
+       execute_model = excluded.execute_model,
+       max_budget_usd = excluded.max_budget_usd,
+       auto_confirm = excluded.auto_confirm,
+       auto_commit = excluded.auto_commit,
+       auto_push = excluded.auto_push,
+       plan_thinking = excluded.plan_thinking,
+       execute_thinking = excluded.execute_thinking,
+       custom_tags = excluded.custom_tags,
+       custom_instructions = excluded.custom_instructions`
+  ).run(
+    key,
+    input.cliProvider ?? null,
+    input.cliCustomCommand ?? null,
+    input.model ?? null,
+    input.planModel !== undefined ? (input.planModel ?? "") : null,
+    input.executeModel !== undefined ? (input.executeModel ?? "") : null,
+    input.maxBudgetUsd ?? null,
+    input.autoConfirm !== undefined ? (input.autoConfirm ? 1 : 0) : null,
+    input.autoCommit !== undefined ? (input.autoCommit ? 1 : 0) : null,
+    input.autoPush !== undefined ? (input.autoPush ? 1 : 0) : null,
+    input.planThinking !== undefined ? (input.planThinking ?? null) : null,
+    input.executeThinking ?? null,
+    input.customTags !== undefined ? JSON.stringify(input.customTags) : null,
+    input.customInstructions ?? null
+  );
+
+  // Return the merged config for API response
+  return getMergedConfig(db, key as BoardId);
 }

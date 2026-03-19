@@ -246,4 +246,43 @@ export function initSchema(db: Database): void {
   } catch {
     // Column already exists — ignore
   }
+
+  // Migration: allow NULLs in config table for project-level inheritance
+  // Project configs use NULL to mean "inherit from global"
+  try {
+    // Check if migration is needed by testing if a NULL insert works
+    db.exec(`PRAGMA foreign_keys = OFF`);
+    db.exec(`INSERT INTO config (key, cli_provider) VALUES ('__null_test__', NULL)`);
+    // If we get here, NULLs are already allowed — clean up
+    db.exec(`DELETE FROM config WHERE key = '__null_test__'`);
+    db.exec(`PRAGMA foreign_keys = ON`);
+  } catch {
+    // NOT NULL constraint fired — need to recreate table
+    db.exec(`DELETE FROM config WHERE key = '__null_test__'`);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS config_new (
+        key TEXT PRIMARY KEY,
+        cli_provider TEXT DEFAULT 'claude',
+        cli_custom_command TEXT DEFAULT '',
+        model TEXT DEFAULT 'claude-opus-4-6',
+        max_budget_usd REAL DEFAULT 10.0,
+        auto_confirm INTEGER DEFAULT 1,
+        plan_mode INTEGER DEFAULT 1,
+        thinking_level TEXT DEFAULT 'smart',
+        custom_tags TEXT DEFAULT '[]',
+        custom_instructions TEXT DEFAULT '',
+        plan_thinking TEXT DEFAULT 'smart',
+        execute_thinking TEXT DEFAULT 'smart',
+        auto_commit INTEGER DEFAULT 0,
+        plan_model TEXT DEFAULT '',
+        execute_model TEXT DEFAULT '',
+        auto_push INTEGER DEFAULT 0
+      );
+      INSERT INTO config_new (key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, plan_mode, thinking_level, custom_tags, custom_instructions, plan_thinking, execute_thinking, auto_commit, plan_model, execute_model, auto_push)
+        SELECT key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, plan_mode, thinking_level, custom_tags, custom_instructions, plan_thinking, execute_thinking, auto_commit, plan_model, execute_model, auto_push FROM config;
+      DROP TABLE config;
+      ALTER TABLE config_new RENAME TO config;
+    `);
+    db.exec(`PRAGMA foreign_keys = ON`);
+  }
 }

@@ -4,9 +4,9 @@ import type { ConfigData, CliProvider } from "@/lib/api";
 import { config as configApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, X } from "lucide-react";
 import { CaffeineToggle } from "@/components/CaffeineToggle";
+import { ExecutionSettings } from "@/components/settings/ExecutionSettings";
 
 const CLI_PROVIDERS: { value: CliProvider; label: string; description: string }[] = [
   { value: "claude", label: "Claude Code", description: "Anthropic Claude CLI" },
@@ -226,95 +226,23 @@ export function GlobalSettings() {
         {/* Execution Tab */}
         {activeTab === "execution" && (
           <>
-            <div>
-              <label className="text-sm font-medium mb-1 block">Default Max Budget (USD)</label>
-              <Input
-                type="number"
-                min={0}
-                step={0.5}
-                value={maxBudgetUsd}
-                onChange={(e) => setMaxBudgetUsd(Number(e.target.value))}
-              />
-            </div>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoConfirm}
-                onChange={(e) => setAutoConfirm(e.target.checked)}
-                className="accent-primary"
-              />
-              <span className="text-sm font-medium">Auto-confirm permissions</span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoCommit}
-                onChange={(e) => setAutoCommit(e.target.checked)}
-                className="accent-primary"
-              />
-              <span className="text-sm font-medium">Auto-commit changes when done</span>
-            </label>
-
-            <label className={`flex items-center gap-2 cursor-pointer ${!autoCommit ? "opacity-50" : ""}`}>
-              <input
-                type="checkbox"
-                checked={autoPush}
-                onChange={(e) => setAutoPush(e.target.checked)}
-                disabled={!autoCommit}
-                className="accent-primary"
-              />
-              <span className="text-sm font-medium">Auto-push after commit</span>
-            </label>
-
-            <div>
-              <label className="text-sm font-medium mb-1 block">Plan Thinking</label>
-              <div className="flex items-center gap-3">
-                {(["smart", "basic"] as const).map((level) => (
-                  <label key={level} className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={planThinking === level}
-                      onChange={() => setPlanThinking(planThinking === level ? null : level)}
-                      className="accent-primary"
-                    />
-                    <span className="text-sm">{level === "smart" ? "Smart" : "Normal"}</span>
-                  </label>
-                ))}
-                {planThinking === null && (
-                  <span className="text-xs text-muted-foreground">— No plan phase</span>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-1 block">Execute Thinking</label>
-              <div className="flex items-center gap-3">
-                {(["smart", "basic"] as const).map((level) => (
-                  <label key={level} className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <input
-                      type="radio"
-                      name="global-execute-thinking"
-                      checked={executeThinking === level}
-                      onChange={() => setExecuteThinking(level)}
-                      className="accent-primary"
-                    />
-                    <span className="text-sm">{level === "smart" ? "Smart" : "Normal"}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-1 block">Custom Instructions</label>
-              <Textarea
-                placeholder="Additional instructions for the AI..."
-                value={customInstructions}
-                onChange={(e) => setCustomInstructions(e.target.value)}
-                className="min-h-[80px]"
-              />
-            </div>
+            <ExecutionSettings
+              maxBudgetUsd={maxBudgetUsd}
+              onMaxBudgetUsdChange={setMaxBudgetUsd}
+              autoConfirm={autoConfirm}
+              onAutoConfirmChange={setAutoConfirm}
+              autoCommit={autoCommit}
+              onAutoCommitChange={setAutoCommit}
+              autoPush={autoPush}
+              onAutoPushChange={setAutoPush}
+              planThinking={planThinking}
+              onPlanThinkingChange={setPlanThinking}
+              executeThinking={executeThinking}
+              onExecuteThinkingChange={setExecuteThinking}
+              customInstructions={customInstructions}
+              onCustomInstructionsChange={setCustomInstructions}
+              radioPrefix="global"
+            />
 
             <div>
               <label className="text-sm font-medium mb-1 block">Custom Tags</label>
