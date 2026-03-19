@@ -59,7 +59,7 @@ export const WSEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("notification"),
     payload: z.object({
-      level: z.enum(["success", "error", "info"]),
+      level: z.enum(["success", "error", "info", "warning"]),
       title: z.string(),
       message: z.string(),
     }),
