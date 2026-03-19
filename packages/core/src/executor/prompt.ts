@@ -25,7 +25,9 @@ export function buildPrompt(ctx: PromptContext): string {
 
   // Task
   parts.push(`## Task`);
-  parts.push(card.title);
+  if (card.title) {
+    parts.push(card.title);
+  }
   parts.push("");
 
   if (card.description) {

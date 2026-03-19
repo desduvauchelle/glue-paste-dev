@@ -115,7 +115,7 @@ export function CardDialog({
 	}, [configDefaults, autoCommit, autoPush])
 
 	const handleSave = async () => {
-		if (!title.trim()) return
+		if (!title.trim() && !description.trim()) return
 		if (isEditing) {
 			await onUpdate(card.id, {
 				title: title.trim(),
@@ -190,6 +190,7 @@ export function CardDialog({
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 									className="min-h-[120px]"
+									autoFocus={!isEditing}
 								/>
 							</div>
 
@@ -580,7 +581,7 @@ export function CardDialog({
 					<Button variant="outline" onClick={() => onOpenChange(false)}>
 						Cancel
 					</Button>
-					<Button onClick={() => void handleSave()} disabled={!title.trim()}>
+					<Button onClick={() => void handleSave()} disabled={!title.trim() && !description.trim()}>
 						{isEditing ? "Save" : "Create"}
 					</Button>
 				</DialogFooter>

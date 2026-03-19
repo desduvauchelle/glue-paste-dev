@@ -9,7 +9,7 @@ import {
   resumeQueue,
   getQueueState,
 } from "@glue-paste-dev/core";
-import { boardsDb } from "@glue-paste-dev/core";
+import { boardsDb, cardLabel } from "@glue-paste-dev/core";
 import type { BoardId, CardId, QueueCallbacks } from "@glue-paste-dev/core";
 
 function makeCallbacks(db: Database, broadcast: (event: unknown) => void): QueueCallbacks {
@@ -84,9 +84,10 @@ function makeCallbacks(db: Database, broadcast: (event: unknown) => void): Queue
       });
       const board = boardsDb.getBoard(db, card.board_id as BoardId);
       const boardName = board?.name ?? "Unknown Board";
+      const label = cardLabel(card);
       const notifMap: Record<string, { level: string; title: string; message: string }> = {
-        done: { level: "success", title: `Card Completed — ${boardName}`, message: `"${card.title}" completed successfully` },
-        failed: { level: "error", title: `Card Failed — ${boardName}`, message: `"${card.title}" failed` },
+        done: { level: "success", title: `Card Completed — ${boardName}`, message: `"${label}" completed successfully` },
+        failed: { level: "error", title: `Card Failed — ${boardName}`, message: `"${label}" failed` },
       };
       const notif = notifMap[card.status as string];
       if (notif) {

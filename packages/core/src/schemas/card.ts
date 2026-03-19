@@ -18,7 +18,7 @@ export const DEFAULT_TAGS = ["UX", "design", "backend", "logic"] as const;
 export const CardSchema = z.object({
   id: CardIdSchema,
   board_id: BoardIdSchema,
-  title: z.string().min(1),
+  title: z.string().default(""),
   description: z.string().default(""),
   status: CardStatus.default("todo"),
   position: z.number().int().default(0),
@@ -37,7 +37,7 @@ export const CardWithTagsSchema = CardSchema.extend({
 });
 
 export const CreateCardSchema = z.object({
-  title: z.string().min(1),
+  title: z.string().optional().default(""),
   description: z.string().optional().default(""),
   tags: z.array(z.string()).optional().default([]),
   files: z.array(z.string()).optional().default([]),
@@ -51,7 +51,7 @@ export const CreateCardSchema = z.object({
 });
 
 export const UpdateCardSchema = z.object({
-  title: z.string().min(1).optional(),
+  title: z.string().optional(),
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
   files: z.array(z.string()).optional(),

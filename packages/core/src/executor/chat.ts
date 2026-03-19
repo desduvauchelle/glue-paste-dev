@@ -5,6 +5,7 @@ import { buildPrompt } from "./prompt.js";
 import { buildCliCommand } from "./cli-adapter.js";
 import { parseStreamLine } from "./stream-parser.js";
 import { log } from "../logger.js";
+import { cardLabel } from "../utils/cardLabel.js";
 
 /** Track active chat processes by cardId */
 const activeChatProcesses = new Map<string, ReturnType<typeof Bun.spawn>>();
@@ -58,7 +59,7 @@ export async function runChat(
   const { card, board, comments, config, mode, userMessage, thinking } = options;
   const cardId = card.id as CardId;
 
-  log.info("chat", `Chat message for card "${card.title}" (${cardId}), mode=${mode}`);
+  log.info("chat", `Chat message for card "${cardLabel(card)}" (${cardId}), mode=${mode}`);
 
   // Save user message as comment
   const userComment = commentsDb.createComment(db, cardId, {

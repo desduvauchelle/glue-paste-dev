@@ -8,6 +8,7 @@ import { getMergedConfig } from "../config/manager.js";
 import { runCard, killCardProcess, type RunnerCallbacks } from "./runner.js";
 import type { RateLimitInfo } from "./rate-limit.js";
 import { log } from "../logger.js";
+import { cardLabel } from "../utils/cardLabel.js";
 
 export interface QueueState {
   boardId: string;
@@ -95,7 +96,7 @@ export async function executeSingleCard(
   const board = boardsDb.getBoard(db, card.board_id as BoardId);
   if (!board) throw new Error(`Board ${card.board_id} not found`);
 
-  log.info("queue", `Executing single card "${card.title}" (${cardId})`);
+  log.info("queue", `Executing single card "${cardLabel(card)}" (${cardId})`);
   const comments = commentsDb.listComments(db, cardId);
   const config = applyCardOverrides(getMergedConfig(db, card.board_id as BoardId), card);
 
@@ -263,7 +264,7 @@ async function processQueue(
 
         callbacks.onQueueStopped(
           boardId,
-          `Card "${card.title}" failed after retry (blocking)`
+          `Card "${cardLabel(card)}" failed after retry (blocking)`
         );
       } else {
         // Non-blocking card: continue to next card
@@ -298,12 +299,12 @@ function notifyRateLimitOrOverload(
   if (rateLimitInfo.isOverloaded) {
     const comment = commentsDb.addSystemComment(db, cardId, "", `Claude servers are overloaded. Retrying in ${retrySeconds}s.`);
     callbacks.onCommentAdded(comment);
-    callbacks.onOverloaded?.(card.board_id, card.title, retrySeconds);
+    callbacks.onOverloaded?.(card.board_id, cardLabel(card), retrySeconds);
   } else {
     const msg = rateLimitInfo.resetMessage ?? "Check provider dashboard for reset time.";
     const comment = commentsDb.addSystemComment(db, cardId, "", `Rate limited. Retrying in ${retrySeconds}s. ${msg}`);
     callbacks.onCommentAdded(comment);
-    callbacks.onRateLimited?.(card.board_id, card.title, retrySeconds, rateLimitInfo.resetMessage);
+    callbacks.onRateLimited?.(card.board_id, cardLabel(card), retrySeconds, rateLimitInfo.resetMessage);
   }
 }
 
@@ -322,12 +323,12 @@ function handleRateLimited(
   if (rateLimitInfo.isOverloaded) {
     const comment = commentsDb.addSystemComment(db, cardId, "", `Claude servers are overloaded. Retrying in ${retrySeconds}s.`);
     callbacks.onCommentAdded(comment);
-    callbacks.onOverloaded?.(boardId, card.title, retrySeconds);
+    callbacks.onOverloaded?.(boardId, cardLabel(card), retrySeconds);
   } else {
     const msg = rateLimitInfo.resetMessage ?? "Check provider dashboard for reset time.";
     const comment = commentsDb.addSystemComment(db, cardId, "", `Rate limited. Retrying in ${retrySeconds}s. ${msg}`);
     callbacks.onCommentAdded(comment);
-    callbacks.onRateLimited?.(boardId, card.title, retrySeconds, rateLimitInfo.resetMessage);
+    callbacks.onRateLimited?.(boardId, cardLabel(card), retrySeconds, rateLimitInfo.resetMessage);
   }
 
   const updated = cardsDb.getCard(db, cardId);
@@ -341,7 +342,7 @@ function handleRateLimited(
     callbacks.onQueueUpdated(boardId, state.queue, null, true);
   }
 
-  log.warn("queue", `${rateLimitInfo.isOverloaded ? "Overloaded" : "Rate limited"} on card "${card.title}". Queue paused, auto-resuming in ${retrySeconds}s.`);
+  log.warn("queue", `${rateLimitInfo.isOverloaded ? "Overloaded" : "Rate limited"} on card "${cardLabel(card)}". Queue paused, auto-resuming in ${retrySeconds}s.`);
 
   // Auto-resume after delay
   setTimeout(() => {

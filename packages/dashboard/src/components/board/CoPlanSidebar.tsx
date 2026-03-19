@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { X, Send, Square, Brain, Zap, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { cardLabel } from "@glue-paste-dev/core";
 
 interface CoPlanSidebarProps {
   card: CardWithTags;
@@ -63,7 +64,7 @@ export function CoPlanSidebar({ card, onClose }: CoPlanSidebarProps) {
       <div className="border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0" />
-          <h3 className="text-sm font-semibold truncate">{card.title}</h3>
+          <h3 className="text-sm font-semibold truncate">{cardLabel(card)}</h3>
         </div>
         <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
           <X className="w-4 h-4" />

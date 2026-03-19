@@ -1,5 +1,4 @@
 import type { ConfigInput } from "../types/index.js";
-import type { CliProvider } from "../schemas/config.js";
 
 export interface CliCommand {
   /** The command and its arguments to spawn */
@@ -118,7 +117,7 @@ function buildAiderCommand(
 }
 
 function buildCopilotCommand(
-  config: Required<ConfigInput>,
+  _config: Required<ConfigInput>,
   prompt: string
 ): CliCommand {
   const args = ["gh", "copilot", "suggest", prompt];

@@ -8,6 +8,7 @@ import { parseStreamLine } from "./stream-parser.js";
 import { buildCliCommand } from "./cli-adapter.js";
 import { detectRateLimit } from "./rate-limit.js";
 import { log } from "../logger.js";
+import { cardLabel } from "../utils/cardLabel.js";
 
 /** Track active processes by cardId so they can be killed */
 const activeCardProcesses = new Map<string, { proc: ReturnType<typeof Bun.spawn>; executionId: string }>();
@@ -56,7 +57,7 @@ export async function runCard(
   callbacks: RunnerCallbacks,
   options?: { existingPlanOutput?: string }
 ): Promise<RunResult> {
-  log.info("runner", `Running card "${card.title}" (${card.id}) on board "${board.name}"`);
+  log.info("runner", `Running card "${cardLabel(card)}" (${card.id}) on board "${board.name}"`);
   log.debug("runner", `Starting execution for card ${card.id}`);
   cardsDb.updateCardStatus(db, card.id as CardId, "in-progress");
   const inProgressCard = cardsDb.getCard(db, card.id as CardId);
@@ -161,7 +162,7 @@ async function executePhase(
   callbacks: RunnerCallbacks,
   planOutput?: string
 ): Promise<RunResult> {
-  log.info("runner", `Phase "${phase}" starting for card "${card.title}" (${card.id})`);
+  log.info("runner", `Phase "${phase}" starting for card "${cardLabel(card)}" (${card.id})`);
   const sessionId = crypto.randomUUID();
   log.debug("runner", `Phase "${phase}" using session ${sessionId}`);
   const prompt = buildPrompt({ card, board, comments, config, phase, planOutput });

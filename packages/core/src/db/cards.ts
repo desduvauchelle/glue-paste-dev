@@ -1,6 +1,5 @@
 import type { Database } from "bun:sqlite";
 import type {
-  Card,
   CardId,
   CardWithTags,
   CreateCard,

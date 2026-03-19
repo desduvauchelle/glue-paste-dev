@@ -10,6 +10,9 @@ export * from "./schemas/config.js";
 export * from "./schemas/ws-events.js";
 export * from "./schemas/claude.js";
 
+// Utils
+export { cardLabel } from "./utils/cardLabel.js";
+
 // Types
 export type * from "./types/index.js";
 
