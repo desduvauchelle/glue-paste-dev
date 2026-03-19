@@ -79,8 +79,7 @@ export function CardDialog({
 
 	const isEditing = card !== null
 
-	// Split comments into user comments and system/execution comments
-	const userComments = comments.filter((c) => c.author !== "system")
+	// Split comments into system/execution comments for sidebar panel
 	const systemComments = comments.filter((c) => c.author === "system")
 
 	useEffect(() => {
@@ -275,7 +274,7 @@ export function CardDialog({
 								<div>
 									<div className="flex items-center justify-between mb-1">
 										<label className="text-sm font-medium">
-											Activity ({userComments.length})
+											Activity ({comments.length})
 										</label>
 										{comments.length > 0 && (
 											<Button
@@ -290,16 +289,16 @@ export function CardDialog({
 										)}
 									</div>
 									<ScrollArea className="max-h-[200px] border rounded-md p-2">
-										{userComments.length === 0 ? (
+										{comments.length === 0 ? (
 											<p className="text-xs text-muted-foreground py-2 text-center">
 												No comments yet
 											</p>
 										) : (
 											<div className="space-y-2">
-												{userComments.map((comment) => (
+												{comments.map((comment) => (
 													<div
 														key={comment.id}
-														className="text-xs border-l-2 pl-2 border-border"
+														className={`text-xs border-l-2 pl-2 ${comment.author === "system" ? "border-muted-foreground/40" : "border-border"}`}
 													>
 														<span className="font-semibold capitalize text-muted-foreground">
 															{comment.author}

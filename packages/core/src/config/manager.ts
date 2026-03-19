@@ -73,7 +73,7 @@ export function getProjectConfig(
     .query("SELECT * FROM config WHERE key = ?")
     .get(boardId) as ConfigRow | null;
   if (!row) return null;
-  return rowToConfigInput(row);
+  return rowToPartialConfig(row);
 }
 
 /** Get raw project config with NULLs preserved (undefined = inherit from global) */

@@ -67,7 +67,7 @@ export function CardExecutionInfo({ card }: { card: CardWithTags }) {
   const isRunning = card.status === "in-progress";
 
   if (isRunning) {
-    const planSkipped = card.plan_thinking === null;
+    const planSkipped = executeExec !== undefined && planExec === undefined;
     return (
       <div className="mt-1.5 ml-5 flex flex-col gap-0.5 text-[11px] text-muted-foreground">
         {/* Plan phase line */}

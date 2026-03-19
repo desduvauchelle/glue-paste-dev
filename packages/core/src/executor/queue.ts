@@ -26,7 +26,7 @@ export interface QueueCallbacks extends RunnerCallbacks {
 }
 
 /** Apply per-card overrides (plan_thinking, execute_thinking, auto_commit) to config */
-function applyCardOverrides(
+export function applyCardOverrides(
   config: Required<ConfigInput>,
   card: CardWithTags
 ): Required<ConfigInput> {

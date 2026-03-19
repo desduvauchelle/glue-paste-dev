@@ -32,8 +32,7 @@ export function useComments(cardId: string | null) {
   const add = useCallback(
     async (content: string) => {
       if (!cardId) return;
-      const comment = await commentsApi.create(cardId, { content });
-      setData((prev) => [...prev, comment]);
+      await commentsApi.create(cardId, { content });
     },
     [cardId]
   );
