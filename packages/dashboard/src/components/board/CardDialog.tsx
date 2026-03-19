@@ -44,6 +44,7 @@ export function CardDialog({
 	onDelete,
 	onPlay,
 	defaultStatus,
+	boardName,
 }: CardDialogProps) {
 	const [title, setTitle] = useState("")
 	const [description, setDescription] = useState("")
@@ -161,7 +162,7 @@ export function CardDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
 				<DialogHeader>
-					<DialogTitle>{isEditing ? "Edit Card" : "New Card"}</DialogTitle>
+					<DialogTitle>{isEditing ? "Edit Card" : "New Card"}{boardName && !isEditing ? ` — ${boardName}` : ""}</DialogTitle>
 				</DialogHeader>
 
 				<div className="flex-1 overflow-y-auto py-2 px-1 -mx-1">

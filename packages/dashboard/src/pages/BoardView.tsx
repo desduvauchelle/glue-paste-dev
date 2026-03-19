@@ -71,6 +71,13 @@ export function BoardView({ params }: BoardViewProps) {
 		})
 	}, [boardId])
 
+	useEffect(() => {
+		if (board) {
+			document.title = `${board.name} — Glue Paste`
+		}
+		return () => { document.title = "Glue Paste" }
+	}, [board])
+
 	// When auto-run is toggled ON, start queue if there are queued cards
 	useEffect(() => {
 		if (autoRun && !queueRunning && (grouped.queued?.length ?? 0) > 0) {
@@ -261,6 +268,7 @@ export function BoardView({ params }: BoardViewProps) {
 				onOpenChange={setDialogOpen}
 				card={selectedCard}
 				boardId={boardId}
+				boardName={board?.name}
 				onCreate={create}
 				onUpdate={update}
 				onDelete={remove}
