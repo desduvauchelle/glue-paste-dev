@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { X, Send, Square, Brain, Zap, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { cardLabel } from "@glue-paste-dev/core";
+import { cardLabel } from "@glue-paste-dev/core/browser";
 
 interface CoPlanSidebarProps {
   card: CardWithTags;

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle, MessageSquare, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { cardLabel } from "@glue-paste-dev/core";
+import { cardLabel } from "@glue-paste-dev/core/browser";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useExecutions } from "@/hooks/use-executions";
