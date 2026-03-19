@@ -60,6 +60,8 @@ export const cards = {
     }),
   delete: (id: string) =>
     request<{ ok: boolean }>(`/cards/${id}`, { method: "DELETE" }),
+  moveToBoard: (id: string, boardId: string) =>
+    request<CardWithTags>(`/cards/${id}/move-to-board`, { method: "PATCH", body: JSON.stringify({ board_id: boardId }) }),
   execute: (id: string) =>
     request<{ ok: boolean }>(`/cards/${id}/execute`, { method: "POST" }),
   stop: (id: string) =>

@@ -76,3 +76,9 @@ export const ReorderCardsSchema = z.array(
     position: z.number().int(),
   })
 );
+
+export const MoveCardToBoardSchema = z.object({
+  board_id: z.string(),
+});
+
+export type MoveCardToBoard = z.infer<typeof MoveCardToBoardSchema>;

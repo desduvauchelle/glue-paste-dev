@@ -12,6 +12,12 @@ vi.mock("@/lib/api", () => ({
   executions: {
     list: vi.fn(() => Promise.resolve([])),
   },
+  boards: {
+    list: vi.fn(() => Promise.resolve([])),
+  },
+  cards: {
+    moveToBoard: vi.fn(() => Promise.resolve()),
+  },
 }));
 
 vi.mock("@/lib/ws", () => ({

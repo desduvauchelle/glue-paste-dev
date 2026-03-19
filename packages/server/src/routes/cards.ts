@@ -6,6 +6,7 @@ import {
   UpdateCardSchema,
   MoveCardSchema,
   ReorderCardsSchema,
+  MoveCardToBoardSchema,
 } from "@glue-paste-dev/core";
 import type { BoardId, CardId } from "@glue-paste-dev/core";
 
@@ -84,6 +85,23 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
     );
     if (!card) return c.json({ error: "Card not found" }, 404);
     broadcast({ type: "card:updated", payload: card });
+    return c.json(card);
+  });
+
+  // PATCH /api/cards/:cardId/move-to-board
+  app.patch("/:cardId/move-to-board", async (c) => {
+    const cardId = c.req.param("cardId") as CardId;
+    const oldCard = cardsDb.getCard(db, cardId);
+    if (!oldCard) return c.json({ error: "Card not found" }, 404);
+    const body = await c.req.json();
+    const parsed = MoveCardToBoardSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400);
+    }
+    const card = cardsDb.moveCardToBoard(db, cardId, parsed.data.board_id);
+    if (!card) return c.json({ error: "Card not found" }, 404);
+    broadcast({ type: "card:deleted", payload: { cardId: oldCard.id, boardId: oldCard.board_id } });
+    broadcast({ type: "card:created", payload: card });
     return c.json(card);
   });
 

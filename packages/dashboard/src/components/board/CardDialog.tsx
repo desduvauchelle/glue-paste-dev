@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
-import type { CardWithTags, CreateCard, UpdateCard } from "@/lib/api"
-import { config as configApi } from "@/lib/api"
+import type { CardWithTags, CreateCard, UpdateCard, Board } from "@/lib/api"
+import { config as configApi, boards as boardsApi, cards as cardsApi } from "@/lib/api"
 import { useComments } from "@/hooks/use-comments"
 import {
 	Dialog,
@@ -60,6 +60,9 @@ export function CardDialog({
 	const [commentText, setCommentText] = useState("")
 	const [confirmDelete, setConfirmDelete] = useState(false)
 	const [expandedExecutions, setExpandedExecutions] = useState<Set<string>>(new Set())
+	const [allBoards, setAllBoards] = useState<Board[]>([])
+	const [moveTargetBoardId, setMoveTargetBoardId] = useState("")
+	const [isMoving, setIsMoving] = useState(false)
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
 
@@ -110,6 +113,14 @@ export function CardDialog({
 		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit, autoPush: c.autoPush }))
 	}, [boardId])
 
+	useEffect(() => {
+		void boardsApi.list().then(setAllBoards)
+	}, [])
+
+	useEffect(() => {
+		setMoveTargetBoardId("")
+	}, [card, open])
+
 
 	const handleSave = async () => {
 		if (!title.trim() && !description.trim()) return
@@ -149,6 +160,14 @@ export function CardDialog({
 			return
 		}
 		await onDelete(card.id)
+		onOpenChange(false)
+	}
+
+	const handleMoveToBoard = async () => {
+		if (!isEditing || !moveTargetBoardId) return
+		setIsMoving(true)
+		await cardsApi.moveToBoard(card.id, moveTargetBoardId)
+		setIsMoving(false)
 		onOpenChange(false)
 	}
 
@@ -563,6 +582,45 @@ export function CardDialog({
 											})}
 										</div>
 									</ScrollArea>
+								</SidebarPanel>
+							)}
+
+							{/* Advanced Panel (only when editing) */}
+							{isEditing && (
+								<SidebarPanel
+									label="Advanced"
+									icon={<Settings className="w-3.5 h-3.5" />}
+									defaultOpen={false}
+								>
+									<div className="space-y-2">
+										<label className="text-xs font-medium block text-muted-foreground uppercase tracking-wide">Move to project</label>
+										{allBoards.filter((b) => b.id !== boardId).length === 0 ? (
+											<p className="text-xs text-muted-foreground">No other projects available</p>
+										) : (
+											<div className="flex gap-2">
+												<select
+													className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5"
+													value={moveTargetBoardId}
+													onChange={(e) => setMoveTargetBoardId(e.target.value)}
+												>
+													<option value="">Select project...</option>
+													{allBoards
+														.filter((b) => b.id !== boardId)
+														.map((b) => (
+															<option key={b.id} value={b.id}>{b.name}</option>
+														))}
+												</select>
+												<Button
+													size="sm"
+													variant="outline"
+													disabled={isMoving || !moveTargetBoardId}
+													onClick={() => void handleMoveToBoard()}
+												>
+													Move
+												</Button>
+											</div>
+										)}
+									</div>
 								</SidebarPanel>
 							)}
 						</div>

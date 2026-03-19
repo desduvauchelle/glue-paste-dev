@@ -218,6 +218,30 @@ export function reorderCards(db: Database, updates: ReorderCards): void {
   tx();
 }
 
+export function moveCardToBoard(
+  db: Database,
+  cardId: string,
+  targetBoardId: string
+): CardWithTags | null {
+  const nextPos = (
+    db
+      .query(
+        "SELECT COALESCE(MAX(position), -1) + 1 as next_pos FROM cards WHERE board_id = ? AND status = 'todo'"
+      )
+      .get(targetBoardId) as { next_pos: number }
+  ).next_pos;
+
+  const row = db
+    .query(
+      `UPDATE cards SET board_id = ?, status = 'todo', position = ?, updated_at = datetime('now')
+       WHERE id = ?
+       RETURNING *`
+    )
+    .get(targetBoardId, nextPos, cardId) as CardRow | null;
+  if (!row) return null;
+  return toCardWithTags(db, row);
+}
+
 export function deleteCard(db: Database, id: CardId): boolean {
   const result = db.query("DELETE FROM cards WHERE id = ?").run(id);
   return result.changes > 0;
