@@ -54,6 +54,11 @@ export function Home() {
   }, []);
 
   useEffect(() => {
+    document.title = "Glue Paste";
+    return () => { document.title = "Glue Paste"; };
+  }, []);
+
+  useEffect(() => {
     if (boards.length > 0) {
       void fetchAllQueueStatuses(boards.map((b) => b.id));
     }

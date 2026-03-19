@@ -31,6 +31,7 @@ interface CardDialogProps {
 	onDelete: (id: string) => Promise<unknown>
 	onPlay: (id: string) => void
 	defaultStatus?: string
+	boardName?: string
 }
 
 export function CardDialog({
@@ -313,9 +314,6 @@ export function CardDialog({
 													)
 												})}
 											</div>
-											{planThinking === null && (
-												<p className="text-xs text-muted-foreground ml-11">No plan phase</p>
-											)}
 											{/* Execute row */}
 											<div className="flex items-center gap-2">
 												<span className="text-xs text-muted-foreground w-11">Exec</span>
