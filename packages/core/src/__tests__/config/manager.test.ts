@@ -5,6 +5,7 @@ import { createBoard } from "../../db/boards.js";
 import {
   getGlobalConfig,
   getProjectConfig,
+  getProjectConfigRaw,
   getMergedConfig,
   updateGlobalConfig,
   updateProjectConfig,
@@ -123,5 +124,38 @@ describe("config manager", () => {
     updateProjectConfig(db, boardId, { autoPush: false });
     const merged = getMergedConfig(db, boardId);
     expect(merged.autoPush).toBe(false);
+  });
+
+  it("should inherit global config when project only overrides planThinking", () => {
+    updateGlobalConfig(db, { autoCommit: false, executeThinking: "basic" });
+    updateProjectConfig(db, boardId, { planThinking: "smart" });
+
+    const merged = getMergedConfig(db, boardId);
+    expect(merged.planThinking).toBe("smart"); // project override
+    expect(merged.autoCommit).toBe(false); // inherited from global
+    expect(merged.executeThinking).toBe("basic"); // inherited from global
+
+    // Changing global cascades to merged
+    updateGlobalConfig(db, { autoCommit: true });
+    const merged2 = getMergedConfig(db, boardId);
+    expect(merged2.autoCommit).toBe(true); // cascaded
+    expect(merged2.planThinking).toBe("smart"); // still overridden
+  });
+
+  it("should return project planThinking via getMergedConfig", () => {
+    updateProjectConfig(db, boardId, { planThinking: "smart" });
+    const merged = getMergedConfig(db, boardId);
+    expect(merged.planThinking).toBe("smart");
+  });
+
+  it("should return undefined for unset fields in raw project config", () => {
+    updateProjectConfig(db, boardId, { planThinking: "basic" });
+    const raw = getProjectConfigRaw(db, boardId);
+    expect(raw).not.toBeNull();
+    expect(raw!.planThinking).toBe("basic");
+    // Fields not explicitly set should be undefined
+    expect(raw!.model).toBeUndefined();
+    expect(raw!.autoCommit).toBeUndefined();
+    expect(raw!.executeThinking).toBeUndefined();
   });
 });

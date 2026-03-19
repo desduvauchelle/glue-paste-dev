@@ -55,6 +55,9 @@ export function BoardSettingsDialog({
   const [color, setColor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "cli" | "execution">("general");
+  const [dirtyFields, setDirtyFields] = useState<Set<string>>(new Set());
+
+  const markDirty = (field: string) => setDirtyFields((prev) => new Set(prev).add(field));
 
   useEffect(() => {
     if (board && open) {
@@ -68,6 +71,22 @@ export function BoardSettingsDialog({
         configApi.getForBoardRaw(board.id),
         configApi.getGlobal(),
       ]).then(([raw, global]: [PartialConfigData, ConfigData]) => {
+        // Track which fields already have explicit project-level overrides
+        const existing = new Set<string>();
+        if (raw.cliProvider !== undefined) existing.add("cliProvider");
+        if (raw.cliCustomCommand !== undefined) existing.add("cliCustomCommand");
+        if (raw.model !== undefined) existing.add("model");
+        if (raw.planModel !== undefined) existing.add("planModel");
+        if (raw.executeModel !== undefined) existing.add("executeModel");
+        if (raw.maxBudgetUsd !== undefined) existing.add("maxBudgetUsd");
+        if (raw.autoConfirm !== undefined) existing.add("autoConfirm");
+        if (raw.autoCommit !== undefined) existing.add("autoCommit");
+        if (raw.autoPush !== undefined) existing.add("autoPush");
+        if (raw.planThinking !== undefined) existing.add("planThinking");
+        if (raw.executeThinking !== undefined) existing.add("executeThinking");
+        if (raw.customInstructions !== undefined) existing.add("customInstructions");
+        setDirtyFields(existing);
+
         setCliProvider(raw.cliProvider ?? global.cliProvider ?? "claude");
         setCliCustomCommand(raw.cliCustomCommand ?? global.cliCustomCommand ?? "");
         setModel(raw.model ?? global.model ?? "");
@@ -97,20 +116,21 @@ export function BoardSettingsDialog({
         color,
       });
 
-      await configApi.updateForBoard(board.id, {
-        cliProvider,
-        cliCustomCommand: cliCustomCommand.trim(),
-        model: model.trim(),
-        planModel: planModel.trim(),
-        executeModel: executeModel.trim(),
-        maxBudgetUsd,
-        autoConfirm,
-        autoCommit,
-        autoPush,
-        planThinking,
-        executeThinking,
-        customInstructions: customInstructions.trim(),
-      });
+      // Only send fields that were explicitly set at project level or changed by user
+      const configUpdate: Partial<ConfigData> = {};
+      if (dirtyFields.has("cliProvider")) configUpdate.cliProvider = cliProvider;
+      if (dirtyFields.has("cliCustomCommand")) configUpdate.cliCustomCommand = cliCustomCommand.trim();
+      if (dirtyFields.has("model")) configUpdate.model = model.trim();
+      if (dirtyFields.has("planModel")) configUpdate.planModel = planModel.trim();
+      if (dirtyFields.has("executeModel")) configUpdate.executeModel = executeModel.trim();
+      if (dirtyFields.has("maxBudgetUsd")) configUpdate.maxBudgetUsd = maxBudgetUsd;
+      if (dirtyFields.has("autoConfirm")) configUpdate.autoConfirm = autoConfirm;
+      if (dirtyFields.has("autoCommit")) configUpdate.autoCommit = autoCommit;
+      if (dirtyFields.has("autoPush")) configUpdate.autoPush = autoPush;
+      if (dirtyFields.has("planThinking")) configUpdate.planThinking = planThinking;
+      if (dirtyFields.has("executeThinking")) configUpdate.executeThinking = executeThinking;
+      if (dirtyFields.has("customInstructions")) configUpdate.customInstructions = customInstructions.trim();
+      await configApi.updateForBoard(board.id, configUpdate);
 
       onUpdated(updated);
       onOpenChange(false);
@@ -227,7 +247,7 @@ export function BoardSettingsDialog({
                         name="cliProvider"
                         value={p.value}
                         checked={cliProvider === p.value}
-                        onChange={() => setCliProvider(p.value)}
+                        onChange={() => { setCliProvider(p.value); markDirty("cliProvider"); }}
                         className="accent-primary"
                       />
                       <div>
@@ -245,7 +265,7 @@ export function BoardSettingsDialog({
                   <Input
                     placeholder="e.g., my-cli --flag"
                     value={cliCustomCommand}
-                    onChange={(e) => setCliCustomCommand(e.target.value)}
+                    onChange={(e) => { setCliCustomCommand(e.target.value); markDirty("cliCustomCommand"); }}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     The prompt will be appended as the last argument
@@ -258,7 +278,7 @@ export function BoardSettingsDialog({
                 <Input
                   placeholder="e.g., claude-opus-4-6, gemini-pro"
                   value={model}
-                  onChange={(e) => setModel(e.target.value)}
+                  onChange={(e) => { setModel(e.target.value); markDirty("model"); }}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Fallback model when no phase-specific model is set
@@ -270,7 +290,7 @@ export function BoardSettingsDialog({
                 <Input
                   placeholder="Leave empty to use thinking-level default"
                   value={planModel}
-                  onChange={(e) => setPlanModel(e.target.value)}
+                  onChange={(e) => { setPlanModel(e.target.value); markDirty("planModel"); }}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Override model used during the plan phase
@@ -282,7 +302,7 @@ export function BoardSettingsDialog({
                 <Input
                   placeholder="Leave empty to use thinking-level default"
                   value={executeModel}
-                  onChange={(e) => setExecuteModel(e.target.value)}
+                  onChange={(e) => { setExecuteModel(e.target.value); markDirty("executeModel"); }}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Override model used during the execute phase
@@ -295,19 +315,19 @@ export function BoardSettingsDialog({
           {activeTab === "execution" && (
             <ExecutionSettings
               maxBudgetUsd={maxBudgetUsd}
-              onMaxBudgetUsdChange={setMaxBudgetUsd}
+              onMaxBudgetUsdChange={(v) => { setMaxBudgetUsd(v); markDirty("maxBudgetUsd"); }}
               autoConfirm={autoConfirm}
-              onAutoConfirmChange={setAutoConfirm}
+              onAutoConfirmChange={(v) => { setAutoConfirm(v); markDirty("autoConfirm"); }}
               autoCommit={autoCommit}
-              onAutoCommitChange={setAutoCommit}
+              onAutoCommitChange={(v) => { setAutoCommit(v); markDirty("autoCommit"); }}
               autoPush={autoPush}
-              onAutoPushChange={setAutoPush}
+              onAutoPushChange={(v) => { setAutoPush(v); markDirty("autoPush"); }}
               planThinking={planThinking}
-              onPlanThinkingChange={setPlanThinking}
+              onPlanThinkingChange={(v) => { setPlanThinking(v); markDirty("planThinking"); }}
               executeThinking={executeThinking}
-              onExecuteThinkingChange={setExecuteThinking}
+              onExecuteThinkingChange={(v) => { setExecuteThinking(v); markDirty("executeThinking"); }}
               customInstructions={customInstructions}
-              onCustomInstructionsChange={setCustomInstructions}
+              onCustomInstructionsChange={(v) => { setCustomInstructions(v); markDirty("customInstructions"); }}
               radioPrefix="board"
             />
           )}

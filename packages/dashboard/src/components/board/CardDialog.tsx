@@ -293,7 +293,7 @@ export function CardDialog({
 											<div className="flex items-center gap-2">
 												<span className="text-xs text-muted-foreground w-11">Plan</span>
 												{(["smart", "basic"] as const).map((level) => {
-													const effective = planThinking !== undefined ? planThinking : configDefaults.planThinking
+													const effective = planThinking ?? configDefaults.planThinking
 													const isChecked = effective === level
 													return (
 														<label key={level} className="flex items-center gap-1 cursor-pointer select-none">
