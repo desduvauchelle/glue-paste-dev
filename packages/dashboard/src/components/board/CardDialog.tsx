@@ -108,6 +108,12 @@ export function CardDialog({
 		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit, autoPush: c.autoPush }))
 	}, [boardId])
 
+	// Resolve null (inherit) to project defaults once configDefaults loads
+	useEffect(() => {
+		if (autoCommit === null) setAutoCommit(configDefaults.autoCommit)
+		if (autoPush === null) setAutoPush(configDefaults.autoPush)
+	}, [configDefaults, autoCommit, autoPush])
+
 	const handleSave = async () => {
 		if (!title.trim()) return
 		if (isEditing) {
@@ -349,16 +355,6 @@ export function CardDialog({
 												<input
 													type="radio"
 													name="card-auto-commit"
-													checked={autoCommit === null}
-													onChange={() => setAutoCommit(null)}
-													className="accent-primary h-3.5 w-3.5"
-												/>
-												<span className="text-xs text-muted-foreground">Inherit ({configDefaults.autoCommit ? "on" : "off"})</span>
-											</label>
-											<label className="flex items-center gap-1 cursor-pointer select-none">
-												<input
-													type="radio"
-													name="card-auto-commit"
 													checked={autoCommit === true}
 													onChange={() => setAutoCommit(true)}
 													className="accent-primary h-3.5 w-3.5"
@@ -382,16 +378,6 @@ export function CardDialog({
 									<div>
 										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Auto-push</label>
 										<div className="flex items-center gap-2">
-											<label className="flex items-center gap-1 cursor-pointer select-none">
-												<input
-													type="radio"
-													name="card-auto-push"
-													checked={autoPush === null}
-													onChange={() => setAutoPush(null)}
-													className="accent-primary h-3.5 w-3.5"
-												/>
-												<span className="text-xs text-muted-foreground">Inherit ({configDefaults.autoPush ? "on" : "off"})</span>
-											</label>
 											<label className="flex items-center gap-1 cursor-pointer select-none">
 												<input
 													type="radio"
