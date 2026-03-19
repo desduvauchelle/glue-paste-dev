@@ -22,6 +22,10 @@ export function stopCaffeinate(): void {
   log.info("caffeinate", "Stopped caffeinate");
 }
 
+export function isCaffeinateActive(): boolean {
+  return proc !== null;
+}
+
 export function checkAndToggleCaffeinate(db: Database): void {
   const count = cardsDb.countActiveCards(db);
   if (count > 0) {

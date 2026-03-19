@@ -10,6 +10,7 @@ import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
 import { CoPlanSidebar } from "@/components/board/CoPlanSidebar"
 import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight } from "lucide-react"
+import { CaffeineToggle } from "@/components/CaffeineToggle"
 import { getBoardColor } from "@/lib/colors"
 
 interface BoardViewProps {
@@ -196,6 +197,7 @@ export function BoardView({ params }: BoardViewProps) {
 					</button>
 				</div>
 				<div className="flex items-center gap-2">
+					<CaffeineToggle />
 					<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSettingsOpen(true)}>
 						<Settings className="w-4 h-4" />
 					</Button>

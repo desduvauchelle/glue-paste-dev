@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, X } from "lucide-react";
+import { CaffeineToggle } from "@/components/CaffeineToggle";
 
 const CLI_PROVIDERS: { value: CliProvider; label: string; description: string }[] = [
   { value: "claude", label: "Claude Code", description: "Anthropic Claude CLI" },
@@ -112,16 +113,19 @@ export function GlobalSettings() {
   return (
     <div className="max-w-2xl mx-auto p-8">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/")}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Global Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Default settings inherited by all boards
-          </p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => setLocation("/")}>
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Global Settings</h1>
+            <p className="text-sm text-muted-foreground">
+              Default settings inherited by all boards
+            </p>
+          </div>
         </div>
+        <CaffeineToggle />
       </div>
 
       {/* Tabs */}

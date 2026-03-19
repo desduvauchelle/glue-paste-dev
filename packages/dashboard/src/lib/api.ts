@@ -145,6 +145,13 @@ export const update = {
     request<{ ok: boolean }>("/update/apply", { method: "POST" }),
 };
 
+// Caffeinate
+export const caffeinate = {
+  status: () => request<{ active: boolean }>("/caffeinate"),
+  start: () => request<{ active: boolean }>("/caffeinate", { method: "POST" }),
+  stop: () => request<{ active: boolean }>("/caffeinate", { method: "DELETE" }),
+};
+
 // Stats
 export const stats = {
   boardCounts: () => request<BoardStatusCounts>("/stats/boards"),

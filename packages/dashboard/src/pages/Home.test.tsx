@@ -34,6 +34,11 @@ vi.mock("@/lib/api", () => ({
     donePerDay: vi.fn(() => Promise.resolve([])),
     donePerDayByBoard: vi.fn(() => Promise.resolve({})),
   },
+  caffeinate: {
+    status: vi.fn(() => Promise.resolve({ active: false })),
+    start: vi.fn(() => Promise.resolve({ active: true })),
+    stop: vi.fn(() => Promise.resolve({ active: false })),
+  },
 }));
 
 vi.mock("@/lib/ws", () => ({
