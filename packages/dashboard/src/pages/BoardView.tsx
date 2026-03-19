@@ -166,8 +166,14 @@ export function BoardView({ params }: BoardViewProps) {
 		)
 	}
 
+	const boardColor = getBoardColor(board.color)
+
 	return (
 		<div className="flex flex-col h-screen">
+			{/* Project color accent bar */}
+			{boardColor && (
+				<div className="h-1.5 w-full shrink-0" style={{ backgroundColor: boardColor.bg }} />
+			)}
 			{/* Header */}
 			<header className="border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
 				<div className="flex items-center gap-3">
@@ -180,10 +186,10 @@ export function BoardView({ params }: BoardViewProps) {
 						className="text-left hover:opacity-80 transition-opacity flex items-center gap-2"
 						onClick={() => setSettingsOpen(true)}
 					>
-						{getBoardColor(board.color) && (
+						{boardColor && (
 							<span
-								className="w-3 h-3 rounded-full shrink-0"
-								style={{ backgroundColor: getBoardColor(board.color)!.bg }}
+								className="w-4 h-4 rounded-full shrink-0"
+								style={{ backgroundColor: boardColor.bg }}
 							/>
 						)}
 						<div>
