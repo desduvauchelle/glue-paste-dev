@@ -119,14 +119,28 @@ export function useCards(boardId: string) {
     await cardsApi.stop(id);
   }, []);
 
-  // Group by status
-  const grouped = {
-    todo: data.filter((c) => c.status === "todo"),
-    queued: data.filter((c) => c.status === "queued"),
-    "in-progress": data.filter((c) => c.status === "in-progress"),
-    done: data.filter((c) => c.status === "done"),
-    failed: data.filter((c) => c.status === "failed"),
-  };
+  // Group by status with per-column sort order
+  const grouped = (() => {
+    const byPosition = (a: CardWithTags, b: CardWithTags) => a.position - b.position;
+    const byCreatedAsc = (a: CardWithTags, b: CardWithTags) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return ta - tb;
+    };
+    const byCreatedDesc = (a: CardWithTags, b: CardWithTags) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
+    };
+
+    return {
+      todo: data.filter((c) => c.status === "todo").sort(byPosition),
+      queued: data.filter((c) => c.status === "queued").sort(byPosition),
+      "in-progress": data.filter((c) => c.status === "in-progress").sort(byCreatedAsc),
+      done: data.filter((c) => c.status === "done").sort(byCreatedDesc),
+      failed: data.filter((c) => c.status === "failed").sort(byCreatedDesc),
+    };
+  })();
 
   return { cards: data, grouped, loading, refresh, create, update, move, reorder, remove, execute, stop };
 }

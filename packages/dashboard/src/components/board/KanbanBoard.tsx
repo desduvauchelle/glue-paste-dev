@@ -33,6 +33,7 @@ const COLUMNS = [
 ] as const;
 
 const ADD_CARD_STATUSES = new Set(["todo", "queued"]);
+const SORTABLE_STATUSES = new Set(["todo", "queued"]);
 
 export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<CardWithTags | null>(null);
@@ -60,15 +61,6 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
   const hasCardInProgress = useMemo(() => {
     return (grouped["in-progress"]?.length ?? 0) > 0;
   }, [grouped]);
-
-  const sortedInProgressCards = useMemo(() => {
-    const cards = displayGrouped["in-progress"] ?? [];
-    return [...cards].sort((a, b) => {
-      const ta = a.updated_at ? new Date(a.updated_at).getTime() : 0;
-      const tb = b.updated_at ? new Date(b.updated_at).getTime() : 0;
-      return tb - ta;
-    });
-  }, [displayGrouped]);
 
   // All card IDs for lookup
   const allCards = useMemo(() => {
@@ -122,6 +114,9 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
       const hasOtherInProgress = inProgressCards.some((c) => c.id !== activeId);
       if (hasOtherInProgress) return;
     }
+
+    // Prevent dropping into done or failed — those are system-managed
+    if (overColumn === "done" || overColumn === "failed") return;
 
     // Move card to the new column
     setLocalGrouped((prev) => {
@@ -182,6 +177,12 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
       }
     }
 
+    // Prevent dropping into done or failed
+    if ((overColumn === "done" || overColumn === "failed") && activeColumn !== overColumn) {
+      setLocalGrouped(null);
+      return;
+    }
+
     let destCards = [...(localGrouped[overColumn] ?? [])];
 
     if (activeColumn === overColumn) {
@@ -228,13 +229,12 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
       <div className="flex gap-4 overflow-x-auto h-full px-3">
         {COLUMNS.map(({ status, title }) => {
           const isDone = status === "done";
-          const isInProgress = status === "in-progress";
           return (
             <KanbanColumn
               key={status}
               title={title}
               status={status}
-              cards={isDone ? filteredDoneCards : isInProgress ? sortedInProgressCards : (displayGrouped[status] ?? [])}
+              cards={isDone ? filteredDoneCards : (displayGrouped[status] ?? [])}
               onPlayCard={onPlayCard}
               onStopCard={onStopCard}
               onClickCard={onClickCard}
@@ -243,6 +243,7 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
               onLoadMore={isDone ? () => setDoneWeeksLoaded((w) => w + 1) : undefined}
               totalCount={isDone ? (displayGrouped["done"]?.length ?? 0) : undefined}
               hasCardInProgress={hasCardInProgress}
+              sortable={SORTABLE_STATUSES.has(status)}
               onAddCard={ADD_CARD_STATUSES.has(status) ? onAddCard : undefined}
             />
           );
