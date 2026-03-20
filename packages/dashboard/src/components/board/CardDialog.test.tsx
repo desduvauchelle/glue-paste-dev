@@ -153,4 +153,116 @@ describe("CardDialog — config defaults", () => {
       expect(basicPlanCheckbox!).toBeChecked();
     });
   });
+
+  it("preselects inherited autoCommit value for new card (no Inherit radio visible)", async () => {
+    vi.mocked(configApi.getForBoard).mockResolvedValue({
+      cliProvider: "claude",
+      cliCustomCommand: "",
+      model: "claude-opus-4-6",
+      planModel: "",
+      executeModel: "",
+      maxBudgetUsd: 10,
+      autoConfirm: true,
+      autoCommit: true,
+      autoPush: false,
+      planThinking: "smart",
+      executeThinking: "smart",
+      customTags: [],
+      customInstructions: "",
+    });
+
+    render(<CardDialog {...defaultProps} card={null} />);
+
+    await waitFor(() => {
+      const autoCommitRadios = screen.getAllByRole("radio").filter((r) =>
+        (r as HTMLInputElement).name === "card-auto-commit"
+      );
+      // Only 2 radio buttons (On/Off), no Inherit
+      expect(autoCommitRadios).toHaveLength(2);
+      // "On" should be preselected (inherited from config)
+      const onRadio = autoCommitRadios.find((r) =>
+        r.closest("label")?.textContent?.includes("On")
+      );
+      expect(onRadio).toBeChecked();
+    });
+  });
+
+  it("preselects inherited autoPush=Off for new card", async () => {
+    vi.mocked(configApi.getForBoard).mockResolvedValue({
+      cliProvider: "claude",
+      cliCustomCommand: "",
+      model: "claude-opus-4-6",
+      planModel: "",
+      executeModel: "",
+      maxBudgetUsd: 10,
+      autoConfirm: true,
+      autoCommit: false,
+      autoPush: false,
+      planThinking: "smart",
+      executeThinking: "smart",
+      customTags: [],
+      customInstructions: "",
+    });
+
+    render(<CardDialog {...defaultProps} card={null} />);
+
+    await waitFor(() => {
+      const autoPushRadios = screen.getAllByRole("radio").filter((r) =>
+        (r as HTMLInputElement).name === "card-auto-push"
+      );
+      expect(autoPushRadios).toHaveLength(2);
+      const offRadio = autoPushRadios.find((r) =>
+        r.closest("label")?.textContent?.includes("Off")
+      );
+      expect(offRadio).toBeChecked();
+    });
+  });
+
+  it("shows card-level autoCommit=true override instead of config default false", async () => {
+    vi.mocked(configApi.getForBoard).mockResolvedValue({
+      cliProvider: "claude",
+      cliCustomCommand: "",
+      model: "claude-opus-4-6",
+      planModel: "",
+      executeModel: "",
+      maxBudgetUsd: 10,
+      autoConfirm: true,
+      autoCommit: false,
+      autoPush: false,
+      planThinking: "smart",
+      executeThinking: "smart",
+      customTags: [],
+      customInstructions: "",
+    });
+
+    const cardWithOverride = {
+      id: "card-1",
+      board_id: "board-1",
+      title: "Test card",
+      description: "desc",
+      status: "todo" as const,
+      position: 0,
+      blocking: false,
+      plan_thinking: null,
+      execute_thinking: null,
+      auto_commit: true,
+      auto_push: null,
+      files: [],
+      tags: [],
+      created_at: "",
+      updated_at: "",
+    };
+
+    render(<CardDialog {...defaultProps} card={cardWithOverride} />);
+
+    await waitFor(() => {
+      const autoCommitRadios = screen.getAllByRole("radio").filter((r) =>
+        (r as HTMLInputElement).name === "card-auto-commit"
+      );
+      const onRadio = autoCommitRadios.find((r) =>
+        r.closest("label")?.textContent?.includes("On")
+      );
+      expect(onRadio).toBeChecked();
+    });
+  });
 });

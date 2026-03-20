@@ -427,36 +427,21 @@ export function CardDialog({
 									<div>
 										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Auto-commit</label>
 										<div className="flex items-center gap-2">
-											<label className="flex items-center gap-1 cursor-pointer select-none">
-												<input
-													type="radio"
-													name="card-auto-commit"
-													checked={autoCommit === null}
-													onChange={() => setAutoCommit(null)}
-													className="accent-primary h-3.5 w-3.5"
-												/>
-												<span className="text-xs">Inherit ({configDefaults.autoCommit ? "On" : "Off"})</span>
-											</label>
-											<label className="flex items-center gap-1 cursor-pointer select-none">
-												<input
-													type="radio"
-													name="card-auto-commit"
-													checked={autoCommit === true}
-													onChange={() => setAutoCommit(true)}
-													className="accent-primary h-3.5 w-3.5"
-												/>
-												<span className="text-xs">On</span>
-											</label>
-											<label className="flex items-center gap-1 cursor-pointer select-none">
-												<input
-													type="radio"
-													name="card-auto-commit"
-													checked={autoCommit === false}
-													onChange={() => setAutoCommit(false)}
-													className="accent-primary h-3.5 w-3.5"
-												/>
-												<span className="text-xs">Off</span>
-											</label>
+											{([true, false] as const).map((val) => {
+												const effective = autoCommit ?? configDefaults.autoCommit
+												return (
+													<label key={String(val)} className="flex items-center gap-1 cursor-pointer select-none">
+														<input
+															type="radio"
+															name="card-auto-commit"
+															checked={effective === val}
+															onChange={() => setAutoCommit(val)}
+															className="accent-primary h-3.5 w-3.5"
+														/>
+														<span className="text-xs">{val ? "On" : "Off"}</span>
+													</label>
+												)
+											})}
 										</div>
 									</div>
 
@@ -464,36 +449,21 @@ export function CardDialog({
 									<div>
 										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Auto-push</label>
 										<div className="flex items-center gap-2">
-											<label className="flex items-center gap-1 cursor-pointer select-none">
-												<input
-													type="radio"
-													name="card-auto-push"
-													checked={autoPush === null}
-													onChange={() => setAutoPush(null)}
-													className="accent-primary h-3.5 w-3.5"
-												/>
-												<span className="text-xs">Inherit ({configDefaults.autoPush ? "On" : "Off"})</span>
-											</label>
-											<label className="flex items-center gap-1 cursor-pointer select-none">
-												<input
-													type="radio"
-													name="card-auto-push"
-													checked={autoPush === true}
-													onChange={() => setAutoPush(true)}
-													className="accent-primary h-3.5 w-3.5"
-												/>
-												<span className="text-xs">On</span>
-											</label>
-											<label className="flex items-center gap-1 cursor-pointer select-none">
-												<input
-													type="radio"
-													name="card-auto-push"
-													checked={autoPush === false}
-													onChange={() => setAutoPush(false)}
-													className="accent-primary h-3.5 w-3.5"
-												/>
-												<span className="text-xs">Off</span>
-											</label>
+											{([true, false] as const).map((val) => {
+												const effective = autoPush ?? configDefaults.autoPush
+												return (
+													<label key={String(val)} className="flex items-center gap-1 cursor-pointer select-none">
+														<input
+															type="radio"
+															name="card-auto-push"
+															checked={effective === val}
+															onChange={() => setAutoPush(val)}
+															className="accent-primary h-3.5 w-3.5"
+														/>
+														<span className="text-xs">{val ? "On" : "Off"}</span>
+													</label>
+												)
+											})}
 										</div>
 									</div>
 								</div>
