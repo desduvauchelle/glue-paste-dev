@@ -38,8 +38,12 @@ export function BoardView({ params }: BoardViewProps) {
 
 	const { grouped, create, update, reorder, remove, execute, stop, loading } = useCards(boardId)
 
+	const hasInProgressRef = useRef(false)
+	hasInProgressRef.current = (grouped["in-progress"]?.length ?? 0) > 0
+
 	const tryStartQueue = useCallback(async () => {
 		if (!autoRunRef.current || queueRunning) return
+		if (hasInProgressRef.current) return
 		try {
 			await queueApi.start(boardId)
 			setQueueRunning(true)
