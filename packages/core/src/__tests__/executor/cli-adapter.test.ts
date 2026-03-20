@@ -63,14 +63,14 @@ describe("cli-adapter", () => {
     ).toThrow();
   });
 
-  it("should add --resume flag when resume is true", () => {
+  it("should use --resume with session id when resume is true", () => {
     const cmd = buildCliCommand(makeConfig(), "do stuff", "sess-1", "execute", true);
     expect(cmd.args).toContain("--resume");
-    expect(cmd.args).toContain("--session-id");
     expect(cmd.args).toContain("sess-1");
+    expect(cmd.args).not.toContain("--session-id");
   });
 
-  it("should not add --resume flag when resume is false or omitted", () => {
+  it("should use --session-id when resume is false or omitted", () => {
     const cmd1 = buildCliCommand(makeConfig(), "do stuff", "sess-1", "plan", false);
     expect(cmd1.args).not.toContain("--resume");
     expect(cmd1.args).toContain("--session-id");

@@ -59,7 +59,7 @@ function buildClaudeCommand(
   ];
 
   if (resume) {
-    args.push("--resume", "--session-id", sessionId);
+    args.push("--resume", sessionId);
   } else {
     args.push("--session-id", sessionId);
   }
