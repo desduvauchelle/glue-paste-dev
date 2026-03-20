@@ -99,8 +99,10 @@ export async function runChat(
   });
 
   // Reuse the card's last session so chat continues the same conversation
-  const sessionId = executionsDb.getLastSessionId(db, cardId) ?? crypto.randomUUID();
-  const cliCmd = buildCliCommand(chatConfig, prompt, sessionId, mode);
+  const existingSessionId = executionsDb.getLastSessionId(db, cardId);
+  const sessionId = existingSessionId ?? crypto.randomUUID();
+  const resume = existingSessionId !== null;
+  const cliCmd = buildCliCommand(chatConfig, prompt, sessionId, mode, resume);
   const args = cliCmd.args;
 
   log.debug("chat", `Spawning chat: ${args.join(" ")}`);

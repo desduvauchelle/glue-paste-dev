@@ -102,20 +102,20 @@ export async function runCard(
     } else {
       // Phase 1: Plan
       const planConfig = { ...config, model: resolveModel("plan", config.planThinking!) };
-      result = await executePhase(db, card, board, comments, planConfig, "plan", callbacks, sessionId);
+      result = await executePhase(db, card, board, comments, planConfig, "plan", callbacks, sessionId, false);
       if (!result.success) {
         return result;
       }
     }
 
-    // Phase 2: Execute (with plan context)
+    // Phase 2: Execute (with plan context) — resume the session from plan phase
     const planOutput = existingPlan ?? result!.output;
     const execConfig = { ...config, model: resolveModel("execute", config.executeThinking ?? "smart") };
-    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, sessionId, planOutput);
+    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, sessionId, true, planOutput);
   } else {
     // Single phase: just execute directly
     const execConfig = { ...config, model: resolveModel("execute", config.executeThinking ?? "smart") };
-    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, sessionId);
+    result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, sessionId, false);
   }
 
   return result;
@@ -176,6 +176,7 @@ async function executePhase(
   phase: "plan" | "execute",
   callbacks: RunnerCallbacks,
   sessionId: string,
+  resume: boolean,
   planOutput?: string
 ): Promise<RunResult> {
   log.info("runner", `Phase "${phase}" starting for card "${cardLabel(card)}" (${card.id})`);
@@ -202,7 +203,7 @@ async function executePhase(
   }
 
   // Build CLI command using the configured provider
-  const cliCmd = buildCliCommand(config, prompt, sessionId, phase);
+  const cliCmd = buildCliCommand(config, prompt, sessionId, phase, resume);
   const args = cliCmd.args;
 
   log.info("runner", `Using CLI provider: ${config.cliProvider}`);

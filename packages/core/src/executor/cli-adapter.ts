@@ -17,13 +17,14 @@ export function buildCliCommand(
   config: Required<ConfigInput>,
   prompt: string,
   sessionId: string,
-  phase: "plan" | "execute"
+  phase: "plan" | "execute",
+  resume?: boolean
 ): CliCommand {
   const provider = config.cliProvider ?? "claude";
 
   switch (provider) {
     case "claude":
-      return buildClaudeCommand(config, prompt, sessionId, phase);
+      return buildClaudeCommand(config, prompt, sessionId, phase, resume);
     case "gemini":
       return buildGeminiCommand(config, prompt);
     case "codex":
@@ -45,7 +46,8 @@ function buildClaudeCommand(
   config: Required<ConfigInput>,
   prompt: string,
   sessionId: string,
-  phase: "plan" | "execute"
+  phase: "plan" | "execute",
+  resume?: boolean
 ): CliCommand {
   const args = [
     "claude",
@@ -54,9 +56,13 @@ function buildClaudeCommand(
     "--output-format",
     "stream-json",
     "--verbose",
-    "--session-id",
-    sessionId,
   ];
+
+  if (resume) {
+    args.push("--resume", "--session-id", sessionId);
+  } else {
+    args.push("--session-id", sessionId);
+  }
 
   if (config.model) {
     args.push("--model", config.model);
