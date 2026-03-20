@@ -30,8 +30,15 @@ export function applyCardOverrides(
   config: Required<ConfigInput>,
   card: CardWithTags
 ): Required<ConfigInput> {
-  const planThinking = card.plan_thinking !== null && card.plan_thinking !== undefined ? card.plan_thinking : config.planThinking;
-  const executeThinking = card.execute_thinking ?? config.executeThinking ?? "smart";
+  let planThinking: "smart" | "basic" | null;
+  if (card.plan_thinking === "none") {
+    planThinking = null;
+  } else if (card.plan_thinking !== null && card.plan_thinking !== undefined) {
+    planThinking = card.plan_thinking;
+  } else {
+    planThinking = config.planThinking ?? null;
+  }
+  const executeThinking = (card.execute_thinking !== null && card.execute_thinking !== undefined ? card.execute_thinking : config.executeThinking) ?? "smart";
   const autoCommit = card.auto_commit !== null && card.auto_commit !== undefined ? card.auto_commit : config.autoCommit;
   const autoPush = card.auto_push !== null && card.auto_push !== undefined ? card.auto_push : config.autoPush;
 

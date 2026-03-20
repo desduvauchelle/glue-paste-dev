@@ -151,4 +151,13 @@ describe("applyCardOverrides — full config inheritance chain", () => {
 
     expect(effective.autoPush).toBe(false);
   });
+
+  it("card plan_thinking:'none' overrides config to skip plan (null)", () => {
+    updateGlobalConfig(db, { planThinking: "smart" });
+
+    const merged = getMergedConfig(db, boardId);
+    const effective = applyCardOverrides(merged, makeCard({ plan_thinking: "none" }));
+
+    expect(effective.planThinking).toBeNull();
+  });
 });

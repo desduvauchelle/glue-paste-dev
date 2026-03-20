@@ -191,7 +191,7 @@ interface CardWithTags {
   status: string;
   position: number;
   blocking: boolean;
-  plan_thinking: "smart" | "basic" | null;
+  plan_thinking: "smart" | "basic" | "none" | null;
   execute_thinking: "smart" | "basic" | null;
   auto_commit: boolean | null;
   auto_push: boolean | null;
@@ -207,7 +207,7 @@ interface CreateCard {
   tags?: string[];
   files?: string[];
   blocking?: boolean;
-  plan_thinking?: "smart" | "basic" | null;
+  plan_thinking?: "smart" | "basic" | "none" | null;
   execute_thinking?: "smart" | "basic" | null;
   auto_commit?: boolean | null;
   auto_push?: boolean | null;
@@ -221,7 +221,7 @@ interface UpdateCard {
   status?: string;
   position?: number;
   blocking?: boolean;
-  plan_thinking?: "smart" | "basic" | null;
+  plan_thinking?: "smart" | "basic" | "none" | null;
   execute_thinking?: "smart" | "basic" | null;
   auto_commit?: boolean | null;
   auto_push?: boolean | null;

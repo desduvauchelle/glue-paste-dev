@@ -50,7 +50,7 @@ export function CardDialog({
 	const [description, setDescription] = useState("")
 	const [selectedTags, setSelectedTags] = useState<string[]>([])
 	const [blocking, setBlocking] = useState(true)
-	const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>(null)
+	const [planThinking, setPlanThinking] = useState<"smart" | "basic" | "none" | null>(null)
 	const [executeThinking, setExecuteThinking] = useState<"smart" | "basic" | null>(null)
 	const [autoCommit, setAutoCommit] = useState<boolean | null>(null)
 	const [autoPush, setAutoPush] = useState<boolean | null>(null)
@@ -371,7 +371,7 @@ export function CardDialog({
 											<div className="flex items-center gap-2">
 												<span className="text-xs text-muted-foreground w-11">Plan</span>
 												{(["smart", "basic"] as const).map((level) => {
-													const effective = planThinking ?? configDefaults.planThinking
+													const effective = planThinking === "none" ? null : (planThinking ?? configDefaults.planThinking)
 													const isChecked = effective === level
 													return (
 														<label key={level} className="flex items-center gap-1 cursor-pointer select-none">
@@ -379,7 +379,7 @@ export function CardDialog({
 																type="checkbox"
 																checked={isChecked}
 																onChange={() => {
-																	if (isChecked) setPlanThinking(null)
+																	if (isChecked) setPlanThinking("none")
 																	else setPlanThinking(level)
 																}}
 																className="h-3.5 w-3.5 rounded border-border bg-background accent-primary"
@@ -392,6 +392,9 @@ export function CardDialog({
 														</label>
 													)
 												})}
+												{planThinking === "none" && (
+													<span className="text-xs text-muted-foreground italic">skip</span>
+												)}
 											</div>
 											{/* Execute row */}
 											<div className="flex items-center gap-2">

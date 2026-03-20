@@ -24,7 +24,7 @@ function formatElapsed(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function PhaseIcon({ phase, planThinking, executeThinking }: { phase: string; planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic" | null }) {
+function PhaseIcon({ phase, planThinking, executeThinking }: { phase: string; planThinking: "smart" | "basic" | "none" | null; executeThinking: "smart" | "basic" | null }) {
   const level = phase === "plan" ? planThinking : executeThinking;
   if (level === "smart" || level === null) return <Brain className="w-3 h-3 shrink-0" />;
   return <Zap className="w-3 h-3 shrink-0" />;

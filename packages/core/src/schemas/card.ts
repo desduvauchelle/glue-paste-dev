@@ -12,6 +12,7 @@ export const CardStatus = z.enum([
 ]);
 
 export const ThinkingLevel = z.enum(["smart", "basic"]);
+export const PlanThinkingLevel = z.enum(["smart", "basic", "none"]);
 
 export const DEFAULT_TAGS = ["UX", "design", "backend", "logic"] as const;
 
@@ -23,7 +24,7 @@ export const CardSchema = z.object({
   status: CardStatus.default("todo"),
   position: z.number().int().default(0),
   blocking: z.boolean().default(false),
-  plan_thinking: ThinkingLevel.nullable().default(null),
+  plan_thinking: PlanThinkingLevel.nullable().default(null),
   execute_thinking: ThinkingLevel.nullable().default(null),
   auto_commit: z.boolean().nullable().default(null),
   auto_push: z.boolean().nullable().default(null),
@@ -44,7 +45,7 @@ export const CreateCardSchema = z.object({
   position: z.number().int().optional(),
   status: CardStatus.optional().default("todo"),
   blocking: z.boolean().optional().default(true),
-  plan_thinking: ThinkingLevel.nullable().optional().default(null),
+  plan_thinking: PlanThinkingLevel.nullable().optional().default(null),
   execute_thinking: ThinkingLevel.nullable().optional().default(null),
   auto_commit: z.boolean().nullable().optional().default(null),
   auto_push: z.boolean().nullable().optional().default(null),
@@ -58,7 +59,7 @@ export const UpdateCardSchema = z.object({
   status: CardStatus.optional(),
   position: z.number().int().optional(),
   blocking: z.boolean().optional(),
-  plan_thinking: ThinkingLevel.nullable().optional(),
+  plan_thinking: PlanThinkingLevel.nullable().optional(),
   execute_thinking: ThinkingLevel.nullable().optional(),
   auto_commit: z.boolean().nullable().optional(),
   auto_push: z.boolean().nullable().optional(),
