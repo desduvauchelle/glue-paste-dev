@@ -194,6 +194,17 @@ async function executePhase(
 
   callbacks.onExecutionStarted(card.id, execution.id, phase);
 
+  // Add lifecycle comment: phase started
+  const phaseStartedAt = Date.now();
+  const phaseName = phase === "plan" ? "Plan" : "Execution";
+  const startedComment = commentsDb.addSystemComment(
+    db,
+    card.id as CardId,
+    execution.id,
+    `${phaseName} started.`
+  );
+  callbacks.onCommentAdded(startedComment);
+
   // Capture git SHA before execution for file change tracking
   let shaBefore: string | null = null;
   if (phase === "execute") {
@@ -313,13 +324,14 @@ async function executePhase(
     }
   }
 
-  // Add system comment with summary
-  const phaseName = phase === "plan" ? "Plan" : "Execution";
+  // Add system comment with summary (including duration)
+  const durationMs = Date.now() - phaseStartedAt;
+  const durationStr = formatDuration(durationMs);
   let summary: string;
   if (success) {
-    summary = `${phaseName} completed successfully.`;
+    summary = `${phaseName} completed successfully in ${durationStr}.`;
   } else {
-    summary = buildFailureSummary(phaseName, exitCode, output, stderrOutput);
+    summary = buildFailureSummary(phaseName, exitCode, output, stderrOutput, durationStr);
     const gitError = detectGitError(output, stderrOutput, exitCode);
     if (gitError) {
       summary += `\n\n**Git Error: ${gitError.message}**\n**How to fix:** ${gitError.suggestion}`;
@@ -338,11 +350,20 @@ async function executePhase(
   return { success, exitCode, output, ...(rateLimitResult ? { rateLimitInfo: rateLimitResult } : {}) };
 }
 
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 function buildFailureSummary(
   phaseName: string,
   exitCode: number,
   output: string,
-  stderr: string
+  stderr: string,
+  durationStr?: string
 ): string {
   const tail = (text: string, maxLen: number) => {
     const trimmed = text.trim();
@@ -352,7 +373,7 @@ function buildFailureSummary(
       : trimmed;
   };
 
-  let summary = `${phaseName} failed with exit code ${exitCode}.`;
+  let summary = `${phaseName} failed with exit code ${exitCode}${durationStr ? ` after ${durationStr}` : ""}.`;
 
   if (stderr) {
     summary += `\n\nstderr:\n${tail(stderr, 500)}`;
