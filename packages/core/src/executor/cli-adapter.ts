@@ -58,6 +58,12 @@ function buildClaudeCommand(
     "--verbose",
   ];
 
+  // Override Claude Code's default co-authoring behavior
+  args.push(
+    "--append-system-prompt",
+    "IMPORTANT: Do not add any Co-authored-by trailers or similar attribution to git commits. All commits must be authored solely by the user's git identity. Do not modify git author or committer configuration."
+  );
+
   if (resume) {
     args.push("--resume", sessionId);
   } else {

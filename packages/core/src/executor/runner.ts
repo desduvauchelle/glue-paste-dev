@@ -7,6 +7,7 @@ import { buildPrompt } from "./prompt.js";
 import { parseStreamLine } from "./stream-parser.js";
 import { buildCliCommand } from "./cli-adapter.js";
 import { detectRateLimit } from "./rate-limit.js";
+import { detectGitError } from "./git-errors.js";
 import { killProcessTreeSync } from "./process-cleanup.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
@@ -314,9 +315,16 @@ async function executePhase(
 
   // Add system comment with summary
   const phaseName = phase === "plan" ? "Plan" : "Execution";
-  const summary = success
-    ? `${phaseName} completed successfully.`
-    : buildFailureSummary(phaseName, exitCode, output, stderrOutput);
+  let summary: string;
+  if (success) {
+    summary = `${phaseName} completed successfully.`;
+  } else {
+    summary = buildFailureSummary(phaseName, exitCode, output, stderrOutput);
+    const gitError = detectGitError(output, stderrOutput, exitCode);
+    if (gitError) {
+      summary += `\n\n**Git Error: ${gitError.message}**\n**How to fix:** ${gitError.suggestion}`;
+    }
+  }
   const comment = commentsDb.addSystemComment(db, card.id as CardId, execution.id, summary);
   callbacks.onCommentAdded(comment);
 

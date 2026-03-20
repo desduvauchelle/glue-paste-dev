@@ -99,8 +99,10 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push(`- Write tests if the project has a test framework`);
     if (config.autoCommit) {
       parts.push(`- Commit your changes with a clear message when done`);
+      parts.push(`- Do NOT add Co-authored-by trailers or any AI attribution to commits. Commits must use the user's git identity only.`);
       if (config.autoPush) {
         parts.push(`- Push your changes to the remote after committing`);
+        parts.push(`- If the push fails (authentication, permissions, protected branch, etc.), stop and report the exact error so the user can fix it`);
       }
     }
   }
