@@ -15,6 +15,7 @@ import { fileRoutes } from "./routes/files.js";
 import { chatRoutes } from "./routes/chat.js";
 import { updateRoutes, startUpdateChecker } from "./routes/update.js";
 import { caffeinateRoutes } from "./routes/caffeinate.js";
+import { authRoutes } from "./routes/auth.js";
 import { checkAndToggleCaffeinate, stopCaffeinate } from "./caffeinate.js";
 
 import type { ServerWebSocket } from "bun";
@@ -94,6 +95,7 @@ app.route("/api/files", fileRoutes(db));
 app.route("/api/cards", chatRoutes(db, broadcast));
 app.route("/api/update", updateRoutes(broadcast));
 app.route("/api/caffeinate", caffeinateRoutes());
+app.route("/api/auth", authRoutes());
 
 
 // WebSocket endpoint

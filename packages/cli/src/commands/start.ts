@@ -1,4 +1,6 @@
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import {
   ensureDataDir,
   getDaemonStatus,
@@ -36,6 +38,13 @@ export async function start(opts: { open?: boolean } = { open: true }) {
       try { process.kill(Number(p), "SIGKILL"); } catch {}
     }
     await new Promise((r) => setTimeout(r, 500));
+  }
+
+  // Persist OAuth token so the daemon can read a fresh copy at execution time
+  const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  if (oauthToken) {
+    const tokenFile = join(homedir(), ".glue-paste-dev", "oauth-token");
+    writeFileSync(tokenFile, oauthToken);
   }
 
   logToFile("Starting daemon...");
