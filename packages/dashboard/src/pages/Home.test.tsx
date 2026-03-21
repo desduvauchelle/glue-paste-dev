@@ -39,10 +39,15 @@ vi.mock("@/lib/api", () => ({
     start: vi.fn(() => Promise.resolve({ active: true })),
     stop: vi.fn(() => Promise.resolve({ active: false })),
   },
+  update: {
+    check: vi.fn(() => Promise.resolve({ available: false, currentVersion: "0.1.0", latestVersion: "0.1.0" })),
+    apply: vi.fn(() => Promise.resolve({ ok: true })),
+  },
 }));
 
 vi.mock("@/lib/ws", () => ({
   useWebSocket: vi.fn(),
+  useWSEvent: vi.fn(),
 }));
 
 describe("Home — activity indicator", () => {

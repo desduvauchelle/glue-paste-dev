@@ -18,6 +18,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, FolderOpen, Trash2, Check, X, Settings } from "lucide-react";
 import { CaffeineToggle } from "@/components/CaffeineToggle";
+import { UpdateButton } from "@/components/UpdateButton";
 import { BOARD_COLORS, getBoardColor } from "@/lib/colors";
 import { CardDialog } from "@/components/board/CardDialog";
 import { cards as cardsApi } from "@/lib/api";
@@ -126,6 +127,7 @@ export function Home() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <UpdateButton />
           <CaffeineToggle />
           <Button variant="ghost" size="icon" onClick={() => setLocation("/settings")} title="Global Settings">
             <Settings className="w-4 h-4" />
