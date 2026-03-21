@@ -186,11 +186,13 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
     let destCards = [...(localGrouped[overColumn] ?? [])];
 
     if (activeColumn === overColumn) {
-      // Reorder within same column
-      const oldIndex = destCards.findIndex((c) => c.id === activeId);
-      const newIndex = destCards.findIndex((c) => c.id === overId);
-      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-        destCards = arrayMove(destCards, oldIndex, newIndex);
+      // Reorder within same column — only allowed in sortable columns
+      if (SORTABLE_STATUSES.has(activeColumn)) {
+        const oldIndex = destCards.findIndex((c) => c.id === activeId);
+        const newIndex = destCards.findIndex((c) => c.id === overId);
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          destCards = arrayMove(destCards, oldIndex, newIndex);
+        }
       }
     }
 
@@ -243,7 +245,6 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
               onLoadMore={isDone ? () => setDoneWeeksLoaded((w) => w + 1) : undefined}
               totalCount={isDone ? (displayGrouped["done"]?.length ?? 0) : undefined}
               hasCardInProgress={hasCardInProgress}
-              sortable={SORTABLE_STATUSES.has(status)}
               onAddCard={ADD_CARD_STATUSES.has(status) ? onAddCard : undefined}
             />
           );

@@ -19,7 +19,6 @@ interface KanbanColumnProps {
   onLoadMore?: () => void;
   totalCount?: number;
   hasCardInProgress?: boolean;
-  sortable?: boolean;
   onAddCard?: (status: string) => void;
 }
 
@@ -43,7 +42,6 @@ export function KanbanColumn({
   onLoadMore,
   totalCount,
   hasCardInProgress,
-  sortable,
   onAddCard,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
@@ -78,26 +76,7 @@ export function KanbanColumn({
           </button>
         )}
       </div>
-      {sortable ? (
-        <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
-          <ScrollArea className="flex-1 px-2 pb-2">
-            <div className="space-y-2 min-h-[40px]">
-              {cards.map((card) => (
-                <KanbanCard
-                  key={card.id}
-                  card={card}
-                  onPlay={onPlayCard}
-                  onStop={onStopCard}
-                  onClick={onClickCard}
-                  onCoPlan={onCoPlanCard}
-                  hasCardInProgress={hasCardInProgress}
-                  sortable
-                />
-              ))}
-            </div>
-          </ScrollArea>
-        </SortableContext>
-      ) : (
+      <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
         <ScrollArea className="flex-1 px-2 pb-2">
           <div className="space-y-2 min-h-[40px]">
             {cards.map((card) => (
@@ -121,7 +100,7 @@ export function KanbanColumn({
             )}
           </div>
         </ScrollArea>
-      )}
+      </SortableContext>
     </div>
   );
 }
