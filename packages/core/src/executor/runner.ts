@@ -9,6 +9,7 @@ import { buildCliCommand } from "./cli-adapter.js";
 import { detectRateLimit } from "./rate-limit.js";
 import { detectGitError } from "./git-errors.js";
 import { killProcessTreeSync } from "./process-cleanup.js";
+import { getFreshEnv } from "./fresh-env.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
 
@@ -224,7 +225,7 @@ async function executePhase(
     cwd: board.directory,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env },
+    env: await getFreshEnv(),
   });
 
   // Store PID for terminal attach

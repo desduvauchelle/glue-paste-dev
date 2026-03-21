@@ -6,6 +6,7 @@ import { buildPrompt } from "./prompt.js";
 import { buildCliCommand } from "./cli-adapter.js";
 import { parseStreamLine } from "./stream-parser.js";
 import { killProcessTreeSync } from "./process-cleanup.js";
+import { getFreshEnv } from "./fresh-env.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
 
@@ -110,7 +111,7 @@ export async function runChat(
     cwd: board.directory,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env },
+    env: await getFreshEnv(),
   });
 
   activeChatProcesses.set(card.id, proc);
