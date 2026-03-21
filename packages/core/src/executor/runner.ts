@@ -225,7 +225,7 @@ async function executePhase(
     cwd: board.directory,
     stdout: "pipe",
     stderr: "pipe",
-    env: await getFreshEnv(),
+    env: getFreshEnv(),
   });
 
   // Store PID for terminal attach

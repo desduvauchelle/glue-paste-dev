@@ -111,7 +111,7 @@ export async function runChat(
     cwd: board.directory,
     stdout: "pipe",
     stderr: "pipe",
-    env: await getFreshEnv(),
+    env: getFreshEnv(),
   });
 
   activeChatProcesses.set(card.id, proc);
