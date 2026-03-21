@@ -115,8 +115,9 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
       if (hasOtherInProgress) return;
     }
 
-    // Prevent dropping into done or failed — those are system-managed
-    if (overColumn === "done" || overColumn === "failed") return;
+    // Prevent dropping into done or failed — those are system-managed (unless human-assigned)
+    const draggedCard = allCards.get(activeId);
+    if ((overColumn === "done" || overColumn === "failed") && draggedCard?.assignee !== "human") return;
 
     // Move card to the new column
     setLocalGrouped((prev) => {
@@ -177,8 +178,9 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
       }
     }
 
-    // Prevent dropping into done or failed
-    if ((overColumn === "done" || overColumn === "failed") && activeColumn !== overColumn) {
+    // Prevent dropping into done or failed (unless human-assigned)
+    const draggedCard = allCards.get(activeId);
+    if ((overColumn === "done" || overColumn === "failed") && activeColumn !== overColumn && draggedCard?.assignee !== "human") {
       setLocalGrouped(null);
       return;
     }
@@ -186,8 +188,9 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
     let destCards = [...(localGrouped[overColumn] ?? [])];
 
     if (activeColumn === overColumn) {
-      // Reorder within same column — only allowed in sortable columns
-      if (SORTABLE_STATUSES.has(activeColumn)) {
+      // Reorder within same column — only allowed in sortable columns (or for any column if human-assigned)
+      const draggedCardForSort = allCards.get(activeId);
+      if (SORTABLE_STATUSES.has(activeColumn) || draggedCardForSort?.assignee === "human") {
         const oldIndex = destCards.findIndex((c) => c.id === activeId);
         const newIndex = destCards.findIndex((c) => c.id === overId);
         if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {

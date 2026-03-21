@@ -69,8 +69,9 @@ export async function startQueue(
   const board = boardsDb.getBoard(db, boardId);
   if (!board) throw new Error(`Board ${boardId} not found`);
 
-  const queuedCards = cardsDb.listCardsByStatus(db, boardId, "queued");
-  log.info("queue", `Starting queue for board ${boardId} with ${queuedCards.length} queued cards`);
+  const allQueuedCards = cardsDb.listCardsByStatus(db, boardId, "queued");
+  const queuedCards = allQueuedCards.filter((c) => c.assignee !== "human");
+  log.info("queue", `Starting queue for board ${boardId} with ${queuedCards.length} queued cards (${allQueuedCards.length - queuedCards.length} human-assigned skipped)`);
   if (queuedCards.length === 0) {
     callbacks.onQueueStopped(boardId, "No queued cards to execute");
     return;
@@ -99,6 +100,7 @@ export async function executeSingleCard(
 ): Promise<void> {
   const card = cardsDb.getCard(db, cardId);
   if (!card) throw new Error(`Card ${cardId} not found`);
+  if (card.assignee === "human") throw new Error(`Card ${cardId} is assigned to a human and cannot be executed by AI`);
 
   const board = boardsDb.getBoard(db, card.board_id as BoardId);
   if (!board) throw new Error(`Board ${card.board_id} not found`);
@@ -213,8 +215,8 @@ async function processQueue(
 
   const cardId = state.current as CardId;
   const card = cardsDb.getCard(db, cardId);
-  if (!card) {
-    // Skip missing card
+  if (!card || card.assignee === "human") {
+    // Skip missing or human-assigned card
     advanceQueue(db, boardId, callbacks);
     return;
   }
@@ -379,7 +381,7 @@ function advanceQueue(
 
   if (state.queue.length === 0) {
     // Re-check DB for newly queued cards (added while queue was running)
-    const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued");
+    const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued").filter((c) => c.assignee !== "human");
     if (newQueued.length > 0) {
       state.queue = newQueued.map((c) => c.id);
     } else {

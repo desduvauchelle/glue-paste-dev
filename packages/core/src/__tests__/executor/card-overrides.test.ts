@@ -23,6 +23,7 @@ function makeCard(overrides: Partial<CardWithTags> = {}): CardWithTags {
     execute_thinking: null,
     auto_commit: null,
     auto_push: null,
+    assignee: "ai",
     files: [],
     tags: [],
     created_at: "",

@@ -247,6 +247,13 @@ export function initSchema(db: Database): void {
     // Column already exists — ignore
   }
 
+  // Migration: add assignee column to cards
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN assignee TEXT NOT NULL DEFAULT 'ai'`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: allow NULLs in config table for project-level inheritance
   // Project configs use NULL to mean "inherit from global"
   try {

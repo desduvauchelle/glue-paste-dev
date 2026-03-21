@@ -195,6 +195,7 @@ interface CardWithTags {
   execute_thinking: "smart" | "basic" | null;
   auto_commit: boolean | null;
   auto_push: boolean | null;
+  assignee: "ai" | "human";
   tags: string[];
   files: string[];
   created_at: string;
@@ -211,6 +212,7 @@ interface CreateCard {
   execute_thinking?: "smart" | "basic" | null;
   auto_commit?: boolean | null;
   auto_push?: boolean | null;
+  assignee?: "ai" | "human";
 }
 
 interface UpdateCard {
@@ -225,6 +227,7 @@ interface UpdateCard {
   execute_thinking?: "smart" | "basic" | null;
   auto_commit?: boolean | null;
   auto_push?: boolean | null;
+  assignee?: "ai" | "human";
 }
 
 interface Comment {

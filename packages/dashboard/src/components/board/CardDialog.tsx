@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, FolderOpen, X, FileCode, Settings, History } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, FolderOpen, X, FileCode, Settings, History, Bot, User } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
@@ -54,6 +54,7 @@ export function CardDialog({
 	const [executeThinking, setExecuteThinking] = useState<"smart" | "basic" | null>(null)
 	const [autoCommit, setAutoCommit] = useState<boolean | null>(null)
 	const [autoPush, setAutoPush] = useState<boolean | null>(null)
+	const [assignee, setAssignee] = useState<"ai" | "human">("ai")
 	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic"; autoCommit: boolean; autoPush: boolean }>({ planThinking: "smart", executeThinking: "smart", autoCommit: false, autoPush: false })
 	const [files, setFiles] = useState<string[]>([])
 	const [showFileBrowser, setShowFileBrowser] = useState(false)
@@ -93,6 +94,7 @@ export function CardDialog({
 			setExecuteThinking(card.execute_thinking)
 			setAutoCommit(card.auto_commit)
 			setAutoPush(card.auto_push)
+			setAssignee(card.assignee ?? "ai")
 		} else {
 			setTitle("")
 			setDescription("")
@@ -103,6 +105,7 @@ export function CardDialog({
 			setExecuteThinking(null)
 			setAutoCommit(null)
 			setAutoPush(null)
+			setAssignee("ai")
 		}
 		setShowFileBrowser(false)
 		setConfirmDelete(false)
@@ -134,6 +137,7 @@ export function CardDialog({
 				execute_thinking: executeThinking,
 				auto_commit: autoCommit,
 				auto_push: autoPush,
+				assignee,
 			})
 		} else {
 			await onCreate({
@@ -146,6 +150,7 @@ export function CardDialog({
 				execute_thinking: executeThinking,
 				auto_commit: autoCommit,
 				auto_push: autoPush,
+				assignee,
 				...(defaultStatus ? { status: defaultStatus as "todo" | "queued" } : {}),
 			})
 		}
@@ -346,6 +351,33 @@ export function CardDialog({
 								defaultOpen
 							>
 								<div className="space-y-3">
+									{/* Assignee toggle */}
+									<div>
+										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Assigned to</label>
+										<div className="flex items-center gap-2">
+											{(["ai", "human"] as const).map((val) => (
+												<label key={val} className="flex items-center gap-1 cursor-pointer select-none">
+													<input
+														type="radio"
+														name="card-assignee"
+														checked={assignee === val}
+														onChange={() => setAssignee(val)}
+														className="accent-primary h-3.5 w-3.5"
+													/>
+													<span className="flex items-center gap-0.5 text-xs">
+														{val === "ai" ? <Bot className="w-3 h-3" /> : <User className="w-3 h-3" />}
+														{val === "ai" ? "AI" : "Human"}
+													</span>
+												</label>
+											))}
+										</div>
+										{assignee === "human" && (
+											<p className="text-xs text-muted-foreground mt-1">
+												AI will never process this card
+											</p>
+										)}
+									</div>
+
 									{/* Blocking checkbox */}
 									<div className="flex items-center gap-2">
 										<input
@@ -606,7 +638,7 @@ export function CardDialog({
 							{confirmDelete ? "Confirm Delete" : "Delete"}
 						</Button>
 					)}
-					{isEditing && card.status === "todo" && (
+					{isEditing && card.status === "todo" && card.assignee !== "human" && (
 						<Button
 							variant="outline"
 							onClick={() => {

@@ -13,6 +13,7 @@ export const CardStatus = z.enum([
 
 export const ThinkingLevel = z.enum(["smart", "basic"]);
 export const PlanThinkingLevel = z.enum(["smart", "basic", "none"]);
+export const CardAssignee = z.enum(["ai", "human"]);
 
 export const DEFAULT_TAGS = ["UX", "design", "backend", "logic"] as const;
 
@@ -28,6 +29,7 @@ export const CardSchema = z.object({
   execute_thinking: ThinkingLevel.nullable().default(null),
   auto_commit: z.boolean().nullable().default(null),
   auto_push: z.boolean().nullable().default(null),
+  assignee: CardAssignee.default("ai"),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -49,6 +51,7 @@ export const CreateCardSchema = z.object({
   execute_thinking: ThinkingLevel.nullable().optional().default(null),
   auto_commit: z.boolean().nullable().optional().default(null),
   auto_push: z.boolean().nullable().optional().default(null),
+  assignee: CardAssignee.optional().default("ai"),
 });
 
 export const UpdateCardSchema = z.object({
@@ -63,6 +66,7 @@ export const UpdateCardSchema = z.object({
   execute_thinking: ThinkingLevel.nullable().optional(),
   auto_commit: z.boolean().nullable().optional(),
   auto_push: z.boolean().nullable().optional(),
+  assignee: CardAssignee.optional(),
 });
 
 export const MoveCardSchema = z.object({

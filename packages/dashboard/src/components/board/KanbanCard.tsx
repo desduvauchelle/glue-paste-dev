@@ -4,7 +4,7 @@ import { parseFilesChanged } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle, MessageSquare, FileCode } from "lucide-react";
+import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle, MessageSquare, FileCode, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cardLabel } from "@glue-paste-dev/core/browser";
 import { useSortable } from "@dnd-kit/sortable";
@@ -227,7 +227,7 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInP
               <MessageSquare className="w-3 h-3" />
             </Button>
           )}
-          {card.status === "todo" && (
+          {card.status === "todo" && card.assignee !== "human" && (
             <Button
               variant="ghost"
               size="icon"
@@ -271,8 +271,14 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInP
 
         <CardExecutionInfo card={card} />
 
-        {(card.tags.length > 0 || card.blocking) && (
+        {(card.tags.length > 0 || card.blocking || card.assignee === "human") && (
           <div className="flex flex-wrap gap-1 mt-2 ml-5">
+            {card.assignee === "human" && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-violet-500/50 text-violet-400">
+                <User className="w-2.5 h-2.5 mr-0.5" />
+                human
+              </Badge>
+            )}
             {card.blocking && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-red-500/50 text-red-400">
                 blocking
