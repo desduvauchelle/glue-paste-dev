@@ -195,15 +195,7 @@ export function CardDialog({
 						<div className="flex flex-col md:flex-row gap-6">
 							{/* Left Column — Main Content */}
 							<div className="flex-1 min-w-0 space-y-4">
-								{/* Title */}
-								<div>
-									<label className="text-sm font-medium mb-1 block">Title</label>
-									<Input
-										placeholder="Task title"
-										value={title}
-										onChange={(e) => setTitle(e.target.value)}
-									/>
-								</div>
+								{/* Title field hidden — state kept for data model compatibility */}
 
 								{/* Description */}
 								<div>

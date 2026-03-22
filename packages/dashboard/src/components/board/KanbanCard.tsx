@@ -267,7 +267,7 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInP
           )}
         </div>
 
-        {card.description && (
+        {card.title && card.description && (
           <p className="text-xs text-muted-foreground mt-1 line-clamp-2 ml-5 break-all">
             {card.description}
           </p>
