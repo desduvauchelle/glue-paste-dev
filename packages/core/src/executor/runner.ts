@@ -304,8 +304,8 @@ async function executePhase(
 
   const exitCode = await proc.exited;
   activeCardProcesses.delete(card.id);
-  const success = exitCode === 0;
-  const status = success ? "success" : "failed";
+  let success = exitCode === 0;
+  let status: "success" | "failed" = success ? "success" : "failed";
   log.info("runner", `Phase "${phase}" ${status} for card ${card.id} (exit ${exitCode})`);
   if (!success && stderrOutput) {
     log.error("runner", `stderr:\n${stderrOutput.slice(-500)}`);
@@ -315,11 +315,28 @@ async function executePhase(
   executionsDb.updateExecutionStatus(db, execution.id, status, exitCode);
 
   // Capture file changes after execute phase
+  let noChangesDetected = false;
   if (phase === "execute" && shaBefore) {
     try {
       const filesChanged = await captureFileChanges(board.directory, shaBefore);
       executionsDb.updateExecutionFilesChanged(db, execution.id as ExecutionId, filesChanged);
       log.info("runner", `Captured ${filesChanged.length} file changes for execution ${execution.id}`);
+
+      // Detect when AI exited 0 but made no changes
+      const shaAfter = success && filesChanged.length === 0
+        ? await captureGitSha(board.directory)
+        : null;
+
+      noChangesDetected = shouldFailNoChanges({
+        phase, exitCode, filesChanged, shaBefore, shaAfter,
+      });
+
+      if (noChangesDetected) {
+        success = false;
+        status = "failed";
+        executionsDb.updateExecutionStatus(db, execution.id, "failed", exitCode);
+        log.warn("runner", `Card ${card.id} exited 0 but produced no file changes — marking as failed`);
+      }
     } catch (err) {
       log.warn("runner", `Failed to capture file changes:`, err);
     }
@@ -328,16 +345,9 @@ async function executePhase(
   // Add system comment with summary (including duration)
   const durationMs = Date.now() - phaseStartedAt;
   const durationStr = formatDuration(durationMs);
-  let summary: string;
-  if (success) {
-    summary = `${phaseName} completed successfully in ${durationStr}.`;
-  } else {
-    summary = buildFailureSummary(phaseName, exitCode, output, stderrOutput, durationStr);
-    const gitError = detectGitError(output, stderrOutput, exitCode);
-    if (gitError) {
-      summary += `\n\n**Git Error: ${gitError.message}**\n**How to fix:** ${gitError.suggestion}`;
-    }
-  }
+  const summary = buildExecutionSummary({
+    phaseName, durationStr, success, noChangesDetected, exitCode, output, stderrOutput,
+  });
   const comment = commentsDb.addSystemComment(db, card.id as CardId, execution.id, summary);
   callbacks.onCommentAdded(comment);
 
@@ -357,6 +367,54 @@ function formatDuration(ms: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes}m ${remainingSeconds}s`;
+}
+
+/**
+ * Determines whether an execute-phase result should be overridden to "failed"
+ * because the AI exited 0 but produced no file changes.
+ */
+export function shouldFailNoChanges(params: {
+  phase: "plan" | "execute";
+  exitCode: number;
+  filesChanged: FileChange[];
+  shaBefore: string | null;
+  shaAfter: string | null;
+}): boolean {
+  const { phase, exitCode, filesChanged, shaBefore, shaAfter } = params;
+  if (phase !== "execute") return false;
+  if (exitCode !== 0) return false;
+  if (!shaBefore) return false;
+  if (filesChanged.length > 0) return false;
+  return shaAfter === shaBefore;
+}
+
+/**
+ * Builds the summary comment for a completed execution phase.
+ */
+export function buildExecutionSummary(params: {
+  phaseName: string;
+  durationStr: string;
+  success: boolean;
+  noChangesDetected: boolean;
+  exitCode: number;
+  output: string;
+  stderrOutput: string;
+}): string {
+  const { phaseName, durationStr, success, noChangesDetected, exitCode, output, stderrOutput } = params;
+
+  if (noChangesDetected) {
+    return `${phaseName} produced no file changes in ${durationStr} — marked as failed. The AI exited successfully but did not modify any files. This may indicate a permissions issue (autoConfirm disabled) or that the AI decided no changes were needed.`;
+  }
+  if (success) {
+    return `${phaseName} completed successfully in ${durationStr}.`;
+  }
+
+  let summary = buildFailureSummary(phaseName, exitCode, output, stderrOutput, durationStr);
+  const gitError = detectGitError(output, stderrOutput, exitCode);
+  if (gitError) {
+    summary += `\n\n**Git Error: ${gitError.message}**\n**How to fix:** ${gitError.suggestion}`;
+  }
+  return summary;
 }
 
 function buildFailureSummary(
