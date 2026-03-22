@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAbsolute } from "node:path";
 
 export const BoardIdSchema = z.string().brand<"BoardId">();
 
@@ -10,11 +11,16 @@ const SlugSchema = z
   )
   .nullable();
 
+const AbsolutePathSchema = z.string().min(1).refine(
+  (dir) => isAbsolute(dir) && !dir.includes(".."),
+  { message: "Directory must be an absolute path without '..' segments" }
+);
+
 export const BoardSchema = z.object({
   id: BoardIdSchema,
   name: z.string().min(1),
   description: z.string().default(""),
-  directory: z.string().min(1),
+  directory: AbsolutePathSchema,
   color: z.string().nullable().default(null),
   scratchpad: z.string().default(""),
   slug: SlugSchema.default(null),
@@ -26,7 +32,7 @@ export const BoardSchema = z.object({
 export const CreateBoardSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().default(""),
-  directory: z.string().min(1),
+  directory: AbsolutePathSchema,
   color: z.string().nullable().optional(),
   slug: SlugSchema.optional(),
 });
@@ -34,7 +40,7 @@ export const CreateBoardSchema = z.object({
 export const UpdateBoardSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
-  directory: z.string().min(1).optional(),
+  directory: AbsolutePathSchema.optional(),
   color: z.string().nullable().optional(),
   scratchpad: z.string().optional(),
   slug: SlugSchema.optional(),

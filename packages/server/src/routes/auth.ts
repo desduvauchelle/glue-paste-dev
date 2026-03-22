@@ -14,7 +14,7 @@ export function authRoutes() {
     if (!body.token) {
       return c.json({ error: "token is required" }, 400);
     }
-    writeFileSync(TOKEN_FILE, body.token);
+    writeFileSync(TOKEN_FILE, body.token, { mode: 0o600 });
     return c.json({ ok: true });
   });
 

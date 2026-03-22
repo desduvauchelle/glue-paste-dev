@@ -1,7 +1,7 @@
 import { DATA_DIR, getDaemonStatus } from "../daemon.js";
 import { stop } from "./stop.js";
 import { start } from "./start.js";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const REPO = "desduvauchelle/glue-paste-dev";
@@ -49,12 +49,26 @@ export async function update() {
 
   console.log(`Downloading v${latestVersion}...`);
 
-  // Download and extract
-  const dl = Bun.spawnSync(["bash", "-c", `rm -rf "${DATA_DIR}/server" "${DATA_DIR}/cli" && curl -fsSL "${asset.browser_download_url}" | tar -xz -C "${DATA_DIR}"`]);
-  if (dl.exitCode !== 0) {
-    console.error("Failed to download update.");
+  // Download and extract (safe: no shell interpolation)
+  const downloadUrl = asset.browser_download_url;
+  if (!downloadUrl.startsWith("https://")) {
+    console.error("Download URL must use HTTPS.");
     process.exit(1);
   }
+  rmSync(join(DATA_DIR, "server"), { recursive: true, force: true });
+  rmSync(join(DATA_DIR, "cli"), { recursive: true, force: true });
+  const dlSteps: string[][] = [
+    ["curl", "-fsSL", "-o", join(DATA_DIR, "release.tar.gz"), downloadUrl],
+    ["tar", "-xzf", join(DATA_DIR, "release.tar.gz"), "-C", DATA_DIR],
+  ];
+  for (const args of dlSteps) {
+    const proc = Bun.spawnSync(args);
+    if (proc.exitCode !== 0) {
+      console.error("Failed to download update.");
+      process.exit(1);
+    }
+  }
+  rmSync(join(DATA_DIR, "release.tar.gz"), { force: true });
 
   // Make CLI executable
   Bun.spawnSync(["chmod", "+x", join(DATA_DIR, "cli", "src", "index.ts")]);

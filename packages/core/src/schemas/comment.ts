@@ -16,6 +16,6 @@ export const CommentSchema = z.object({
 
 export const CreateCommentSchema = z.object({
   author: CommentAuthor.default("user"),
-  content: z.string().min(1),
+  content: z.string().min(1).max(50_000),
   execution_id: z.string().nullable().optional().default(null),
 });

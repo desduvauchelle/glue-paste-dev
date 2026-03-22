@@ -42,7 +42,7 @@ export const ConfigSchema = z.object({
 /** User-facing config shape (custom_tags as array) */
 export const ConfigInputSchema = z.object({
   cliProvider: CliProviderSchema.optional(),
-  cliCustomCommand: z.string().optional(),
+  cliCustomCommand: z.string().max(1000).optional(),
   model: z.string().optional(),
   planModel: z.string().optional(),
   executeModel: z.string().optional(),
@@ -52,7 +52,7 @@ export const ConfigInputSchema = z.object({
   planThinking: z.enum(["smart", "basic"]).nullable().optional(),
   executeThinking: z.enum(["smart", "basic"]).optional(),
   customTags: z.array(z.string()).optional(),
-  customInstructions: z.string().optional(),
+  customInstructions: z.string().max(50_000).optional(),
 });
 
 export const DEFAULT_CONFIG = {

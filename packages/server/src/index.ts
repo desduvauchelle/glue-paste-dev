@@ -61,8 +61,38 @@ export function broadcast(event: unknown): void {
 // Create Hono app
 const app = new Hono();
 
-// CORS for dev mode
-app.use("/api/*", cors());
+// CORS — restrict to localhost origins only
+app.use(
+  "/api/*",
+  cors({
+    origin: (origin) => {
+      if (!origin) return "*";
+      try {
+        const url = new URL(origin);
+        if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+          return origin;
+        }
+      } catch {
+        // invalid origin
+      }
+      return null as unknown as string;
+    },
+  })
+);
+
+// Security headers for HTML responses
+app.use("*", async (c, next) => {
+  await next();
+  const ct = c.res.headers.get("content-type") || "";
+  if (ct.includes("text/html")) {
+    c.res.headers.set(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* wss://localhost:*; img-src 'self' data:; font-src 'self'"
+    );
+    c.res.headers.set("X-Content-Type-Options", "nosniff");
+    c.res.headers.set("X-Frame-Options", "DENY");
+  }
+});
 
 // Request logging middleware
 app.use("/api/*", async (c, next) => {
@@ -74,10 +104,10 @@ app.use("/api/*", async (c, next) => {
     await next();
     const ms = Date.now() - start;
     log.info("api", `← ${method} ${path} ${c.res.status} (${ms}ms)`);
-  } catch (err) {
+  } catch (err: unknown) {
     const ms = Date.now() - start;
     log.error("api", `← ${method} ${path} 500 (${ms}ms)`, err);
-    throw err;
+    c.res = c.json({ error: "Internal server error" }, 500);
   }
 });
 

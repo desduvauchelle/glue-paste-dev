@@ -44,7 +44,7 @@ export async function start(opts: { open?: boolean } = { open: true }) {
   const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
   if (oauthToken) {
     const tokenFile = join(homedir(), ".glue-paste-dev", "oauth-token");
-    writeFileSync(tokenFile, oauthToken);
+    writeFileSync(tokenFile, oauthToken, { mode: 0o600 });
   }
 
   logToFile("Starting daemon...");

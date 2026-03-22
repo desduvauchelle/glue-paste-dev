@@ -15,7 +15,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
 
   // GET /api/cards/board/:boardId
   app.get("/board/:boardId", (c) => {
-    const doneLimit = Number(c.req.query("done_limit") ?? "20");
+    const doneLimit = Math.min(Math.max(Number(c.req.query("done_limit") ?? "20"), 0), 500);
     const result = cardsDb.listCards(db, c.req.param("boardId") as BoardId, { doneLimit });
     return c.json(result);
   });

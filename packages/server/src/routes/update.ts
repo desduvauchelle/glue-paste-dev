@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getDataDir, log } from "@glue-paste-dev/core";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const REPO = "desduvauchelle/glue-paste-dev";
@@ -50,6 +50,20 @@ async function checkForUpdate(): Promise<{
   }
 }
 
+/** Build safe download+extract args without shell interpolation. */
+export function buildDownloadArgs(dataDir: string, downloadUrl: string): string[][] {
+  if (!downloadUrl.startsWith("https://")) {
+    throw new Error("Download URL must use HTTPS");
+  }
+  if (/[;|&$`(){}]/.test(downloadUrl)) {
+    throw new Error("Download URL contains invalid characters");
+  }
+  return [
+    ["curl", "-fsSL", "-o", join(dataDir, "release.tar.gz"), downloadUrl],
+    ["tar", "-xzf", join(dataDir, "release.tar.gz"), "-C", dataDir],
+  ];
+}
+
 export function updateRoutes(broadcast: (event: unknown) => void) {
   const app = new Hono();
 
@@ -72,16 +86,18 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     const dataDir = getDataDir();
     log.info("update", `Applying update v${result.currentVersion} → v${result.latestVersion}`);
 
-    const dl = Bun.spawnSync([
-      "bash",
-      "-c",
-      `rm -rf "${dataDir}/server" "${dataDir}/cli" && curl -fsSL "${result.downloadUrl}" | tar -xz -C "${dataDir}"`,
-    ]);
+    rmSync(join(dataDir, "server"), { recursive: true, force: true });
+    rmSync(join(dataDir, "cli"), { recursive: true, force: true });
 
-    if (dl.exitCode !== 0) {
-      log.error("update", "Failed to download update");
-      return c.json({ ok: false, error: "Download failed" }, 500);
+    const steps = buildDownloadArgs(dataDir, result.downloadUrl);
+    for (const args of steps) {
+      const proc = Bun.spawnSync(args);
+      if (proc.exitCode !== 0) {
+        log.error("update", "Failed to download update");
+        return c.json({ ok: false, error: "Download failed" }, 500);
+      }
     }
+    rmSync(join(dataDir, "release.tar.gz"), { force: true });
 
     // Make CLI executable
     Bun.spawnSync(["chmod", "+x", join(dataDir, "cli", "src", "index.ts")]);
