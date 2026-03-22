@@ -96,17 +96,6 @@ export function BoardView({ params }: BoardViewProps) {
 		return () => { document.title = "Glue Paste" }
 	}, [board])
 
-	useEffect(() => {
-		const meta = document.querySelector('meta[name="theme-color"]')
-		if (!meta) return
-		const color = getBoardColor(board?.color ?? null)
-		if (color) {
-			meta.setAttribute('content', color.bg)
-		}
-		return () => {
-			meta.setAttribute('content', '#09090b')
-		}
-	}, [board?.color])
 
 	// When auto-run is toggled ON, start queue if there are queued cards
 	useEffect(() => {
