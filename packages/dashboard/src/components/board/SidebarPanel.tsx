@@ -7,10 +7,11 @@ interface SidebarPanelProps {
 	icon?: ReactNode
 	badge?: string | number
 	defaultOpen?: boolean
+	action?: ReactNode
 	children: ReactNode
 }
 
-export function SidebarPanel({ label, icon, badge, defaultOpen = false, children }: SidebarPanelProps) {
+export function SidebarPanel({ label, icon, badge, defaultOpen = false, action, children }: SidebarPanelProps) {
 	const [open, setOpen] = useState(defaultOpen)
 	const contentRef = useRef<HTMLDivElement>(null)
 	const [height, setHeight] = useState<number | undefined>(defaultOpen ? undefined : 0)
@@ -45,6 +46,14 @@ export function SidebarPanel({ label, icon, badge, defaultOpen = false, children
 				{badge !== undefined && badge !== 0 && (
 					<span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
 						{badge}
+					</span>
+				)}
+				{action && (
+					<span
+						className="shrink-0"
+						onClick={(e) => e.stopPropagation()}
+					>
+						{action}
 					</span>
 				)}
 			</button>

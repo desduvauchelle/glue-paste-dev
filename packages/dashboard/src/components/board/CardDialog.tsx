@@ -14,13 +14,15 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, FolderOpen, X, FileCode, Settings, History, Bot, User } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, FolderOpen, X, FileCode, Settings, History, Bot, User, Maximize2 } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
 import { useExecutions } from "@/hooks/use-executions"
 import type { Execution } from "@/lib/api"
 import { parseFilesChanged } from "@/lib/api"
+import { ExecutionExpandedView } from "./ExecutionExpandedView"
+import { cn } from "@/lib/utils"
 
 interface CardDialogProps {
 	open: boolean
@@ -62,6 +64,7 @@ export function CardDialog({
 	const [commentText, setCommentText] = useState("")
 	const [confirmDelete, setConfirmDelete] = useState(false)
 	const [expandedExecutions, setExpandedExecutions] = useState<Set<string>>(new Set())
+	const [executionExpanded, setExecutionExpanded] = useState(false)
 	const [allBoards, setAllBoards] = useState<Board[]>([])
 	const [moveTargetBoardId, setMoveTargetBoardId] = useState("")
 	const [isMoving, setIsMoving] = useState(false)
@@ -183,6 +186,7 @@ export function CardDialog({
 	}
 
 	return (
+		<>
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
 				<DialogHeader>
@@ -485,6 +489,16 @@ export function CardDialog({
 									label="Execution History"
 									icon={<History className="w-3.5 h-3.5" />}
 									badge={systemComments.length}
+									action={
+										<button
+											type="button"
+											className="p-0.5 rounded hover:bg-muted transition-colors"
+											onClick={() => setExecutionExpanded(true)}
+											title="Expand execution history"
+										>
+											<Maximize2 className="w-3.5 h-3.5" />
+										</button>
+									}
 								>
 									<ScrollArea className="max-h-[300px]">
 										<div className="space-y-2">
@@ -519,6 +533,21 @@ export function CardDialog({
 																<ChevronRight className="w-3 h-3 shrink-0" />
 															)}
 															<span className="font-semibold">{phaseLabel}</span>
+															<span className={cn(
+																"inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+																execution.status === "running"
+																	? "bg-green-500/20 text-green-400"
+																	: execution.status === "success"
+																	? "bg-blue-500/20 text-blue-400"
+																	: execution.status === "failed"
+																	? "bg-red-500/20 text-red-400"
+																	: "bg-muted text-muted-foreground"
+															)}>
+																{execution.status === "running" && (
+																	<span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+																)}
+																{execution.status === "running" ? "Live" : execution.status === "success" ? "Done" : execution.status === "failed" ? "Failed" : "Cancelled"}
+															</span>
 															<span className="text-muted-foreground/60">—</span>
 															<span className="flex-1 truncate">{comment.content}</span>
 														</button>
@@ -637,5 +666,14 @@ export function CardDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+		<ExecutionExpandedView
+			open={executionExpanded}
+			onClose={() => setExecutionExpanded(false)}
+			systemComments={systemComments}
+			executionMap={executionMap}
+			expandedExecutions={expandedExecutions}
+			toggleExecution={toggleExecution}
+		/>
+		</>
 	)
 }
