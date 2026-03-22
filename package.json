@@ -1,6 +1,6 @@
 {
   "name": "glue-paste-dev",
-  "version": "0.1.126",
+  "version": "0.1.127",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -12,6 +12,7 @@
     "build:dashboard": "bun run --cwd packages/dashboard build",
     "build:server": "bun run --cwd packages/server build",
     "test": "bun test packages/core && cd packages/dashboard && bunx vitest run",
+    "test:coverage": "cd packages/core && bun run test:coverage && cd ../server && bun run test:coverage && cd ../cli && bun run test:coverage && cd ../dashboard && bun run test:coverage",
     "test:watch": "bun test --watch",
     "prepare": "husky"
   },

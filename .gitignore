@@ -3,3 +3,4 @@
 **/*.tsbuildinfo
 packages/dashboard/tsconfig.tsbuildinfo
 packages/server/public/
+coverage/
