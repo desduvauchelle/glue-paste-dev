@@ -80,4 +80,42 @@ describe("boards", () => {
   it("should return false when deleting non-existent board", () => {
     expect(deleteBoard(db, "nonexistent" as BoardId)).toBe(false);
   });
+
+  it("should create a board with a slug", () => {
+    const board = createBoard(db, {
+      name: "Slug Board",
+      description: "",
+      directory: "/tmp/slug",
+      slug: "my-board",
+    });
+    expect(board.slug).toBe("my-board");
+  });
+
+  it("should update a board slug", () => {
+    const board = createBoard(db, {
+      name: "Board",
+      description: "",
+      directory: "/tmp/slug2",
+    });
+    const updated = updateBoard(db, board.id as BoardId, { slug: "updated-slug" });
+    expect(updated?.slug).toBe("updated-slug");
+  });
+
+  it("should allow clearing a slug to null", () => {
+    const board = createBoard(db, {
+      name: "Board",
+      description: "",
+      directory: "/tmp/slug3",
+      slug: "temp-slug",
+    });
+    const updated = updateBoard(db, board.id as BoardId, { slug: null });
+    expect(updated?.slug).toBeNull();
+  });
+
+  it("should reject duplicate slugs", () => {
+    createBoard(db, { name: "A", description: "", directory: "/tmp/a", slug: "same-slug" });
+    expect(() =>
+      createBoard(db, { name: "B", description: "", directory: "/tmp/b", slug: "same-slug" })
+    ).toThrow();
+  });
 });

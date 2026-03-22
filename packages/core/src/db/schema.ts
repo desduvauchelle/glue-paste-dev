@@ -260,6 +260,18 @@ export function initSchema(db: Database): void {
     // Column already exists — ignore
   }
 
+  // Migration: add slug to boards
+  try {
+    db.exec(`ALTER TABLE boards ADD COLUMN slug TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_boards_slug ON boards(slug) WHERE slug IS NOT NULL`);
+  } catch {
+    // Index already exists — ignore
+  }
+
   // Migration: allow NULLs in config table for project-level inheritance
   // Project configs use NULL to mean "inherit from global"
   try {

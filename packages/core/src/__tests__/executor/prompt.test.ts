@@ -9,6 +9,7 @@ const makeBoard = (overrides?: Partial<Board>): Board => ({
   directory: "/home/user/project",
   color: null,
   scratchpad: "",
+  slug: null,
   session_id: null,
   created_at: "2024-01-01",
   updated_at: "2024-01-01",

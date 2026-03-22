@@ -106,4 +106,55 @@ describe("board routes", () => {
     const res = await req("DELETE", "/nonexistent");
     expect(res.status).toBe(404);
   });
+
+  it("POST / accepts a slug on board creation", async () => {
+    const res = await req("POST", "/", {
+      name: "Slugged Board",
+      description: "",
+      directory: "/tmp/slugged",
+      slug: "my-project",
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.slug).toBe("my-project");
+  });
+
+  it("POST / rejects invalid slug characters", async () => {
+    const res = await req("POST", "/", {
+      name: "Bad Slug Board",
+      description: "",
+      directory: "/tmp/bad",
+      slug: "Hello World!",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("PUT /:boardId updates the slug", async () => {
+    const createRes = await req("POST", "/", {
+      name: "Board",
+      description: "",
+      directory: "/tmp/s",
+    });
+    const board = await createRes.json();
+
+    const res = await req("PUT", `/${board.id}`, { slug: "new-slug" });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.slug).toBe("new-slug");
+  });
+
+  it("PUT /:boardId clears slug when null is passed", async () => {
+    const createRes = await req("POST", "/", {
+      name: "Board",
+      description: "",
+      directory: "/tmp/s2",
+      slug: "clear-me",
+    });
+    const board = await createRes.json();
+
+    const res = await req("PUT", `/${board.id}`, { slug: null });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.slug).toBeNull();
+  });
 });

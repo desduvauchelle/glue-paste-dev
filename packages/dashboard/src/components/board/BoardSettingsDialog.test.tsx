@@ -10,6 +10,7 @@ const mockBoard = {
   session_id: null,
   color: null,
   scratchpad: "",
+  slug: null,
   created_at: "",
   updated_at: "",
 };

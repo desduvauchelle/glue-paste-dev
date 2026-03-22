@@ -2,6 +2,14 @@ import { z } from "zod";
 
 export const BoardIdSchema = z.string().brand<"BoardId">();
 
+const SlugSchema = z
+  .string()
+  .regex(
+    /^[a-z0-9_-]+$/,
+    "Slug must contain only lowercase letters, numbers, hyphens, and underscores"
+  )
+  .nullable();
+
 export const BoardSchema = z.object({
   id: BoardIdSchema,
   name: z.string().min(1),
@@ -9,6 +17,7 @@ export const BoardSchema = z.object({
   directory: z.string().min(1),
   color: z.string().nullable().default(null),
   scratchpad: z.string().default(""),
+  slug: SlugSchema.default(null),
   session_id: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -19,6 +28,7 @@ export const CreateBoardSchema = z.object({
   description: z.string().optional().default(""),
   directory: z.string().min(1),
   color: z.string().nullable().optional(),
+  slug: SlugSchema.optional(),
 });
 
 export const UpdateBoardSchema = z.object({
@@ -27,4 +37,5 @@ export const UpdateBoardSchema = z.object({
   directory: z.string().min(1).optional(),
   color: z.string().nullable().optional(),
   scratchpad: z.string().optional(),
+  slug: SlugSchema.optional(),
 });
