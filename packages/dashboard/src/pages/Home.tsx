@@ -37,22 +37,7 @@ import { BOARD_COLORS, getBoardColor } from "@/lib/colors";
 import { CardDialog } from "@/components/board/CardDialog";
 import { cards as cardsApi } from "@/lib/api";
 import type { CreateCard } from "@/lib/api";
-
-type SortMode = "custom" | "recent" | "alpha";
-
-function readSortMode(): SortMode {
-  const v = localStorage.getItem("glue-board-sort");
-  if (v === "custom" || v === "recent" || v === "alpha") return v;
-  return "recent";
-}
-
-function readCustomOrder(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem("glue-board-order") ?? "[]") as string[];
-  } catch {
-    return [];
-  }
-}
+import { readSortMode, readCustomOrder, sortBoards, type SortMode } from "@/lib/sort-boards";
 
 function SortableBoardCard({
   id,
@@ -107,22 +92,10 @@ export function Home() {
   const [sortMode, setSortMode] = useState<SortMode>(readSortMode);
   const [customOrder, setCustomOrder] = useState<string[]>(readCustomOrder);
 
-  const sortedBoards = useMemo(() => {
-    if (sortMode === "alpha") {
-      return [...boards].sort((a, b) => a.name.localeCompare(b.name));
-    }
-    if (sortMode === "recent") {
-      return [...boards].sort((a, b) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
-    }
-    const orderMap = new Map(customOrder.map((id, i) => [id, i]));
-    return [...boards].sort((a, b) => {
-      const ai = orderMap.get(a.id) ?? Infinity;
-      const bi = orderMap.get(b.id) ?? Infinity;
-      return ai - bi;
-    });
-  }, [boards, sortMode, customOrder]);
+  const sortedBoards = useMemo(
+    () => sortBoards(boards, sortMode, customOrder),
+    [boards, sortMode, customOrder],
+  );
 
   const handleSortModeChange = useCallback((mode: SortMode) => {
     setSortMode(mode);

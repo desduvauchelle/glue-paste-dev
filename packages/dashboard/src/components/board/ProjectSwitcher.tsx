@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useLocation } from "wouter"
 import { boards as boardsApi, type Board } from "@/lib/api"
 import { getBoardColor } from "@/lib/colors"
+import { readSortMode, readCustomOrder, sortBoards } from "@/lib/sort-boards"
 
 interface ProjectSwitcherProps {
 	currentBoardId?: string
@@ -16,8 +17,9 @@ export function ProjectSwitcher({ currentBoardId, onClose }: ProjectSwitcherProp
 
 	useEffect(() => {
 		void boardsApi.list().then((bs) => {
-			setBoardsList(bs)
-			const idx = bs.findIndex((b) => b.id === currentBoardId)
+			const sorted = sortBoards(bs, readSortMode(), readCustomOrder())
+			setBoardsList(sorted)
+			const idx = sorted.findIndex((b) => b.id === currentBoardId)
 			setSelectedIndex(idx >= 0 ? idx : 0)
 		})
 	}, [currentBoardId])
