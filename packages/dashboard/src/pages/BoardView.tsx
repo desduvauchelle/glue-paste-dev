@@ -35,6 +35,8 @@ export function BoardView({ params }: BoardViewProps) {
 	})
 	const autoRunRef = useRef(autoRun)
 	autoRunRef.current = autoRun
+	const queueRunningRef = useRef(queueRunning)
+	queueRunningRef.current = queueRunning
 
 	const { grouped, create, update, reorder, remove, execute, stop, loading } = useCards(boardId)
 
@@ -42,7 +44,7 @@ export function BoardView({ params }: BoardViewProps) {
 	hasInProgressRef.current = (grouped["in-progress"]?.length ?? 0) > 0
 
 	const tryStartQueue = useCallback(async () => {
-		if (!autoRunRef.current || queueRunning) return
+		if (!autoRunRef.current || queueRunningRef.current) return
 		if (hasInProgressRef.current) return
 		try {
 			await queueApi.start(boardId)
@@ -50,7 +52,7 @@ export function BoardView({ params }: BoardViewProps) {
 		} catch {
 			// 409 = already running, ignore
 		}
-	}, [boardId, queueRunning])
+	}, [boardId])
 
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
@@ -140,7 +142,7 @@ export function BoardView({ params }: BoardViewProps) {
 	const handleReorderCards = async (updates: Array<{ id: string; status: string; position: number }>) => {
 		await reorder(updates)
 		const hasNewQueued = updates.some((u) => u.status === "queued")
-		if (hasNewQueued && autoRun && !queueRunning) {
+		if (hasNewQueued && autoRunRef.current && !queueRunningRef.current) {
 			void tryStartQueue()
 		}
 	}
