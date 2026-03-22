@@ -115,10 +115,6 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
       if (hasOtherInProgress) return;
     }
 
-    // Prevent dropping into done or failed — those are system-managed (unless human-assigned)
-    const draggedCard = allCards.get(activeId);
-    if ((overColumn === "done" || overColumn === "failed") && draggedCard?.assignee !== "human") return;
-
     // Move card to the new column
     setLocalGrouped((prev) => {
       if (!prev) return prev;
@@ -176,13 +172,6 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
         setLocalGrouped(null);
         return;
       }
-    }
-
-    // Prevent dropping into done or failed (unless human-assigned)
-    const draggedCard = allCards.get(activeId);
-    if ((overColumn === "done" || overColumn === "failed") && activeColumn !== overColumn && draggedCard?.assignee !== "human") {
-      setLocalGrouped(null);
-      return;
     }
 
     let destCards = [...(localGrouped[overColumn] ?? [])];
