@@ -50,15 +50,19 @@ export function UpdateButton() {
 
   if (state === "idle") {
     return (
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleCheck}
-        title="Check for updates"
-        className="text-muted-foreground/50 hover:text-muted-foreground"
-      >
-        <RefreshCw className="w-3.5 h-3.5" />
-      </Button>
+      <div className="relative group">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleCheck}
+          className="text-muted-foreground/50 hover:text-muted-foreground"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+        </Button>
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-popover text-popover-foreground border border-border rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+          Check for updates
+        </div>
+      </div>
     );
   }
 
