@@ -109,21 +109,26 @@ export async function executeSingleCard(
   const comments = commentsDb.listComments(db, cardId);
   const config = applyCardOverrides(getMergedConfig(db, card.board_id as BoardId), card);
 
-  const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
-  const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
+  try {
+    const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
+    const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
 
-  if (result.success) {
-    cardsDb.updateCardStatus(db, cardId, "done");
-  } else if (result.rateLimitInfo?.isRateLimit) {
-    notifyRateLimitOrOverload(db, card, result.rateLimitInfo, callbacks);
-  } else {
-    log.warn("queue", `Card ${cardId} failed, retrying once`);
-    const retryResult = await runCard(db, card, board, comments, config, callbacks);
-    if (retryResult.rateLimitInfo?.isRateLimit) {
-      notifyRateLimitOrOverload(db, card, retryResult.rateLimitInfo, callbacks);
+    if (result.success) {
+      cardsDb.updateCardStatus(db, cardId, "done");
+    } else if (result.rateLimitInfo?.isRateLimit) {
+      notifyRateLimitOrOverload(db, card, result.rateLimitInfo, callbacks);
     } else {
-      cardsDb.updateCardStatus(db, cardId, retryResult.success ? "done" : "failed");
+      log.warn("queue", `Card ${cardId} failed, retrying once`);
+      const retryResult = await runCard(db, card, board, comments, config, callbacks);
+      if (retryResult.rateLimitInfo?.isRateLimit) {
+        notifyRateLimitOrOverload(db, card, retryResult.rateLimitInfo, callbacks);
+      } else {
+        cardsDb.updateCardStatus(db, cardId, retryResult.success ? "done" : "failed");
+      }
     }
+  } catch (err) {
+    log.error("queue", `Unexpected error executing card ${cardId}:`, err);
+    cardsDb.updateCardStatus(db, cardId, "failed");
   }
 
   const updated = cardsDb.getCard(db, cardId);
@@ -227,59 +232,67 @@ async function processQueue(
   const comments = commentsDb.listComments(db, cardId);
   const config = applyCardOverrides(getMergedConfig(db, boardId as BoardId), card);
 
-  // Run the card (reuse existing plan output if available from a recovered execution)
-  const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
-  const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
+  try {
+    // Run the card (reuse existing plan output if available from a recovered execution)
+    const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
+    const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
 
-  if (result.success) {
-    cardsDb.updateCardStatus(db, cardId, "done");
-    const updated = cardsDb.getCard(db, cardId);
-    if (updated) callbacks.onCardUpdated(updated);
-    advanceQueue(db, boardId, callbacks);
-  } else if (result.rateLimitInfo?.isRateLimit) {
-    // Rate limited — don't retry, pause the queue
-    handleRateLimited(db, boardId, card, result.rateLimitInfo, callbacks);
-  } else {
-    // Retry once
-    const retryComments = commentsDb.listComments(db, cardId);
-    const retryResult = await runCard(db, card, board, retryComments, config, callbacks);
-
-    if (retryResult.success) {
+    if (result.success) {
       cardsDb.updateCardStatus(db, cardId, "done");
       const updated = cardsDb.getCard(db, cardId);
       if (updated) callbacks.onCardUpdated(updated);
       advanceQueue(db, boardId, callbacks);
-    } else if (retryResult.rateLimitInfo?.isRateLimit) {
-      handleRateLimited(db, boardId, card, retryResult.rateLimitInfo, callbacks);
+    } else if (result.rateLimitInfo?.isRateLimit) {
+      // Rate limited — don't retry, pause the queue
+      handleRateLimited(db, boardId, card, result.rateLimitInfo, callbacks);
     } else {
-      // Failed after retry
-      cardsDb.updateCardStatus(db, cardId, "failed");
-      const updated = cardsDb.getCard(db, cardId);
-      if (updated) callbacks.onCardUpdated(updated);
+      // Retry once
+      const retryComments = commentsDb.listComments(db, cardId);
+      const retryResult = await runCard(db, card, board, retryComments, config, callbacks);
 
-      if (card.blocking) {
-        // Blocking card: stop the entire queue
-        const queueState = queues.get(boardId);
-        if (queueState) {
-          for (const queuedId of queueState.queue) {
-            cardsDb.updateCardStatus(db, queuedId as CardId, "todo");
-            const resetCard = cardsDb.getCard(db, queuedId as CardId);
-            if (resetCard) callbacks.onCardUpdated(resetCard);
-          }
-          queueState.isRunning = false;
-          queueState.queue = [];
-          queueState.current = null;
-        }
-
-        callbacks.onQueueStopped(
-          boardId,
-          `Card "${cardLabel(card)}" failed after retry (blocking)`
-        );
-      } else {
-        // Non-blocking card: continue to next card
+      if (retryResult.success) {
+        cardsDb.updateCardStatus(db, cardId, "done");
+        const updated = cardsDb.getCard(db, cardId);
+        if (updated) callbacks.onCardUpdated(updated);
         advanceQueue(db, boardId, callbacks);
+      } else if (retryResult.rateLimitInfo?.isRateLimit) {
+        handleRateLimited(db, boardId, card, retryResult.rateLimitInfo, callbacks);
+      } else {
+        // Failed after retry
+        cardsDb.updateCardStatus(db, cardId, "failed");
+        const updated = cardsDb.getCard(db, cardId);
+        if (updated) callbacks.onCardUpdated(updated);
+
+        if (card.blocking) {
+          // Blocking card: stop the entire queue
+          const queueState = queues.get(boardId);
+          if (queueState) {
+            for (const queuedId of queueState.queue) {
+              cardsDb.updateCardStatus(db, queuedId as CardId, "todo");
+              const resetCard = cardsDb.getCard(db, queuedId as CardId);
+              if (resetCard) callbacks.onCardUpdated(resetCard);
+            }
+            queueState.isRunning = false;
+            queueState.queue = [];
+            queueState.current = null;
+          }
+
+          callbacks.onQueueStopped(
+            boardId,
+            `Card "${cardLabel(card)}" failed after retry (blocking)`
+          );
+        } else {
+          // Non-blocking card: continue to next card
+          advanceQueue(db, boardId, callbacks);
+        }
       }
     }
+  } catch (err) {
+    log.error("queue", `Unexpected error processing card ${cardId}:`, err);
+    cardsDb.updateCardStatus(db, cardId, "failed");
+    const updated = cardsDb.getCard(db, cardId);
+    if (updated) callbacks.onCardUpdated(updated);
+    advanceQueue(db, boardId, callbacks);
   }
 }
 
