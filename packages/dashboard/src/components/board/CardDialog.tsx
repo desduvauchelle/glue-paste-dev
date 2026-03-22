@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { CardWithTags, CreateCard, UpdateCard, Board } from "@/lib/api"
 import { config as configApi, boards as boardsApi, cards as cardsApi } from "@/lib/api"
 import { useComments } from "@/hooks/use-comments"
@@ -14,13 +14,14 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
 import { useExecutions } from "@/hooks/use-executions"
 import type { Execution } from "@/lib/api"
-import { ExecutionExpandedView } from "./ExecutionExpandedView"
+import { parseFilesChanged } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 interface CardDialogProps {
 	open: boolean
@@ -62,12 +63,12 @@ export function CardDialog({
 	const [commentText, setCommentText] = useState("")
 	const [confirmDelete, setConfirmDelete] = useState(false)
 	const [expandedExecutions, setExpandedExecutions] = useState<Set<string>>(new Set())
-	const [executionExpanded, setExecutionExpanded] = useState(false)
 	const [allBoards, setAllBoards] = useState<Board[]>([])
 	const [moveTargetBoardId, setMoveTargetBoardId] = useState("")
 	const [isMoving, setIsMoving] = useState(false)
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
+	const activityEndRef = useRef<HTMLDivElement>(null)
 
 	const executionMap = Object.fromEntries(executions.map((e) => [e.id, e])) as Record<string, Execution>
 
@@ -122,6 +123,9 @@ export function CardDialog({
 		setMoveTargetBoardId("")
 	}, [card, open])
 
+	useEffect(() => {
+		activityEndRef.current?.scrollIntoView({ behavior: "smooth" })
+	}, [executions])
 
 	const handleSave = async () => {
 		if (!title.trim() && !description.trim()) return
@@ -181,8 +185,7 @@ export function CardDialog({
 	}
 
 	return (
-		<>
-			<Dialog open={open} onOpenChange={onOpenChange}>
+		<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
 					<DialogHeader>
 						<DialogTitle>{isEditing ? "Edit Card" : "New Card"}{boardName && !isEditing ? ` — ${boardName}` : ""}</DialogTitle>
@@ -294,27 +297,114 @@ export function CardDialog({
 												</Button>
 											)}
 										</div>
-										<ScrollArea className="max-h-[200px] border rounded-md p-2">
+										<ScrollArea className="max-h-[400px] border rounded-md p-2">
 											{comments.length === 0 ? (
 												<p className="text-xs text-muted-foreground py-2 text-center">
-													No comments yet
+													No activity yet
 												</p>
 											) : (
 												<div className="space-y-2">
-													{comments.map((comment) => (
-														<div
-															key={comment.id}
-															className={`text-xs border-l-2 pl-2 ${comment.author === "system" ? "border-muted-foreground/40" : "border-border"}`}
-														>
-															<span className="font-semibold capitalize text-muted-foreground">
-																{comment.author}
-															</span>
-															<span className="text-muted-foreground/60 ml-2">
-																{new Date(comment.created_at).toLocaleString()}
-															</span>
-															<p className="mt-0.5 whitespace-pre-wrap">{comment.content}</p>
-														</div>
-													))}
+													{comments.map((comment) => {
+														const execution = comment.execution_id
+															? executionMap[comment.execution_id]
+															: null
+														const isExpanded = comment.execution_id
+															? expandedExecutions.has(comment.execution_id)
+															: false
+														const hasOutput = execution && execution.output && execution.output.length > 0
+
+														if (comment.author !== "system") {
+															return (
+																<div key={comment.id} className="text-xs border-l-2 pl-2 border-primary/40">
+																	<span className="font-semibold capitalize text-muted-foreground">{comment.author}</span>
+																	<span className="text-muted-foreground/60 ml-2">{new Date(comment.created_at).toLocaleString()}</span>
+																	<p className="mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+																</div>
+															)
+														}
+
+														if (!execution) {
+															return (
+																<div key={comment.id} className="text-xs border-l-2 pl-2 border-muted-foreground/40">
+																	<span className="text-muted-foreground/60">{new Date(comment.created_at).toLocaleString()}</span>
+																	<p className="mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+																</div>
+															)
+														}
+
+														const phaseLabel = execution.phase === "plan" ? "Plan" : "Execution"
+														return (
+															<div key={comment.id} className="text-xs border-l-2 pl-2 border-border">
+																<button
+																	type="button"
+																	className="flex items-center gap-2 w-full text-left hover:text-foreground text-muted-foreground transition-colors"
+																	onClick={() => toggleExecution(execution.id)}
+																	disabled={!hasOutput}
+																>
+																	<span className="font-semibold">{phaseLabel}</span>
+																	<span
+																		className={cn(
+																			"inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+																			execution.status === "running"
+																				? "bg-green-500/20 text-green-400"
+																				: execution.status === "success"
+																				? "bg-blue-500/20 text-blue-400"
+																				: execution.status === "failed"
+																				? "bg-red-500/20 text-red-400"
+																				: "bg-muted text-muted-foreground"
+																		)}
+																	>
+																		{execution.status === "running" && (
+																			<span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+																		)}
+																		{execution.status === "running"
+																			? "Live"
+																			: execution.status === "success"
+																			? "Done"
+																			: execution.status === "failed"
+																			? "Failed"
+																			: "Cancelled"}
+																	</span>
+																	<span className="text-muted-foreground/60">—</span>
+																	<span className="flex-1 truncate">{comment.content}</span>
+																</button>
+																<span className="text-muted-foreground/60 text-[10px]">
+																	{new Date(comment.created_at).toLocaleString()}
+																</span>
+																{isExpanded && hasOutput && (
+																	<pre className="mt-2 text-xs overflow-auto max-h-[300px] bg-muted/50 rounded p-3 whitespace-pre-wrap break-words">
+																		{execution.output}
+																	</pre>
+																)}
+																{isExpanded && (() => {
+																	const filesChanged = parseFilesChanged(execution.files_changed)
+																	if (filesChanged.length === 0) return null
+																	const totalAdd = filesChanged.reduce((s, f) => s + f.additions, 0)
+																	const totalDel = filesChanged.reduce((s, f) => s + f.deletions, 0)
+																	return (
+																		<div className="mt-2 text-xs bg-muted/50 rounded p-3">
+																			<div className="flex items-center gap-1.5 mb-1 font-semibold text-muted-foreground">
+																				<FileCode className="w-3.5 h-3.5" />
+																				{filesChanged.length} {filesChanged.length === 1 ? "file" : "files"} changed,{" "}
+																				<span className="text-green-400">{totalAdd} insertions(+)</span>,{" "}
+																				<span className="text-red-400">{totalDel} deletions(-)</span>
+																			</div>
+																			<div className="space-y-0.5">
+																				{filesChanged.map((f) => (
+																					<div key={f.path} className="flex items-center gap-2 font-mono">
+																						<span className="text-green-400 w-10 text-right">+{f.additions}</span>
+																						<span className="text-red-400 w-10 text-right">-{f.deletions}</span>
+																						<span className="truncate">{f.path}</span>
+																					</div>
+																				))}
+																			</div>
+																		</div>
+																	)
+																})()}
+															</div>
+														)
+													})}
+													<div ref={activityEndRef} />
 												</div>
 											)}
 										</ScrollArea>
@@ -552,15 +642,6 @@ export function CardDialog({
 						</Button>
 					</DialogFooter>
 				</DialogContent>
-			</Dialog>
-			<ExecutionExpandedView
-				open={executionExpanded}
-				onClose={() => setExecutionExpanded(false)}
-				comments={comments}
-				executionMap={executionMap}
-				expandedExecutions={expandedExecutions}
-				toggleExecution={toggleExecution}
-			/>
-		</>
+		</Dialog>
 	)
 }
