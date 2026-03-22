@@ -397,10 +397,12 @@ function advanceQueue(
   }
 
   if (state.queue.length === 0) {
-    // Re-check DB for newly queued cards (added while queue was running)
+    // Re-check DB for newly queued or in-progress cards (added while queue was running)
     const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued").filter((c) => c.assignee !== "human");
-    if (newQueued.length > 0) {
-      state.queue = newQueued.map((c) => c.id);
+    const newInProgress = cardsDb.listCardsByStatus(db, boardId as BoardId, "in-progress").filter((c) => c.assignee !== "human" && c.id !== state.current);
+    const allNew = [...newInProgress, ...newQueued];
+    if (allNew.length > 0) {
+      state.queue = allNew.map((c) => c.id);
     } else {
       state.isRunning = false;
       state.current = null;

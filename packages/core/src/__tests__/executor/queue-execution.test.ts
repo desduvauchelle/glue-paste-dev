@@ -204,6 +204,38 @@ describe("full queue lifecycle", () => {
     expect(allDone.some((c) => c.title === "Added Mid-Run")).toBe(true);
   });
 
+  test("advanceQueue picks up in-progress cards added to DB mid-execution", async () => {
+    const c1 = createCard(db, boardId, {
+      title: "Original",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+
+    let addedMidExecution = false;
+    mockRunCardBehavior = async () => {
+      if (!addedMidExecution) {
+        createCard(db, boardId, {
+          title: "Added In-Progress Mid-Run",
+          description: "",
+          tags: [],
+          status: "in-progress",
+        });
+        addedMidExecution = true;
+      }
+      return { success: true, exitCode: 0, output: "done" };
+    };
+
+    const { callbacks, completed } = makeCallbacksWithCompletion();
+    await startQueue(db, boardId, callbacks);
+    await completed;
+
+    expect(getCard(db, c1.id as CardId)!.status).toBe("done");
+    const allDone = listCardsByStatus(db, boardId, "done");
+    expect(allDone).toHaveLength(2);
+    expect(allDone.some((c) => c.title === "Added In-Progress Mid-Run")).toBe(true);
+  });
+
   test("failed non-blocking card: queue continues to next", async () => {
     const c1 = createCard(db, boardId, {
       title: "Fails",

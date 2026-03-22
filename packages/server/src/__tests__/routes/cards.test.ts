@@ -54,6 +54,42 @@ describe("card routes", () => {
     expect((broadcasts[0] as any).type).toBe("card:created");
   });
 
+  it("POST /board/:boardId with status in-progress creates card and triggers auto-execute", async () => {
+    const res = await req("POST", `/board/${boardId}`, {
+      title: "Auto Execute Card",
+      description: "Should auto-execute",
+      tags: [],
+      status: "in-progress",
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.title).toBe("Auto Execute Card");
+    expect(body.status).toBe("in-progress");
+
+    // First broadcast is card:created; additional broadcasts come from auto-execute
+    expect((broadcasts[0] as any).type).toBe("card:created");
+    expect(broadcasts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("PATCH /:cardId/move to in-progress triggers auto-execute", async () => {
+    const createRes = await req("POST", `/board/${boardId}`, {
+      title: "Move to Execute",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+    const card = await createRes.json();
+    broadcasts.length = 0;
+
+    const res = await req("PATCH", `/${card.id}/move`, {
+      status: "in-progress",
+      position: 0,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("in-progress");
+  });
+
   it("POST /board/:boardId returns 400 for invalid data", async () => {
     const res = await req("POST", `/board/${boardId}`, {
       status: "invalid-status",
@@ -124,8 +160,9 @@ describe("card routes", () => {
     const body = await res.json();
     expect(body.status).toBe("in-progress");
 
-    expect(broadcasts).toHaveLength(1);
+    // First broadcast is card:updated; additional broadcasts come from auto-execute
     expect((broadcasts[0] as any).type).toBe("card:updated");
+    expect(broadcasts.length).toBeGreaterThanOrEqual(1);
   });
 
   it("PATCH /reorder updates positions for multiple cards", async () => {

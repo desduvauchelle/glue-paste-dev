@@ -7,10 +7,22 @@ import {
   MoveCardSchema,
   ReorderCardsSchema,
   MoveCardToBoardSchema,
+  executeSingleCard,
+  getQueueState,
 } from "@glue-paste-dev/core";
-import type { BoardId, CardId } from "@glue-paste-dev/core";
+import type { BoardId, CardId, CardWithTags } from "@glue-paste-dev/core";
+import { makeCallbacks } from "../callbacks.js";
 
 export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
+  const callbacks = makeCallbacks(db, broadcast);
+
+  function maybeAutoExecute(card: CardWithTags): void {
+    if (card.status !== "in-progress") return;
+    if (card.assignee === "human") return;
+    const queueState = getQueueState(card.board_id);
+    if (queueState.current === card.id) return;
+    void executeSingleCard(db, card.id as CardId, callbacks);
+  }
   const app = new Hono();
 
   // GET /api/cards/board/:boardId
@@ -33,6 +45,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
       parsed.data
     );
     broadcast({ type: "card:created", payload: card });
+    maybeAutoExecute(card);
     return c.json(card, 201);
   });
 
@@ -57,6 +70,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
     );
     if (!card) return c.json({ error: "Card not found" }, 404);
     broadcast({ type: "card:updated", payload: card });
+    maybeAutoExecute(card);
     return c.json(card);
   });
 
@@ -86,6 +100,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
     );
     if (!card) return c.json({ error: "Card not found" }, 404);
     broadcast({ type: "card:updated", payload: card });
+    maybeAutoExecute(card);
     return c.json(card);
   });
 
