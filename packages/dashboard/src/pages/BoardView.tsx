@@ -10,6 +10,8 @@ import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
 import { CoPlanSidebar } from "@/components/board/CoPlanSidebar"
 import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight, StickyNote } from "lucide-react"
+import { useCardSort, SORT_MODE_LABELS, type SortMode } from "@/hooks/use-card-sort"
+import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { CaffeineToggle } from "@/components/CaffeineToggle"
 import { Scratchpad } from "@/components/board/Scratchpad"
@@ -41,7 +43,8 @@ export function BoardView({ params }: BoardViewProps) {
 	const queueRunningRef = useRef(queueRunning)
 	queueRunningRef.current = queueRunning
 
-	const { grouped, create, update, reorder, remove, execute, stop, loading } = useCards(boardId)
+	const { sortMode, setSortMode } = useCardSort(boardId)
+	const { grouped, create, update, reorder, remove, execute, stop, loading } = useCards(boardId, sortMode)
 
 	const hasInProgressRef = useRef(false)
 	hasInProgressRef.current = (grouped["in-progress"]?.length ?? 0) > 0
@@ -244,6 +247,23 @@ export function BoardView({ params }: BoardViewProps) {
 						<ArrowLeftRight className="w-3.5 h-3.5" />
 						<kbd className="px-1 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">⌘K</kbd>
 					</button>
+					<div className="flex items-center rounded-md border border-border overflow-hidden text-xs">
+						{(["custom", "recent", "alpha"] as SortMode[]).map((mode) => (
+							<button
+								key={mode}
+								type="button"
+								onClick={() => setSortMode(mode)}
+								className={cn(
+									"px-2 py-1 transition-colors",
+									sortMode === mode
+										? "bg-primary text-primary-foreground"
+										: "text-muted-foreground hover:bg-accent hover:text-foreground"
+								)}
+							>
+								{SORT_MODE_LABELS[mode]}
+							</button>
+						))}
+					</div>
 				</div>
 				<div className="flex items-center gap-2">
 					<CaffeineToggle />
@@ -309,6 +329,7 @@ export function BoardView({ params }: BoardViewProps) {
 							onCoPlanCard={(card) => setCoPlanCard(card)}
 							onReorderCards={(updates) => void handleReorderCards(updates)}
 							onAddCard={handleNewCardWithStatus}
+							sortMode={sortMode}
 						/>
 					)}
 				</main>
