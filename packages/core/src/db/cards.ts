@@ -119,7 +119,7 @@ export function listCardsByStatus(
 ): CardWithTags[] {
   const rows = db
     .query(
-      "SELECT * FROM cards WHERE board_id = ? AND status = ? ORDER BY position ASC"
+      "SELECT * FROM cards WHERE board_id = ? AND status = ? ORDER BY position ASC, created_at ASC"
     )
     .all(boardId, status) as CardRow[];
   return rows.map((row) => toCardWithTags(db, row));

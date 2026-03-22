@@ -6,6 +6,7 @@ import {
   createCard,
   getCard,
   listCardsByStatus,
+  reorderCards,
   updateCardStatus,
 } from "../../db/cards.js";
 import type { BoardId, CardId, CardWithTags } from "../../types/index.js";
@@ -496,6 +497,96 @@ describe("single card execution", () => {
 
     const { callbacks } = makeCallbacksWithCompletion();
     expect(executeSingleCard(db, card.id as CardId, callbacks)).rejects.toThrow("human");
+  });
+});
+
+describe("queue position ordering", () => {
+  test("queue processes cards in position order, not creation order", async () => {
+    // Create cards in order A, B, C (positions 0, 1, 2)
+    const cA = createCard(db, boardId, {
+      title: "Card A",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+    const cB = createCard(db, boardId, {
+      title: "Card B",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+    const cC = createCard(db, boardId, {
+      title: "Card C",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+
+    // Reorder so C is first, B second, A third (reverse of creation order)
+    reorderCards(db, [
+      { id: cC.id, status: "queued", position: 0 },
+      { id: cB.id, status: "queued", position: 1 },
+      { id: cA.id, status: "queued", position: 2 },
+    ]);
+
+    const executionOrder: string[] = [];
+    mockRunCardBehavior = async (card) => {
+      executionOrder.push(card.title);
+      return { success: true, exitCode: 0, output: "done" };
+    };
+
+    const { callbacks, completed } = makeCallbacksWithCompletion();
+    await startQueue(db, boardId, callbacks);
+    await completed;
+
+    // Should execute in position order (C, B, A), not creation order (A, B, C)
+    expect(executionOrder).toEqual(["Card C", "Card B", "Card A"]);
+  });
+
+  test("advanceQueue picks up mid-run cards in position order", async () => {
+    const c1 = createCard(db, boardId, {
+      title: "Original",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+
+    let addedMidExecution = false;
+    mockRunCardBehavior = async (card) => {
+      if (!addedMidExecution) {
+        addedMidExecution = true;
+        // Add two cards mid-run: "Late" at position 1, "Early" at position 0
+        createCard(db, boardId, {
+          title: "Late",
+          description: "",
+          tags: [],
+          status: "queued",
+          position: 1,
+        });
+        createCard(db, boardId, {
+          title: "Early",
+          description: "",
+          tags: [],
+          status: "queued",
+          position: 0,
+        });
+      }
+      return { success: true, exitCode: 0, output: "done" };
+    };
+
+    const executionOrder: string[] = [];
+    const origBehavior = mockRunCardBehavior;
+    mockRunCardBehavior = async (card) => {
+      executionOrder.push(card.title);
+      return origBehavior(card);
+    };
+
+    const { callbacks, completed } = makeCallbacksWithCompletion();
+    await startQueue(db, boardId, callbacks);
+    await completed;
+
+    // "Early" (position 0) should execute before "Late" (position 1)
+    expect(executionOrder).toEqual(["Original", "Early", "Late"]);
   });
 });
 
