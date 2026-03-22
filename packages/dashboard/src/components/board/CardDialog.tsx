@@ -81,6 +81,9 @@ export function CardDialog({
 		})
 	}
 
+	const LAST_STATUS_KEY = "card-dialog-last-status"
+	const [selectedStatus, setSelectedStatus] = useState<"todo" | "queued">("queued")
+
 	const isEditing = card !== null
 
 	useEffect(() => {
@@ -106,6 +109,11 @@ export function CardDialog({
 			setAutoCommit(null)
 			setAutoPush(null)
 			setAssignee("ai")
+			// Set status: use defaultStatus from column click, or last remembered value
+			let stored: string | null = null
+			try { stored = localStorage.getItem(LAST_STATUS_KEY) } catch {}
+			const initial = (defaultStatus as "todo" | "queued") ?? (stored as "todo" | "queued" | null) ?? "queued"
+			setSelectedStatus(initial)
 		}
 		setShowFileBrowser(false)
 		setConfirmDelete(false)
@@ -143,6 +151,7 @@ export function CardDialog({
 				assignee,
 			})
 		} else {
+			try { localStorage.setItem(LAST_STATUS_KEY, selectedStatus) } catch {}
 			await onCreate({
 				title: title.trim(),
 				description: description.trim(),
@@ -154,7 +163,7 @@ export function CardDialog({
 				auto_commit: autoCommit,
 				auto_push: autoPush,
 				assignee,
-				...(defaultStatus ? { status: defaultStatus as "todo" | "queued" } : {}),
+				status: selectedStatus,
 			})
 		}
 		onOpenChange(false)
@@ -196,6 +205,27 @@ export function CardDialog({
 							{/* Left Column — Main Content */}
 							<div className="flex-1 min-w-0 space-y-4">
 								{/* Title field hidden — state kept for data model compatibility */}
+
+								{/* Column selector (create mode only) */}
+								{!isEditing && (
+									<div>
+										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Column</label>
+										<div className="flex items-center gap-2">
+											{([["todo", "To Do"], ["queued", "Queued"]] as const).map(([val, label]) => (
+												<label key={val} className="flex items-center gap-1 cursor-pointer select-none">
+													<input
+														type="radio"
+														name="card-status"
+														checked={selectedStatus === val}
+														onChange={() => setSelectedStatus(val)}
+														className="accent-primary h-3.5 w-3.5"
+													/>
+													<span className="text-xs">{label}</span>
+												</label>
+											))}
+										</div>
+									</div>
+								)}
 
 								{/* Description */}
 								<div>

@@ -211,6 +211,7 @@ interface CreateCard {
   description?: string;
   tags?: string[];
   files?: string[];
+  status?: "todo" | "queued";
   blocking?: boolean;
   plan_thinking?: "smart" | "basic" | "none" | null;
   execute_thinking?: "smart" | "basic" | null;
