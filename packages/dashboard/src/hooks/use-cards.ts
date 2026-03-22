@@ -6,8 +6,9 @@ import {
   type UpdateCard,
 } from "@/lib/api";
 import { useWebSocket } from "@/lib/ws";
+import type { SortMode } from "./use-card-sort";
 
-export function useCards(boardId: string) {
+export function useCards(boardId: string, sortMode: SortMode = "custom") {
   const [data, setData] = useState<CardWithTags[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -132,10 +133,22 @@ export function useCards(boardId: string) {
       const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
       return tb - ta;
     };
+    const byUpdatedDesc = (a: CardWithTags, b: CardWithTags) => {
+      const ta = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+      const tb = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+      return tb - ta;
+    };
+    const byTitleAsc = (a: CardWithTags, b: CardWithTags) =>
+      a.title.localeCompare(b.title);
+
+    const userSorter =
+      sortMode === "custom" ? byPosition :
+      sortMode === "recent" ? byUpdatedDesc :
+      byTitleAsc;
 
     return {
-      todo: data.filter((c) => c.status === "todo").sort(byPosition),
-      queued: data.filter((c) => c.status === "queued").sort(byPosition),
+      todo: data.filter((c) => c.status === "todo").sort(userSorter),
+      queued: data.filter((c) => c.status === "queued").sort(userSorter),
       "in-progress": data.filter((c) => c.status === "in-progress").sort(byCreatedAsc),
       done: data.filter((c) => c.status === "done").sort(byCreatedDesc),
       failed: data.filter((c) => c.status === "failed").sort(byCreatedDesc),
