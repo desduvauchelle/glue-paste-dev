@@ -23,6 +23,7 @@ import { useExecutions } from "@/hooks/use-executions"
 import type { Execution } from "@/lib/api"
 import { parseFilesChanged } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { getBoardColor } from "@/lib/colors"
 
 interface CardDialogProps {
 	open: boolean
@@ -69,6 +70,7 @@ export function CardDialog({
 	const [allBoards, setAllBoards] = useState<Board[]>([])
 	const [moveTargetBoardId, setMoveTargetBoardId] = useState("")
 	const [isMoving, setIsMoving] = useState(false)
+	const [targetBoardId, setTargetBoardId] = useState(boardId)
 	const [activityMaximized, setActivityMaximized] = useState(false)
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
@@ -133,7 +135,8 @@ export function CardDialog({
 
 	useEffect(() => {
 		setMoveTargetBoardId("")
-	}, [card, open])
+		setTargetBoardId(boardId)
+	}, [card, open, boardId])
 
 	useEffect(() => {
 		activityEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -174,7 +177,7 @@ export function CardDialog({
 			})
 		} else {
 			try { localStorage.setItem(LAST_STATUS_KEY, selectedStatus) } catch {}
-			await onCreate({
+			const input: CreateCard = {
 				title: title.trim(),
 				description: description.trim(),
 				tags: selectedTags,
@@ -186,7 +189,12 @@ export function CardDialog({
 				auto_push: autoPush,
 				assignee,
 				status: selectedStatus,
-			})
+			}
+			if (targetBoardId && targetBoardId !== boardId) {
+				await cardsApi.create(targetBoardId, input)
+			} else {
+				await onCreate(input)
+			}
 		}
 		onOpenChange(false)
 	}
@@ -219,7 +227,7 @@ export function CardDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
 					<DialogHeader>
-						<DialogTitle>{isEditing ? "Edit Card" : "New Card"}{boardName && !isEditing ? ` — ${boardName}` : ""}</DialogTitle>
+						<DialogTitle>{isEditing ? "Edit Card" : "New Card"}{!isEditing ? ` — ${(targetBoardId && targetBoardId !== boardId ? allBoards.find((b) => b.id === targetBoardId)?.name : boardName) ?? ""}` : ""}</DialogTitle>
 					</DialogHeader>
 
 					<div className="flex-1 overflow-y-auto py-2 px-1 -mx-1">
@@ -674,7 +682,48 @@ export function CardDialog({
 									</div>
 								</SidebarPanel>
 
-								{/* Advanced Panel (only when editing) */}
+								{/* Project selector (create mode only) */}
+								{!isEditing && allBoards.length > 1 && (
+									<SidebarPanel
+										label="Project"
+										icon={<FolderOpen className="w-3.5 h-3.5" />}
+										defaultOpen
+									>
+										<div className="space-y-1.5">
+											{allBoards.map((b) => {
+												const color = getBoardColor(b.color)
+												const isSelected = (targetBoardId || boardId) === b.id
+												return (
+													<label
+														key={b.id}
+														className={cn(
+															"flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs transition-colors",
+															isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted"
+														)}
+													>
+														<input
+															type="radio"
+															name="target-project"
+															checked={isSelected}
+															onChange={() => setTargetBoardId(b.id)}
+															className="sr-only"
+														/>
+														<span
+															className="w-2.5 h-2.5 rounded-full shrink-0"
+															style={{ backgroundColor: color?.bg ?? "#64748b" }}
+														/>
+														<span className="truncate">{b.name}</span>
+														{b.id === boardId && (
+															<span className="text-[10px] text-muted-foreground ml-auto">(current)</span>
+														)}
+													</label>
+												)
+											})}
+										</div>
+									</SidebarPanel>
+								)}
+
+							{/* Advanced Panel (only when editing) */}
 								{isEditing && (
 									<SidebarPanel
 										label="Advanced"
