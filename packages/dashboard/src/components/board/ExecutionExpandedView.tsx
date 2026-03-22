@@ -9,7 +9,7 @@ import { parseFilesChanged } from "@/lib/api"
 interface ExecutionExpandedViewProps {
 	open: boolean
 	onClose: () => void
-	systemComments: Comment[]
+	comments: Comment[]
 	executionMap: Record<string, Execution>
 	expandedExecutions: Set<string>
 	toggleExecution: (id: string) => void
@@ -18,7 +18,7 @@ interface ExecutionExpandedViewProps {
 export function ExecutionExpandedView({
 	open,
 	onClose,
-	systemComments,
+	comments,
 	executionMap,
 	expandedExecutions,
 	toggleExecution,
@@ -75,7 +75,7 @@ export function ExecutionExpandedView({
 				{/* Scrollable content */}
 				<ScrollArea className="flex-1 overflow-auto">
 					<div className="p-4 space-y-3">
-						{systemComments.map((comment) => {
+						{comments.map((comment) => {
 							const execution = comment.execution_id
 								? executionMap[comment.execution_id]
 								: null
@@ -85,7 +85,19 @@ export function ExecutionExpandedView({
 							const hasOutput =
 								execution && execution.output && execution.output.length > 0
 
-							if (!execution) {
+							if (comment.author !== "system") {
+						return (
+							<div key={comment.id} className="text-sm border-l-2 pl-3 border-primary/40">
+								<div>
+									<span className="font-semibold capitalize text-muted-foreground">{comment.author}</span>
+									<span className="text-muted-foreground/60 text-xs ml-2">{new Date(comment.created_at).toLocaleString()}</span>
+								</div>
+								<p className="mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+							</div>
+						)
+					}
+
+					if (!execution) {
 								return (
 									<div
 										key={comment.id}
