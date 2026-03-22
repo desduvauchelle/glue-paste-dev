@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { isAbsolute } from "node:path";
 
 export const BoardIdSchema = z.string().brand<"BoardId">();
 
@@ -12,7 +11,7 @@ const SlugSchema = z
   .nullable();
 
 const AbsolutePathSchema = z.string().min(1).refine(
-  (dir) => isAbsolute(dir) && !dir.includes(".."),
+  (dir) => (dir.startsWith("/") || /^[a-zA-Z]:[/\\]/.test(dir)) && !dir.includes(".."),
   { message: "Directory must be an absolute path without '..' segments" }
 );
 
