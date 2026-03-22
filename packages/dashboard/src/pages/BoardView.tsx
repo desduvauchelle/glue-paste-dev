@@ -253,15 +253,21 @@ export function BoardView({ params }: BoardViewProps) {
 				</div>
 				<div className="flex items-center gap-2">
 					<CaffeineToggle />
-					<button
-						type="button"
-						className="flex items-center gap-1 px-1.5 py-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
-						onClick={() => setScratchpadOpen(true)}
-						title="Scratchpad"
-					>
-						<StickyNote className="w-4 h-4" />
-						<kbd className="px-1 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">⌘.</kbd>
-					</button>
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									type="button"
+									className="flex items-center gap-1 px-1.5 py-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+									onClick={() => setScratchpadOpen(true)}
+								>
+									<StickyNote className="w-4 h-4" />
+									<kbd className="px-1 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">⌘.</kbd>
+								</button>
+							</TooltipTrigger>
+							<TooltipContent>Scratchpad</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
 					<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSettingsOpen(true)}>
 						<Settings className="w-4 h-4" />
 					</Button>
