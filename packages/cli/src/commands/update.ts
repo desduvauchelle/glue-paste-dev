@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 const REPO = "desduvauchelle/glue-paste-dev";
 
-function readVersion(): string {
+export function readVersion(): string {
   try {
     const pkgPath = join(DATA_DIR, "package.json");
     if (!existsSync(pkgPath)) return "unknown";

@@ -10,43 +10,41 @@ import { update } from "./commands/update.js";
 import { uninstall } from "./commands/uninstall.js";
 import { add } from "./commands/add.js";
 
-const command = process.argv[2];
-const flags = process.argv.slice(3);
-
-switch (command) {
-  case "up":
-  case "start":
-    await start();
-    break;
-  case "down":
-  case "stop":
-    await stop();
-    break;
-  case "restart":
-    await restart();
-    break;
-  case "status":
-    await status(flags);
-    break;
-  case "logs":
-    await logs(flags.includes("-f") || flags.includes("--follow"));
-    break;
-  case "open":
-    await open();
-    break;
-  case "update":
-    await update();
-    break;
-  case "uninstall":
-    await uninstall(flags);
-    break;
-  case "add":
-    await add(flags);
-    break;
-  case "--help":
-  case "-h":
-  case undefined:
-    console.log(`
+export async function route(command: string | undefined, flags: string[]) {
+  switch (command) {
+    case "up":
+    case "start":
+      await start();
+      break;
+    case "down":
+    case "stop":
+      await stop();
+      break;
+    case "restart":
+      await restart();
+      break;
+    case "status":
+      await status(flags);
+      break;
+    case "logs":
+      await logs(flags.includes("-f") || flags.includes("--follow"));
+      break;
+    case "open":
+      await open();
+      break;
+    case "update":
+      await update();
+      break;
+    case "uninstall":
+      await uninstall(flags);
+      break;
+    case "add":
+      await add(flags);
+      break;
+    case "--help":
+    case "-h":
+    case undefined:
+      console.log(`
 \x1b[1mGluePasteDev\x1b[0m — AI-powered Kanban for automated coding
 
 \x1b[2mUsage:\x1b[0m
@@ -87,9 +85,14 @@ switch (command) {
   glue-paste-dev status --json
   glue-paste-dev add "Fix bug" -p app --json
 `);
-    break;
-  default:
-    console.error(`Unknown command: ${command}`);
-    console.error('Run "glue-paste-dev --help" for usage.');
-    process.exit(1);
+      break;
+    default:
+      console.error(`Unknown command: ${command}`);
+      console.error('Run "glue-paste-dev --help" for usage.');
+      process.exit(1);
+  }
 }
+
+const command = process.argv[2];
+const flags = process.argv.slice(3);
+await route(command, flags);
