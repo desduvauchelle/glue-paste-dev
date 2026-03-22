@@ -215,12 +215,11 @@ export function BoardView({ params }: BoardViewProps) {
 
 	return (
 		<div className="flex flex-col h-screen">
-			{/* Project color accent bar */}
-			{boardColor && (
-				<div className="h-1.5 w-full shrink-0" style={{ backgroundColor: boardColor.bg }} />
-			)}
 			{/* Header */}
-			<header className="border-b border-border px-4 py-3 flex items-center justify-between shrink-0">
+			<header
+				className="border-b border-border px-4 py-3 flex items-center justify-between shrink-0"
+				style={boardColor ? { borderTopWidth: "4px", borderTopColor: boardColor.bg } : undefined}
+			>
 				<div className="flex items-center gap-3">
 					<Button variant="ghost" size="icon" onClick={() => setLocation("/")}>
 						<ArrowLeft className="w-4 h-4" />
