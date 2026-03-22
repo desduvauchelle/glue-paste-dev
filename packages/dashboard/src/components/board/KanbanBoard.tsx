@@ -24,6 +24,8 @@ interface KanbanBoardProps {
   onReorderCards: (updates: Array<{ id: string; status: string; position: number }>) => void;
   onAddCard?: (status: string) => void;
   sortMode?: SortMode;
+  doneHasMore?: boolean;
+  onLoadMoreDone?: () => void;
 }
 
 const COLUMNS = [
@@ -37,29 +39,13 @@ const COLUMNS = [
 const ADD_CARD_STATUSES = new Set(["todo", "queued"]);
 const SORTABLE_STATUSES = new Set(["todo", "queued"]);
 
-export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard, sortMode }: KanbanBoardProps) {
+export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard, sortMode, doneHasMore, onLoadMoreDone }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<CardWithTags | null>(null);
   const isDraggable = sortMode === undefined || sortMode === "custom";
   // Local state for optimistic column updates during drag
   const [localGrouped, setLocalGrouped] = useState<Record<string, CardWithTags[]> | null>(null);
-  const [doneWeeksLoaded, setDoneWeeksLoaded] = useState(1);
 
   const displayGrouped = localGrouped ?? grouped;
-
-  // Paginate done column: show only cards updated within the last N weeks
-  const { filteredDoneCards, hasDoneMore } = useMemo(() => {
-    const doneCards = displayGrouped["done"] ?? [];
-    const cutoff = Date.now() - doneWeeksLoaded * 7 * 24 * 60 * 60 * 1000;
-    const filtered = doneCards.filter((c) => {
-      const ts = c.updated_at ? new Date(c.updated_at).getTime() : 0;
-      return ts >= cutoff;
-    });
-    const hasMore = doneCards.some((c) => {
-      const ts = c.updated_at ? new Date(c.updated_at).getTime() : 0;
-      return ts < cutoff;
-    });
-    return { filteredDoneCards: filtered, hasDoneMore: hasMore };
-  }, [displayGrouped, doneWeeksLoaded]);
 
   const hasCardInProgress = useMemo(() => {
     return (grouped["in-progress"]?.length ?? 0) > 0;
@@ -232,14 +218,13 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
               key={status}
               title={title}
               status={status}
-              cards={isDone ? filteredDoneCards : (displayGrouped[status] ?? [])}
+              cards={displayGrouped[status] ?? []}
               onPlayCard={onPlayCard}
               onStopCard={onStopCard}
               onClickCard={onClickCard}
               onCoPlanCard={onCoPlanCard}
-              hasMore={isDone ? hasDoneMore : undefined}
-              onLoadMore={isDone ? () => setDoneWeeksLoaded((w) => w + 1) : undefined}
-              totalCount={isDone ? (displayGrouped["done"]?.length ?? 0) : undefined}
+              hasMore={isDone ? doneHasMore : undefined}
+              onLoadMore={isDone ? onLoadMoreDone : undefined}
               hasCardInProgress={hasCardInProgress}
               onAddCard={ADD_CARD_STATUSES.has(status) ? onAddCard : undefined}
               isDraggable={isDraggable}

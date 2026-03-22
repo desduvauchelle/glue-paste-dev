@@ -39,7 +39,10 @@ export const boards = {
 
 // Cards
 export const cards = {
-  list: (boardId: string) => request<CardWithTags[]>(`/cards/board/${boardId}`),
+  list: (boardId: string, doneLimit = 20) =>
+    request<{ cards: CardWithTags[]; doneHasMore: boolean }>(
+      `/cards/board/${boardId}?done_limit=${doneLimit}`
+    ),
   get: (id: string) => request<CardWithTags>(`/cards/${id}`),
   create: (boardId: string, data: CreateCard) =>
     request<CardWithTags>(`/cards/board/${boardId}`, {

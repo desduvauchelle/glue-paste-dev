@@ -69,8 +69,32 @@ describe("cards", () => {
     createCard(db, boardId, { title: "Card 1", description: "", tags: [] });
     createCard(db, boardId, { title: "Card 2", description: "", tags: [] });
 
-    const cards = listCards(db, boardId);
+    const { cards } = listCards(db, boardId);
     expect(cards).toHaveLength(2);
+  });
+
+  it("should limit done cards and report hasMore", () => {
+    for (let i = 0; i < 22; i++) {
+      const card = createCard(db, boardId, { title: `Done ${i}`, description: "", tags: [] });
+      updateCardStatus(db, card.id as CardId, "done");
+    }
+
+    const { cards, doneHasMore } = listCards(db, boardId, { doneLimit: 20 });
+    const doneCards = cards.filter((c) => c.status === "done");
+    expect(doneCards).toHaveLength(20);
+    expect(doneHasMore).toBe(true);
+  });
+
+  it("should return doneHasMore=false when done cards fit within limit", () => {
+    for (let i = 0; i < 5; i++) {
+      const card = createCard(db, boardId, { title: `Done ${i}`, description: "", tags: [] });
+      updateCardStatus(db, card.id as CardId, "done");
+    }
+
+    const { cards, doneHasMore } = listCards(db, boardId, { doneLimit: 20 });
+    const doneCards = cards.filter((c) => c.status === "done");
+    expect(doneCards).toHaveLength(5);
+    expect(doneHasMore).toBe(false);
   });
 
   it("should list cards by status", () => {

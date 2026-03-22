@@ -11,16 +11,23 @@ import type { SortMode } from "./use-card-sort";
 export function useCards(boardId: string, sortMode: SortMode = "custom") {
   const [data, setData] = useState<CardWithTags[]>([]);
   const [loading, setLoading] = useState(true);
+  const [doneLimit, setDoneLimit] = useState(20);
+  const [doneHasMore, setDoneHasMore] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      const result = await cardsApi.list(boardId);
-      setData(result);
+      const result = await cardsApi.list(boardId, doneLimit);
+      setData(result.cards);
+      setDoneHasMore(result.doneHasMore);
     } finally {
       setLoading(false);
     }
-  }, [boardId]);
+  }, [boardId, doneLimit]);
+
+  const loadMoreDone = useCallback(() => {
+    setDoneLimit((prev) => prev + 20);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -155,5 +162,5 @@ export function useCards(boardId: string, sortMode: SortMode = "custom") {
     };
   })();
 
-  return { cards: data, grouped, loading, refresh, create, update, move, reorder, remove, execute, stop };
+  return { cards: data, grouped, loading, refresh, create, update, move, reorder, remove, execute, stop, doneHasMore, loadMoreDone };
 }

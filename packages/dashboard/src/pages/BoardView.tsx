@@ -44,7 +44,7 @@ export function BoardView({ params }: BoardViewProps) {
 	queueRunningRef.current = queueRunning
 
 	const { sortMode, setSortMode } = useCardSort(boardId)
-	const { grouped, create, update, reorder, remove, execute, stop, loading } = useCards(boardId, sortMode)
+	const { grouped, create, update, reorder, remove, execute, stop, loading, doneHasMore, loadMoreDone } = useCards(boardId, sortMode)
 
 	const hasInProgressRef = useRef(false)
 	hasInProgressRef.current = (grouped["in-progress"]?.length ?? 0) > 0
@@ -347,6 +347,8 @@ export function BoardView({ params }: BoardViewProps) {
 							onReorderCards={(updates) => void handleReorderCards(updates)}
 							onAddCard={handleNewCardWithStatus}
 							sortMode={sortMode}
+							doneHasMore={doneHasMore}
+							onLoadMoreDone={loadMoreDone}
 						/>
 					)}
 				</main>

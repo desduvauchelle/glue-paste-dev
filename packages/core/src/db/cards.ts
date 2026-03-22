@@ -84,13 +84,32 @@ function toCardWithTags(db: Database, row: CardRow): CardWithTags {
   } as CardWithTags;
 }
 
-export function listCards(db: Database, boardId: BoardId): CardWithTags[] {
-  const rows = db
+export function listCards(
+  db: Database,
+  boardId: BoardId,
+  options?: { doneLimit?: number }
+): { cards: CardWithTags[]; doneHasMore: boolean } {
+  const doneLimit = options?.doneLimit ?? 20;
+
+  const nonDoneRows = db
     .query(
-      "SELECT * FROM cards WHERE board_id = ? ORDER BY position ASC, created_at ASC"
+      "SELECT * FROM cards WHERE board_id = ? AND status != 'done' ORDER BY position ASC, created_at ASC"
     )
     .all(boardId) as CardRow[];
-  return rows.map((row) => toCardWithTags(db, row));
+
+  const doneRows = db
+    .query(
+      "SELECT * FROM cards WHERE board_id = ? AND status = 'done' ORDER BY updated_at DESC LIMIT ?"
+    )
+    .all(boardId, doneLimit + 1) as CardRow[];
+
+  const doneHasMore = doneRows.length > doneLimit;
+  const limitedDoneRows = doneRows.slice(0, doneLimit);
+
+  const cards = [...nonDoneRows, ...limitedDoneRows].map((row) =>
+    toCardWithTags(db, row)
+  );
+  return { cards, doneHasMore };
 }
 
 export function listCardsByStatus(

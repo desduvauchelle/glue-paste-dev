@@ -35,7 +35,7 @@ describe("card routes", () => {
     const res = await req("GET", `/board/${boardId}`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual([]);
+    expect(body).toEqual({ cards: [], doneHasMore: false });
   });
 
   it("POST /board/:boardId creates a card and broadcasts", async () => {
