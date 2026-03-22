@@ -10,6 +10,7 @@ import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
 import { CoPlanSidebar } from "@/components/board/CoPlanSidebar"
 import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight, StickyNote } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { CaffeineToggle } from "@/components/CaffeineToggle"
 import { Scratchpad } from "@/components/board/Scratchpad"
 import { getBoardColor } from "@/lib/colors"
@@ -272,16 +273,24 @@ export function BoardView({ params }: BoardViewProps) {
 					</Button>
 
 					{queueRunning && (
-						<>
-							<Button variant="secondary" size="sm" onClick={() => void handlePauseQueue()}>
-								<Pause className="w-4 h-4 mr-1" />
-								{queuePaused ? "Resume" : "Pause"}
-							</Button>
-							<Button variant="destructive" size="sm" onClick={() => void handleStopQueue()}>
-								<Square className="w-4 h-4 mr-1" />
-								Stop
-							</Button>
-						</>
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button variant="secondary" size="icon" className="h-8 w-8" onClick={() => void handlePauseQueue()}>
+										<Pause className="w-4 h-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>{queuePaused ? "Resume" : "Pause"}</TooltipContent>
+							</Tooltip>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => void handleStopQueue()}>
+										<Square className="w-4 h-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Stop</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
 					)}
 				</div>
 			</header>
