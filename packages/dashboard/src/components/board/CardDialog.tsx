@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import type { CardWithTags, CreateCard, UpdateCard, Board } from "@/lib/api"
 import { config as configApi, boards as boardsApi, cards as cardsApi } from "@/lib/api"
 import { useComments } from "@/hooks/use-comments"
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2 } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
@@ -68,6 +69,7 @@ export function CardDialog({
 	const [allBoards, setAllBoards] = useState<Board[]>([])
 	const [moveTargetBoardId, setMoveTargetBoardId] = useState("")
 	const [isMoving, setIsMoving] = useState(false)
+	const [activityMaximized, setActivityMaximized] = useState(false)
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
 	const activityEndRef = useRef<HTMLDivElement>(null)
@@ -136,6 +138,24 @@ export function CardDialog({
 	useEffect(() => {
 		activityEndRef.current?.scrollIntoView({ behavior: "smooth" })
 	}, [executions])
+
+	// Close maximized activity on Escape
+	useEffect(() => {
+		if (!activityMaximized) return
+		const handler = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				e.stopPropagation()
+				setActivityMaximized(false)
+			}
+		}
+		document.addEventListener("keydown", handler, true)
+		return () => document.removeEventListener("keydown", handler, true)
+	}, [activityMaximized])
+
+	// Reset maximized state when dialog closes
+	useEffect(() => {
+		if (!open) setActivityMaximized(false)
+	}, [open])
 
 	const handleSave = async () => {
 		if (!title.trim() && !description.trim()) return
@@ -303,25 +323,9 @@ export function CardDialog({
 								</div>
 
 								{/* Activity / User Comments (only when editing) */}
-								{isEditing && (
-									<div>
-										<div className="flex items-center justify-between mb-1">
-											<label className="text-sm font-medium">
-												Activity ({comments.length})
-											</label>
-											{comments.length > 0 && (
-												<Button
-													variant="ghost"
-													size="icon"
-													className="h-6 w-6"
-													onClick={() => void clearComments()}
-													title="Clear all comments"
-												>
-													<Eraser className="w-3.5 h-3.5 text-muted-foreground" />
-												</Button>
-											)}
-										</div>
-										<ScrollArea className="max-h-[400px] border rounded-md p-2">
+								{isEditing && (() => {
+									const renderActivityList = (maximized: boolean): ReactNode => (
+										<>
 											{comments.length === 0 ? (
 												<p className="text-xs text-muted-foreground py-2 text-center">
 													No activity yet
@@ -396,7 +400,10 @@ export function CardDialog({
 																	{new Date(comment.created_at).toLocaleString()}
 																</span>
 																{isExpanded && hasOutput && (
-																	<pre className="mt-2 text-xs overflow-auto max-h-[300px] bg-muted/50 rounded p-3 whitespace-pre-wrap break-words">
+																	<pre className={cn(
+																		"mt-2 text-xs overflow-auto bg-muted/50 rounded p-3 whitespace-pre-wrap break-words",
+																		!maximized && "max-h-[300px]"
+																	)}>
 																		{execution.output}
 																	</pre>
 																)}
@@ -431,8 +438,11 @@ export function CardDialog({
 													<div ref={activityEndRef} />
 												</div>
 											)}
-										</ScrollArea>
-										<div className="flex gap-2 mt-2">
+										</>
+									)
+
+									const renderCommentInput = () => (
+										<div className="flex gap-2">
 											<Input
 												placeholder="Add a comment..."
 												value={commentText}
@@ -453,8 +463,79 @@ export function CardDialog({
 												<Send className="w-4 h-4" />
 											</Button>
 										</div>
-									</div>
-								)}
+									)
+
+									return (
+										<div>
+											<div className="flex items-center justify-between mb-1">
+												<label className="text-sm font-medium">
+													Activity ({comments.length})
+												</label>
+												<div className="flex items-center gap-1">
+													{comments.length > 0 && (
+														<Button
+															variant="ghost"
+															size="icon"
+															className="h-6 w-6"
+															onClick={() => void clearComments()}
+															title="Clear all comments"
+														>
+															<Eraser className="w-3.5 h-3.5 text-muted-foreground" />
+														</Button>
+													)}
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-6 w-6"
+														onClick={() => setActivityMaximized(true)}
+														title="Maximize activity"
+													>
+														<Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
+													</Button>
+												</div>
+											</div>
+											<ScrollArea className="max-h-[400px] border rounded-md p-2">
+												{renderActivityList(false)}
+											</ScrollArea>
+											<div className="mt-2">
+												{renderCommentInput()}
+											</div>
+
+											{activityMaximized && createPortal(
+												<div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+													<div
+														className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+														onClick={() => setActivityMaximized(false)}
+													/>
+													<div
+														className="relative z-10 w-full h-full max-w-6xl rounded-lg border border-border bg-card text-card-foreground shadow-lg flex flex-col"
+														onClick={(e) => e.stopPropagation()}
+													>
+														<div className="flex items-center justify-between px-4 py-3 border-b border-border">
+															<span className="text-sm font-medium">Activity ({comments.length})</span>
+															<Button
+																variant="ghost"
+																size="icon"
+																className="h-7 w-7"
+																onClick={() => setActivityMaximized(false)}
+																title="Minimize"
+															>
+																<Minimize2 className="w-4 h-4" />
+															</Button>
+														</div>
+														<ScrollArea className="flex-1 p-4">
+															{renderActivityList(true)}
+														</ScrollArea>
+														<div className="px-4 py-3 border-t border-border">
+															{renderCommentInput()}
+														</div>
+													</div>
+												</div>,
+												document.body
+											)}
+										</div>
+									)
+								})()}
 							</div>
 
 							{/* Right Column — Sidebar Panels */}
