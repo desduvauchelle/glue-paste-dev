@@ -210,7 +210,8 @@ export function CardDialog({
 									placeholder="Describe what needs to be done..."
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
-									className="min-h-[120px]"
+									rows={3}
+									autoResize
 									autoFocus={!isEditing}
 								/>
 							</div>
