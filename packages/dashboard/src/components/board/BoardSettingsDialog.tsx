@@ -29,6 +29,7 @@ interface BoardSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   board: Board;
   onUpdated: (board: Board) => void;
+  onDelete?: (boardId: string) => Promise<void>;
 }
 
 export function BoardSettingsDialog({
@@ -36,6 +37,7 @@ export function BoardSettingsDialog({
   onOpenChange,
   board,
   onUpdated,
+  onDelete,
 }: BoardSettingsDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -54,6 +56,9 @@ export function BoardSettingsDialog({
   const [color, setColor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "cli" | "execution">("general");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [dirtyFields, setDirtyFields] = useState<Set<string>>(new Set());
 
   const markDirty = (field: string) => setDirtyFields((prev) => new Set(prev).add(field));
@@ -64,6 +69,9 @@ export function BoardSettingsDialog({
       setDescription(board.description);
       setDirectory(board.directory);
       setColor(board.color ?? null);
+      setShowDeleteConfirm(false);
+      setDeleteConfirmName("");
+      setDeleting(false);
 
       // Load raw project config (only explicitly set overrides) + global for fallback display
       Promise.all([
@@ -132,6 +140,17 @@ export function BoardSettingsDialog({
       onOpenChange(false);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete || deleteConfirmName !== board.name) return;
+    setDeleting(true);
+    try {
+      await onDelete(board.id);
+      onOpenChange(false);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -220,6 +239,57 @@ export function BoardSettingsDialog({
                   ))}
                 </div>
               </div>
+
+              {/* Danger Zone */}
+              {onDelete && (
+                <div className="border border-red-200 dark:border-red-900/50 rounded-lg p-4 mt-2">
+                  <h4 className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">Danger Zone</h4>
+                  {!showDeleteConfirm ? (
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        Permanently delete this board and all its history.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-900/50 dark:hover:bg-red-950/30 shrink-0 ml-4"
+                        onClick={() => setShowDeleteConfirm(true)}
+                      >
+                        Delete Board
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        This action cannot be undone. Type <strong>{board.name}</strong> to confirm.
+                      </p>
+                      <Input
+                        placeholder={board.name}
+                        value={deleteConfirmName}
+                        onChange={(e) => setDeleteConfirmName(e.target.value)}
+                        className="border-red-200 dark:border-red-900/50"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmName(""); }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                          disabled={deleteConfirmName !== board.name || deleting}
+                          onClick={() => void handleDelete()}
+                        >
+                          {deleting ? "Deleting..." : "Permanently Delete"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 

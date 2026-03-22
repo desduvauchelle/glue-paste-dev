@@ -197,6 +197,11 @@ export function BoardView({ params }: BoardViewProps) {
 		setDialogOpen(true)
 	}
 
+	const handleDeleteBoard = async (boardId: string) => {
+		await boardsApi.delete(boardId)
+		setLocation("/")
+	}
+
 	const handleNewCard = () => {
 		setSelectedCard(null)
 		setNewCardStatus(undefined)
@@ -388,6 +393,7 @@ export function BoardView({ params }: BoardViewProps) {
 				onOpenChange={setSettingsOpen}
 				board={board}
 				onUpdated={setBoard}
+				onDelete={handleDeleteBoard}
 			/>
 		</div>
 	)
