@@ -17,6 +17,9 @@ vi.mock("@/lib/api", () => ({
       { id: "b3", name: "Middle", updated_at: "2026-02-01T00:00:00Z", directory: null, color: null, description: "", session_id: null, created_at: "", scratchpad: "" },
     ]),
   },
+  stats: {
+    boardCounts: vi.fn().mockResolvedValue({}),
+  },
 }));
 
 vi.mock("wouter", () => ({

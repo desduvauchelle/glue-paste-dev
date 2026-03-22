@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useLocation } from "wouter"
-import { boards as boardsApi, type Board } from "@/lib/api"
+import { boards as boardsApi, stats, type Board, type BoardStatusCounts } from "@/lib/api"
 import { getBoardColor } from "@/lib/colors"
 import { readSortMode, readCustomOrder, sortBoards } from "@/lib/sort-boards"
 
@@ -12,13 +12,18 @@ interface ProjectSwitcherProps {
 export function ProjectSwitcher({ currentBoardId, onClose }: ProjectSwitcherProps) {
 	const [, setLocation] = useLocation()
 	const [boardsList, setBoardsList] = useState<Board[]>([])
+	const [boardCounts, setBoardCounts] = useState<BoardStatusCounts>({})
 	const [selectedIndex, setSelectedIndex] = useState(0)
 	const listRef = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
-		void boardsApi.list().then((bs) => {
+		void Promise.all([
+			boardsApi.list(),
+			stats.boardCounts().catch(() => ({}) as BoardStatusCounts),
+		]).then(([bs, counts]) => {
 			const sorted = sortBoards(bs, readSortMode(), readCustomOrder())
 			setBoardsList(sorted)
+			setBoardCounts(counts)
 			const idx = sorted.findIndex((b) => b.id === currentBoardId)
 			setSelectedIndex(idx >= 0 ? idx : 0)
 		})
@@ -86,7 +91,29 @@ export function ProjectSwitcher({ currentBoardId, onClose }: ProjectSwitcherProp
 										style={{ backgroundColor: getBoardColor(board.color)!.bg }}
 									/>
 								)}
-								{board.name}
+								<span className="flex-1">{board.name}</span>
+								{(() => {
+									const c = boardCounts[board.id]
+									if (!c) return null
+									const inProgress = c["in-progress"] || 0
+									const queued = c["queued"] || 0
+									if (inProgress === 0 && queued === 0) return null
+									return (
+										<span className="flex items-center gap-1.5 ml-auto text-xs font-normal">
+											{inProgress > 0 && (
+												<span className="flex items-center gap-1 text-blue-500" title="In progress">
+													<span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+													{inProgress}
+												</span>
+											)}
+											{queued > 0 && (
+												<span className="text-muted-foreground" title="Queued">
+													{queued} queued
+												</span>
+											)}
+										</span>
+									)
+								})()}
 							</span>
 								{board.directory && (
 									<span className="text-xs text-muted-foreground font-mono">{board.directory}</span>
