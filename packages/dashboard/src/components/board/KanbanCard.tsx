@@ -211,7 +211,7 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInP
             >
               <GripVertical className="w-3.5 h-3.5" />
             </button>
-            <h4 className={cn("font-medium text-sm leading-tight", !card.title && "text-muted-foreground")}>{cardLabel(card)}</h4>
+            <h4 className={cn("font-medium text-sm leading-tight break-all", !card.title && "text-muted-foreground")}>{cardLabel(card)}</h4>
           </div>
           {!isRunning && onCoPlan && (
             <Button
@@ -264,7 +264,7 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInP
         </div>
 
         {card.description && (
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2 ml-5">
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-2 ml-5 break-all">
             {card.description}
           </p>
         )}
