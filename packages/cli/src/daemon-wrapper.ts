@@ -4,14 +4,30 @@
  * This process IS the daemon (its PID is stored in the PID file).
  * It supervises the child server process and restarts it with back-off.
  */
-import { appendFileSync } from "node:fs";
+import { appendFileSync, statSync, renameSync, unlinkSync, existsSync } from "node:fs";
 import { dirname } from "node:path";
 import { LOG_FILE } from "./daemon.js";
+
+const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5 MB
+
+function rotateLogIfNeeded() {
+  try {
+    if (!existsSync(LOG_FILE)) return;
+    const stat = statSync(LOG_FILE);
+    if (stat.size < MAX_LOG_SIZE) return;
+    const rotated = LOG_FILE + ".1";
+    // Remove old rotated file, rename current, start fresh
+    try { unlinkSync(rotated); } catch {}
+    renameSync(LOG_FILE, rotated);
+  } catch {}
+}
 
 const serverPath = process.env.GPD_SERVER;
 if (!serverPath) {
   process.exit(1);
 }
+
+rotateLogIfNeeded();
 
 const MAX_RESTARTS = 10;
 const RESTART_WINDOW_MS = 60_000; // reset counter after 1 min of stability
@@ -80,6 +96,7 @@ while (!shuttingDown) {
   }
 
   lastStart = Date.now();
+  rotateLogIfNeeded();
   const exitCode = await runServer();
 
   if (shuttingDown) break;

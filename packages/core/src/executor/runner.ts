@@ -71,8 +71,9 @@ export async function runCard(
   callbacks: RunnerCallbacks,
   options?: { existingPlanOutput?: string }
 ): Promise<RunResult> {
-  log.info("runner", `Running card "${cardLabel(card)}" (${card.id}) on board "${board.name}"`);
-  log.debug("runner", `Starting execution for card ${card.id}`);
+  log.info("runner", `=== Running card "${cardLabel(card)}" (${card.id}) on board "${board.name}" ===`);
+  log.info("runner", `Card: title="${card.title}" status=${card.status} assignee=${card.assignee} tags=[${card.tags.join(",")}]`);
+  log.info("runner", `Board directory: ${board.directory}`);
   cardsDb.updateCardStatus(db, card.id as CardId, "in-progress");
   const inProgressCard = cardsDb.getCard(db, card.id as CardId);
   if (inProgressCard) callbacks.onCardUpdated(inProgressCard);
@@ -94,6 +95,7 @@ export async function runCard(
 
   let result: RunResult;
   const hasPlan = config.planThinking !== null;
+  log.info("runner", `Execution strategy: hasPlan=${hasPlan} planThinking=${config.planThinking} executeThinking=${config.executeThinking}`);
 
   if (hasPlan) {
     const existingPlan = options?.existingPlanOutput;
@@ -131,10 +133,17 @@ async function captureGitSha(directory: string): Promise<string | null> {
       stderr: "pipe",
     });
     const output = await new Response(proc.stdout).text();
+    const stderrText = await new Response(proc.stderr).text();
     const exitCode = await proc.exited;
-    if (exitCode !== 0) return null;
-    return output.trim() || null;
-  } catch {
+    if (exitCode !== 0) {
+      log.warn("runner", `captureGitSha failed (exit ${exitCode}) in ${directory}`, stderrText.trim());
+      return null;
+    }
+    const sha = output.trim() || null;
+    log.debug("runner", `captureGitSha: ${sha} in ${directory}`);
+    return sha;
+  } catch (err) {
+    log.warn("runner", `captureGitSha threw in ${directory}:`, err);
     return null;
   }
 }
@@ -142,14 +151,19 @@ async function captureGitSha(directory: string): Promise<string | null> {
 async function captureFileChanges(directory: string, shaBefore: string): Promise<FileChange[]> {
   try {
     // Capture both committed and uncommitted changes relative to pre-execution state
+    log.debug("runner", `captureFileChanges: git diff --numstat ${shaBefore} in ${directory}`);
     const proc = Bun.spawn(["git", "diff", "--numstat", shaBefore], {
       cwd: directory,
       stdout: "pipe",
       stderr: "pipe",
     });
     const output = await new Response(proc.stdout).text();
+    const stderrText = await new Response(proc.stderr).text();
     const exitCode = await proc.exited;
-    if (exitCode !== 0) return [];
+    if (exitCode !== 0) {
+      log.warn("runner", `captureFileChanges git diff failed (exit ${exitCode}):`, stderrText.trim());
+      return [];
+    }
 
     const files: FileChange[] = [];
     for (const line of output.trim().split("\n")) {
@@ -163,8 +177,10 @@ async function captureFileChanges(directory: string, shaBefore: string): Promise
       const deletions = delStr === "-" ? 0 : parseInt(delStr!, 10) || 0;
       files.push({ path, additions, deletions });
     }
+    log.debug("runner", `captureFileChanges: ${files.length} files changed`, files.map(f => f.path));
     return files;
-  } catch {
+  } catch (err) {
+    log.warn("runner", `captureFileChanges threw:`, err);
     return [];
   }
 }
@@ -182,8 +198,11 @@ async function executePhase(
   planOutput?: string
 ): Promise<RunResult> {
   log.info("runner", `Phase "${phase}" starting for card "${cardLabel(card)}" (${card.id})`);
-  log.debug("runner", `Phase "${phase}" using session ${sessionId}`);
+  log.info("runner", `Config: provider=${config.cliProvider} model=${config.model} autoConfirm=${config.autoConfirm} autoCommit=${config.autoCommit} autoPush=${config.autoPush}`);
+  log.debug("runner", `Phase "${phase}" using session ${sessionId}, resume=${resume}`);
+  log.debug("runner", `Board directory: ${board.directory}`);
   const prompt = buildPrompt({ card, board, comments, config, phase, planOutput });
+  log.debug("runner", `Prompt length: ${prompt.length} chars`);
 
   // Create execution record
   const execution = executionsDb.createExecution(
@@ -211,7 +230,9 @@ async function executePhase(
   if (phase === "execute") {
     shaBefore = await captureGitSha(board.directory);
     if (shaBefore) {
-      log.debug("runner", `Captured pre-execution git SHA: ${shaBefore}`);
+      log.info("runner", `Pre-execution git SHA: ${shaBefore}`);
+    } else {
+      log.warn("runner", `Could not capture pre-execution git SHA — no-changes detection will be skipped`);
     }
   }
 
@@ -219,8 +240,8 @@ async function executePhase(
   const cliCmd = buildCliCommand(config, prompt, sessionId, phase, resume);
   const args = cliCmd.args;
 
-  log.info("runner", `Using CLI provider: ${config.cliProvider}`);
-  log.debug("runner", `Spawning: ${args.join(" ")}`);
+  log.info("runner", `Spawning CLI: ${args[0]} ${args.slice(1).map(a => a.length > 100 ? a.slice(0, 100) + '…' : a).join(" ")}`);
+  log.debug("runner", `Full CLI args (${args.length}):`, args.map((a, i) => `[${i}] ${a.length > 200 ? a.slice(0, 200) + '…(' + a.length + ' chars)' : a}`));
   const proc = Bun.spawn(args, {
     cwd: board.directory,
     stdout: "pipe",
@@ -306,9 +327,13 @@ async function executePhase(
   activeCardProcesses.delete(card.id);
   let success = exitCode === 0;
   let status: "success" | "failed" = success ? "success" : "failed";
-  log.info("runner", `Phase "${phase}" ${status} for card ${card.id} (exit ${exitCode})`);
-  if (!success && stderrOutput) {
-    log.error("runner", `stderr:\n${stderrOutput.slice(-500)}`);
+  log.info("runner", `Phase "${phase}" exited with code ${exitCode} for card ${card.id} — initial status: ${status}`);
+  log.info("runner", `Output length: ${output.length} chars, stderr length: ${stderrOutput.length} chars`);
+  if (stderrOutput) {
+    log.info("runner", `stderr (last 500 chars):\n${stderrOutput.slice(-500)}`);
+  }
+  if (!success) {
+    log.info("runner", `Output tail (last 300 chars):\n${output.slice(-300)}`);
   }
 
   // Update execution record
@@ -320,12 +345,18 @@ async function executePhase(
     try {
       const filesChanged = await captureFileChanges(board.directory, shaBefore);
       executionsDb.updateExecutionFilesChanged(db, execution.id as ExecutionId, filesChanged);
-      log.info("runner", `Captured ${filesChanged.length} file changes for execution ${execution.id}`);
+      log.info("runner", `File changes: ${filesChanged.length} files modified for execution ${execution.id}`);
+      if (filesChanged.length > 0) {
+        log.info("runner", `Changed files: ${filesChanged.map(f => `${f.path} (+${f.additions}/-${f.deletions})`).join(", ")}`);
+      }
 
       // Detect when AI exited 0 but made no changes
-      const shaAfter = success && filesChanged.length === 0
-        ? await captureGitSha(board.directory)
-        : null;
+      let shaAfter: string | null = null;
+      if (success && filesChanged.length === 0) {
+        log.info("runner", `No file changes detected after exit 0 — checking git SHA to confirm`);
+        shaAfter = await captureGitSha(board.directory);
+        log.info("runner", `Post-execution git SHA: ${shaAfter} (pre: ${shaBefore}, match: ${shaAfter === shaBefore})`);
+      }
 
       noChangesDetected = shouldFailNoChanges({
         phase, exitCode, filesChanged, shaBefore, shaAfter,
@@ -335,11 +366,14 @@ async function executePhase(
         success = false;
         status = "failed";
         executionsDb.updateExecutionStatus(db, execution.id, "failed", exitCode);
-        log.warn("runner", `Card ${card.id} exited 0 but produced no file changes — marking as failed`);
+        log.warn("runner", `Card ${card.id} exited 0 but produced no file changes — overriding to failed`);
+        log.warn("runner", `AI output tail (last 500 chars):\n${output.slice(-500)}`);
       }
     } catch (err) {
       log.warn("runner", `Failed to capture file changes:`, err);
     }
+  } else if (phase === "execute" && !shaBefore) {
+    log.warn("runner", `Skipping no-changes detection: shaBefore is null (git SHA capture failed)`);
   }
 
   // Add system comment with summary (including duration)
@@ -358,6 +392,7 @@ async function executePhase(
 
   const rateLimitResult = !success ? detectRateLimit(output, stderrOutput, exitCode) : null;
 
+  log.info("runner", `Phase "${phase}" final result for card ${card.id}: success=${success} exitCode=${exitCode} noChangesDetected=${noChangesDetected} rateLimit=${rateLimitResult?.isRateLimit ?? false}`);
   return { success, exitCode, output, ...(rateLimitResult ? { rateLimitInfo: rateLimitResult } : {}) };
 }
 
