@@ -4,8 +4,6 @@ import { Textarea } from "@/components/ui/textarea";
 interface ExecutionSettingsProps {
   maxBudgetUsd: number;
   onMaxBudgetUsdChange: (v: number) => void;
-  autoConfirm: boolean;
-  onAutoConfirmChange: (v: boolean) => void;
   autoCommit: boolean;
   onAutoCommitChange: (v: boolean) => void;
   autoPush: boolean;
@@ -23,8 +21,6 @@ interface ExecutionSettingsProps {
 export function ExecutionSettings({
   maxBudgetUsd,
   onMaxBudgetUsdChange,
-  autoConfirm,
-  onAutoConfirmChange,
   autoCommit,
   onAutoCommitChange,
   autoPush,
@@ -49,16 +45,6 @@ export function ExecutionSettings({
           onChange={(e) => onMaxBudgetUsdChange(Number(e.target.value))}
         />
       </div>
-
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={autoConfirm}
-          onChange={(e) => onAutoConfirmChange(e.target.checked)}
-          className="accent-primary"
-        />
-        <span className="text-sm font-medium">Auto-confirm permissions</span>
-      </label>
 
       <label className="flex items-center gap-2 cursor-pointer">
         <input

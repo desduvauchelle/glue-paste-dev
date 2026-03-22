@@ -78,7 +78,7 @@ function buildClaudeCommand(
     args.push("--max-budget-usd", String(config.maxBudgetUsd));
   }
 
-  if (phase === "execute" && config.autoConfirm) {
+  if (phase === "execute") {
     args.push("--dangerously-skip-permissions");
   }
 
@@ -108,9 +108,7 @@ function buildCodexCommand(
     args.push("--model", config.model);
   }
 
-  if (config.autoConfirm) {
-    args.push("--auto-confirm");
-  }
+  args.push("--auto-confirm");
 
   return { args, supportsStreamJson: false, supportsSession: false };
 }

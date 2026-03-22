@@ -10,7 +10,6 @@ interface ConfigRow {
   plan_model: string | null;
   execute_model: string | null;
   max_budget_usd: number | null;
-  auto_confirm: number | null;
   auto_commit: number | null;
   auto_push: number | null;
   plan_thinking: string | null;
@@ -28,7 +27,6 @@ function rowToConfigInput(row: ConfigRow): Required<ConfigInput> {
     planModel: row.plan_model || "",
     executeModel: row.execute_model || "",
     maxBudgetUsd: row.max_budget_usd ?? DEFAULT_CONFIG.maxBudgetUsd,
-    autoConfirm: row.auto_confirm === null ? DEFAULT_CONFIG.autoConfirm : row.auto_confirm === 1,
     autoCommit: row.auto_commit === null ? DEFAULT_CONFIG.autoCommit : row.auto_commit === 1,
     autoPush: row.auto_push === null ? DEFAULT_CONFIG.autoPush : row.auto_push === 1,
     planThinking: (row.plan_thinking as "smart" | "basic" | null) ?? "smart",
@@ -47,7 +45,6 @@ function rowToPartialConfig(row: ConfigRow): ConfigInput {
     planModel: row.plan_model !== null ? row.plan_model : undefined,
     executeModel: row.execute_model !== null ? row.execute_model : undefined,
     maxBudgetUsd: row.max_budget_usd !== null ? row.max_budget_usd : undefined,
-    autoConfirm: row.auto_confirm !== null ? row.auto_confirm === 1 : undefined,
     autoCommit: row.auto_commit !== null ? row.auto_commit === 1 : undefined,
     autoPush: row.auto_push !== null ? row.auto_push === 1 : undefined,
     planThinking: row.plan_thinking !== null ? (row.plan_thinking as "smart" | "basic") : undefined,
@@ -108,7 +105,6 @@ export function getMergedConfig(
     planModel: project.planModel !== undefined ? project.planModel : global.planModel,
     executeModel: project.executeModel !== undefined ? project.executeModel : global.executeModel,
     maxBudgetUsd: project.maxBudgetUsd ?? global.maxBudgetUsd,
-    autoConfirm: project.autoConfirm ?? global.autoConfirm,
     autoCommit: project.autoCommit ?? global.autoCommit,
     autoPush: project.autoPush ?? global.autoPush,
     planThinking: project.planThinking !== undefined ? project.planThinking : global.planThinking,
@@ -152,7 +148,6 @@ function upsertGlobalConfig(
     planModel: input.planModel !== undefined ? input.planModel : current.planModel,
     executeModel: input.executeModel !== undefined ? input.executeModel : current.executeModel,
     maxBudgetUsd: input.maxBudgetUsd ?? current.maxBudgetUsd,
-    autoConfirm: input.autoConfirm ?? current.autoConfirm,
     autoCommit: input.autoCommit ?? current.autoCommit,
     autoPush: input.autoPush ?? current.autoPush,
     planThinking: input.planThinking !== undefined ? input.planThinking : current.planThinking,
@@ -162,8 +157,8 @@ function upsertGlobalConfig(
   };
 
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_confirm, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
        cli_custom_command = excluded.cli_custom_command,
@@ -171,7 +166,6 @@ function upsertGlobalConfig(
        plan_model = excluded.plan_model,
        execute_model = excluded.execute_model,
        max_budget_usd = excluded.max_budget_usd,
-       auto_confirm = excluded.auto_confirm,
        auto_commit = excluded.auto_commit,
        auto_push = excluded.auto_push,
        plan_thinking = excluded.plan_thinking,
@@ -186,7 +180,6 @@ function upsertGlobalConfig(
     merged.planModel ?? "",
     merged.executeModel ?? "",
     merged.maxBudgetUsd ?? 10,
-    merged.autoConfirm ? 1 : 0,
     merged.autoCommit ? 1 : 0,
     merged.autoPush ? 1 : 0,
     merged.planThinking ?? null,
@@ -205,8 +198,8 @@ function upsertProjectConfig(
   input: ConfigInput
 ): Required<ConfigInput> {
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_confirm, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
        cli_custom_command = excluded.cli_custom_command,
@@ -214,7 +207,6 @@ function upsertProjectConfig(
        plan_model = excluded.plan_model,
        execute_model = excluded.execute_model,
        max_budget_usd = excluded.max_budget_usd,
-       auto_confirm = excluded.auto_confirm,
        auto_commit = excluded.auto_commit,
        auto_push = excluded.auto_push,
        plan_thinking = excluded.plan_thinking,
@@ -229,7 +221,6 @@ function upsertProjectConfig(
     input.planModel !== undefined ? (input.planModel ?? "") : null,
     input.executeModel !== undefined ? (input.executeModel ?? "") : null,
     input.maxBudgetUsd ?? null,
-    input.autoConfirm !== undefined ? (input.autoConfirm ? 1 : 0) : null,
     input.autoCommit !== undefined ? (input.autoCommit ? 1 : 0) : null,
     input.autoPush !== undefined ? (input.autoPush ? 1 : 0) : null,
     input.planThinking !== undefined ? (input.planThinking ?? null) : null,

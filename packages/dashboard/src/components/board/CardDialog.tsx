@@ -71,6 +71,7 @@ export function CardDialog({
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
 
+	const systemComments = comments.filter((c: { execution_id: string | null }) => c.execution_id !== null)
 	const executionMap = Object.fromEntries(executions.map((e) => [e.id, e])) as Record<string, Execution>
 
 	const toggleExecution = (id: string) => {
@@ -83,9 +84,6 @@ export function CardDialog({
 	}
 
 	const isEditing = card !== null
-
-	// Split comments into system/execution comments for sidebar panel
-	const systemComments = comments.filter((c) => c.author === "system")
 
 	useEffect(() => {
 		if (card) {

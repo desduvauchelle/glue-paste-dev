@@ -50,7 +50,7 @@ describe("CardDialog — config defaults", () => {
       planModel: "",
       executeModel: "",
       maxBudgetUsd: 10,
-      autoConfirm: true,
+
       autoCommit: false,
       autoPush: false,
       planThinking: "smart",
@@ -82,7 +82,7 @@ describe("CardDialog — config defaults", () => {
       planModel: "",
       executeModel: "",
       maxBudgetUsd: 10,
-      autoConfirm: true,
+
       autoCommit: false,
       autoPush: false,
       planThinking: "basic",
@@ -113,7 +113,7 @@ describe("CardDialog — config defaults", () => {
       planModel: "",
       executeModel: "",
       maxBudgetUsd: 10,
-      autoConfirm: true,
+
       autoCommit: false,
       autoPush: false,
       planThinking: "smart",
@@ -163,7 +163,7 @@ describe("CardDialog — config defaults", () => {
       planModel: "",
       executeModel: "",
       maxBudgetUsd: 10,
-      autoConfirm: true,
+
       autoCommit: true,
       autoPush: false,
       planThinking: "smart",
@@ -190,7 +190,7 @@ describe("CardDialog — config defaults", () => {
       planModel: "",
       executeModel: "",
       maxBudgetUsd: 10,
-      autoConfirm: true,
+
       autoCommit: false,
       autoPush: false,
       planThinking: "smart",
@@ -217,7 +217,7 @@ describe("CardDialog — config defaults", () => {
       planModel: "",
       executeModel: "",
       maxBudgetUsd: 10,
-      autoConfirm: true,
+
       autoCommit: false,
       autoPush: false,
       planThinking: "smart",

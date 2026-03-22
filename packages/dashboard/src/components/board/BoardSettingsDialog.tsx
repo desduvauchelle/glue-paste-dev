@@ -46,7 +46,6 @@ export function BoardSettingsDialog({
   const [planModel, setPlanModel] = useState("");
   const [executeModel, setExecuteModel] = useState("");
   const [maxBudgetUsd, setMaxBudgetUsd] = useState(10);
-  const [autoConfirm, setAutoConfirm] = useState(true);
   const [autoCommit, setAutoCommit] = useState(false);
   const [autoPush, setAutoPush] = useState(false);
   const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>("smart");
@@ -79,7 +78,6 @@ export function BoardSettingsDialog({
         if (raw.planModel !== undefined) existing.add("planModel");
         if (raw.executeModel !== undefined) existing.add("executeModel");
         if (raw.maxBudgetUsd !== undefined) existing.add("maxBudgetUsd");
-        if (raw.autoConfirm !== undefined) existing.add("autoConfirm");
         if (raw.autoCommit !== undefined) existing.add("autoCommit");
         if (raw.autoPush !== undefined) existing.add("autoPush");
         if (raw.planThinking !== undefined) existing.add("planThinking");
@@ -93,7 +91,6 @@ export function BoardSettingsDialog({
         setPlanModel(raw.planModel ?? global.planModel ?? "");
         setExecuteModel(raw.executeModel ?? global.executeModel ?? "");
         setMaxBudgetUsd(raw.maxBudgetUsd ?? global.maxBudgetUsd ?? 10);
-        setAutoConfirm(raw.autoConfirm ?? global.autoConfirm ?? true);
         setAutoCommit(raw.autoCommit ?? global.autoCommit ?? false);
         setAutoPush(raw.autoPush ?? global.autoPush ?? false);
         setPlanThinking(raw.planThinking !== undefined ? raw.planThinking : global.planThinking ?? "smart");
@@ -124,7 +121,6 @@ export function BoardSettingsDialog({
       if (dirtyFields.has("planModel")) configUpdate.planModel = planModel.trim();
       if (dirtyFields.has("executeModel")) configUpdate.executeModel = executeModel.trim();
       if (dirtyFields.has("maxBudgetUsd")) configUpdate.maxBudgetUsd = maxBudgetUsd;
-      if (dirtyFields.has("autoConfirm")) configUpdate.autoConfirm = autoConfirm;
       if (dirtyFields.has("autoCommit")) configUpdate.autoCommit = autoCommit;
       if (dirtyFields.has("autoPush")) configUpdate.autoPush = autoPush;
       if (dirtyFields.has("planThinking")) configUpdate.planThinking = planThinking;
@@ -316,8 +312,6 @@ export function BoardSettingsDialog({
             <ExecutionSettings
               maxBudgetUsd={maxBudgetUsd}
               onMaxBudgetUsdChange={(v) => { setMaxBudgetUsd(v); markDirty("maxBudgetUsd"); }}
-              autoConfirm={autoConfirm}
-              onAutoConfirmChange={(v) => { setAutoConfirm(v); markDirty("autoConfirm"); }}
               autoCommit={autoCommit}
               onAutoCommitChange={(v) => { setAutoCommit(v); markDirty("autoCommit"); }}
               autoPush={autoPush}

@@ -53,6 +53,10 @@ cd packages/dashboard && bunx vitest run
 
 Always run the relevant package tests after making changes and confirm they pass before finishing.
 
+## Planning
+
+When in plan mode, always write plans to the designated plan file path provided by the system, not to `docs/superpowers/plans/`.
+
 ## General Guidelines
 
 - Keep solutions minimal — only change what was asked or is clearly necessary.

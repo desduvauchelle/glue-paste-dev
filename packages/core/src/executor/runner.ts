@@ -198,7 +198,7 @@ async function executePhase(
   planOutput?: string
 ): Promise<RunResult> {
   log.info("runner", `Phase "${phase}" starting for card "${cardLabel(card)}" (${card.id})`);
-  log.info("runner", `Config: provider=${config.cliProvider} model=${config.model} autoConfirm=${config.autoConfirm} autoCommit=${config.autoCommit} autoPush=${config.autoPush}`);
+  log.info("runner", `Config: provider=${config.cliProvider} model=${config.model} autoCommit=${config.autoCommit} autoPush=${config.autoPush}`);
   log.debug("runner", `Phase "${phase}" using session ${sessionId}, resume=${resume}`);
   log.debug("runner", `Board directory: ${board.directory}`);
   const prompt = buildPrompt({ card, board, comments, config, phase, planOutput });
@@ -438,7 +438,7 @@ export function buildExecutionSummary(params: {
   const { phaseName, durationStr, success, noChangesDetected, exitCode, output, stderrOutput } = params;
 
   if (noChangesDetected) {
-    return `${phaseName} produced no file changes in ${durationStr} — marked as failed. The AI exited successfully but did not modify any files. This may indicate a permissions issue (autoConfirm disabled) or that the AI decided no changes were needed.`;
+    return `${phaseName} produced no file changes in ${durationStr} — marked as failed. The AI exited successfully but did not modify any files.`;
   }
   if (success) {
     return `${phaseName} completed successfully in ${durationStr}.`;

@@ -62,7 +62,6 @@ export function initSchema(db: Database): void {
       cli_custom_command TEXT NOT NULL DEFAULT '',
       model TEXT NOT NULL DEFAULT 'claude-opus-4-6',
       max_budget_usd REAL NOT NULL DEFAULT 10.0,
-      auto_confirm INTEGER NOT NULL DEFAULT 1,
       plan_mode INTEGER NOT NULL DEFAULT 1,
       thinking_level TEXT NOT NULL DEFAULT 'smart',
       custom_tags TEXT NOT NULL DEFAULT '[]',
@@ -280,7 +279,6 @@ export function initSchema(db: Database): void {
         cli_custom_command TEXT DEFAULT '',
         model TEXT DEFAULT 'claude-opus-4-6',
         max_budget_usd REAL DEFAULT 10.0,
-        auto_confirm INTEGER DEFAULT 1,
         plan_mode INTEGER DEFAULT 1,
         thinking_level TEXT DEFAULT 'smart',
         custom_tags TEXT DEFAULT '[]',
@@ -292,8 +290,8 @@ export function initSchema(db: Database): void {
         execute_model TEXT DEFAULT '',
         auto_push INTEGER DEFAULT 0
       );
-      INSERT INTO config_new (key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, plan_mode, thinking_level, custom_tags, custom_instructions, plan_thinking, execute_thinking, auto_commit, plan_model, execute_model, auto_push)
-        SELECT key, cli_provider, cli_custom_command, model, max_budget_usd, auto_confirm, plan_mode, thinking_level, custom_tags, custom_instructions, plan_thinking, execute_thinking, auto_commit, plan_model, execute_model, auto_push FROM config;
+      INSERT INTO config_new (key, cli_provider, cli_custom_command, model, max_budget_usd, plan_mode, thinking_level, custom_tags, custom_instructions, plan_thinking, execute_thinking, auto_commit, plan_model, execute_model, auto_push)
+        SELECT key, cli_provider, cli_custom_command, model, max_budget_usd, plan_mode, thinking_level, custom_tags, custom_instructions, plan_thinking, execute_thinking, auto_commit, plan_model, execute_model, auto_push FROM config;
       DROP TABLE config;
       ALTER TABLE config_new RENAME TO config;
     `);

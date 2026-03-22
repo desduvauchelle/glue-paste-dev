@@ -35,7 +35,6 @@ describe("config manager", () => {
     expect(config.cliCustomCommand).toBe("");
     expect(config.model).toBe("claude-opus-4-6");
     expect(config.maxBudgetUsd).toBe(10.0);
-    expect(config.autoConfirm).toBe(true);
     expect(config.planThinking).toBe("smart");
     expect(config.customTags).toEqual([]);
   });

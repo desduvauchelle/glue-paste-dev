@@ -285,7 +285,6 @@ interface ConfigData {
   planModel: string;
   executeModel: string;
   maxBudgetUsd: number;
-  autoConfirm: boolean;
   autoCommit: boolean;
   autoPush: boolean;
   planThinking: "smart" | "basic" | null;

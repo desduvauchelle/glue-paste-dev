@@ -29,7 +29,6 @@ export function GlobalSettings() {
   const [planModel, setPlanModel] = useState("");
   const [executeModel, setExecuteModel] = useState("");
   const [maxBudgetUsd, setMaxBudgetUsd] = useState(10);
-  const [autoConfirm, setAutoConfirm] = useState(true);
   const [autoCommit, setAutoCommit] = useState(false);
   const [autoPush, setAutoPush] = useState(false);
   const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>("smart");
@@ -46,7 +45,6 @@ export function GlobalSettings() {
       setPlanModel(cfg.planModel || "");
       setExecuteModel(cfg.executeModel || "");
       setMaxBudgetUsd(cfg.maxBudgetUsd);
-      setAutoConfirm(cfg.autoConfirm);
       setAutoCommit(cfg.autoCommit);
       setAutoPush(cfg.autoPush);
       setPlanThinking(cfg.planThinking);
@@ -69,7 +67,6 @@ export function GlobalSettings() {
         planModel: planModel.trim(),
         executeModel: executeModel.trim(),
         maxBudgetUsd,
-        autoConfirm,
         autoCommit,
         autoPush,
         planThinking,
@@ -229,8 +226,6 @@ export function GlobalSettings() {
             <ExecutionSettings
               maxBudgetUsd={maxBudgetUsd}
               onMaxBudgetUsdChange={setMaxBudgetUsd}
-              autoConfirm={autoConfirm}
-              onAutoConfirmChange={setAutoConfirm}
               autoCommit={autoCommit}
               onAutoCommitChange={setAutoCommit}
               autoPush={autoPush}

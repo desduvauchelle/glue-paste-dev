@@ -94,7 +94,6 @@ describe("buildExecutionSummary", () => {
     expect(summary).toContain("produced no file changes");
     expect(summary).toContain("marked as failed");
     expect(summary).toContain("11s");
-    expect(summary).toContain("permissions issue");
   });
 
   test("returns success message for normal success", () => {

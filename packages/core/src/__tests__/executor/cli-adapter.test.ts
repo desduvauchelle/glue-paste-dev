@@ -17,13 +17,13 @@ describe("cli-adapter", () => {
     expect(cmd.supportsSession).toBe(true);
   });
 
-  it("should add --dangerously-skip-permissions in execute phase with autoConfirm", () => {
-    const cmd = buildCliCommand(makeConfig({ autoConfirm: true }), "do stuff", "sess-1", "execute");
+  it("should always add --dangerously-skip-permissions in execute phase", () => {
+    const cmd = buildCliCommand(makeConfig(), "do stuff", "sess-1", "execute");
     expect(cmd.args).toContain("--dangerously-skip-permissions");
   });
 
   it("should not add --dangerously-skip-permissions in plan phase", () => {
-    const cmd = buildCliCommand(makeConfig({ autoConfirm: true }), "do stuff", "sess-1", "plan");
+    const cmd = buildCliCommand(makeConfig(), "do stuff", "sess-1", "plan");
     expect(cmd.args).not.toContain("--dangerously-skip-permissions");
   });
 
