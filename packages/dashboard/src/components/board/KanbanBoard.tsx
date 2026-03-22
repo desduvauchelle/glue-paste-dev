@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import type { CardWithTags } from "@/lib/api";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
+import { DEFAULT_SUGGESTIONS, type DefaultSuggestion } from "./DefaultSuggestionCard";
 import {
   DndContext,
   DragOverlay,
@@ -22,6 +23,7 @@ interface KanbanBoardProps {
   onCoPlanCard?: (card: CardWithTags) => void;
   onReorderCards: (updates: Array<{ id: string; status: string; position: number }>) => void;
   onAddCard?: (status: string) => void;
+  onSuggestionClick?: (suggestion: DefaultSuggestion) => void;
   doneHasMore?: boolean;
   onLoadMoreDone?: () => void;
 }
@@ -37,7 +39,7 @@ const COLUMNS = [
 const ADD_CARD_STATUSES = new Set(["todo", "queued"]);
 const SORTABLE_STATUSES = new Set(["todo", "queued"]);
 
-export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard, doneHasMore, onLoadMoreDone }: KanbanBoardProps) {
+export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard, onSuggestionClick, doneHasMore, onLoadMoreDone }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<CardWithTags | null>(null);
   const isDraggable = true;
   // Local state for optimistic column updates during drag
@@ -226,6 +228,8 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
               hasCardInProgress={hasCardInProgress}
               onAddCard={ADD_CARD_STATUSES.has(status) ? onAddCard : undefined}
               isDraggable={isDraggable}
+              suggestions={status === "todo" ? DEFAULT_SUGGESTIONS : undefined}
+              onSuggestionClick={status === "todo" ? onSuggestionClick : undefined}
             />
           );
         })}

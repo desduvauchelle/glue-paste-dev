@@ -33,6 +33,7 @@ interface CardDialogProps {
 	onDelete: (id: string) => Promise<unknown>
 	onPlay: (id: string) => void
 	defaultStatus?: string
+	defaultDescription?: string
 	boardName?: string
 }
 
@@ -46,6 +47,7 @@ export function CardDialog({
 	onDelete,
 	onPlay,
 	defaultStatus,
+	defaultDescription,
 	boardName,
 }: CardDialogProps) {
 	const [title, setTitle] = useState("")
@@ -100,7 +102,7 @@ export function CardDialog({
 			setAssignee(card.assignee ?? "ai")
 		} else {
 			setTitle("")
-			setDescription("")
+			setDescription(defaultDescription ?? "")
 			setSelectedTags([])
 			setFiles([])
 			setBlocking(false)
@@ -117,7 +119,7 @@ export function CardDialog({
 		}
 		setShowFileBrowser(false)
 		setConfirmDelete(false)
-	}, [card, open])
+	}, [card, open, defaultDescription])
 
 	useEffect(() => {
 		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit, autoPush: c.autoPush }))

@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { CaffeineToggle } from "@/components/CaffeineToggle"
 import { Scratchpad } from "@/components/board/Scratchpad"
 import { getBoardColor } from "@/lib/colors"
+import type { DefaultSuggestion } from "@/components/board/DefaultSuggestionCard"
 
 interface BoardViewProps {
 	params: { boardId: string }
@@ -27,6 +28,7 @@ export function BoardView({ params }: BoardViewProps) {
 	const [dialogOpen, setDialogOpen] = useState(false)
 	const [selectedCard, setSelectedCard] = useState<CardWithTags | null>(null)
 	const [newCardStatus, setNewCardStatus] = useState<string | undefined>(undefined)
+	const [newCardDescription, setNewCardDescription] = useState<string | undefined>(undefined)
 	const [queueRunning, setQueueRunning] = useState(false)
 	const [queuePaused, setQueuePaused] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
@@ -192,12 +194,21 @@ export function BoardView({ params }: BoardViewProps) {
 	const handleNewCard = () => {
 		setSelectedCard(null)
 		setNewCardStatus(undefined)
+		setNewCardDescription(undefined)
 		setDialogOpen(true)
 	}
 
 	const handleNewCardWithStatus = (status: string) => {
 		setSelectedCard(null)
 		setNewCardStatus(status)
+		setNewCardDescription(undefined)
+		setDialogOpen(true)
+	}
+
+	const handleSuggestionClick = (suggestion: DefaultSuggestion) => {
+		setSelectedCard(null)
+		setNewCardStatus("todo")
+		setNewCardDescription(suggestion.description)
 		setDialogOpen(true)
 	}
 
@@ -321,6 +332,7 @@ export function BoardView({ params }: BoardViewProps) {
 							onCoPlanCard={(card) => setCoPlanCard(card)}
 							onReorderCards={(updates) => void handleReorderCards(updates)}
 							onAddCard={handleNewCardWithStatus}
+							onSuggestionClick={handleSuggestionClick}
 							doneHasMore={doneHasMore}
 							onLoadMoreDone={loadMoreDone}
 						/>
@@ -347,6 +359,7 @@ export function BoardView({ params }: BoardViewProps) {
 				onDelete={remove}
 				onPlay={(id) => void handlePlayCard(id)}
 				defaultStatus={newCardStatus}
+				defaultDescription={newCardDescription}
 			/>
 
 			{/* Project Switcher */}

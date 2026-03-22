@@ -1,5 +1,6 @@
 import type { CardWithTags } from "@/lib/api";
 import { KanbanCard } from "./KanbanCard";
+import { DefaultSuggestionCard, type DefaultSuggestion } from "./DefaultSuggestionCard";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
@@ -21,6 +22,8 @@ interface KanbanColumnProps {
   hasCardInProgress?: boolean;
   onAddCard?: (status: string) => void;
   isDraggable?: boolean;
+  suggestions?: DefaultSuggestion[];
+  onSuggestionClick?: (suggestion: DefaultSuggestion) => void;
 }
 
 const columnColors: Record<string, string> = {
@@ -45,6 +48,8 @@ export function KanbanColumn({
   hasCardInProgress,
   onAddCard,
   isDraggable,
+  suggestions,
+  onSuggestionClick,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const cardIds = useMemo(() => cards.map((c) => c.id), [cards]);
@@ -100,6 +105,13 @@ export function KanbanColumn({
               >
                 Load older cards
               </button>
+            )}
+            {suggestions && suggestions.length > 0 && onSuggestionClick && (
+              <div className="mt-4 pt-4 border-t border-dashed border-muted-foreground/15 space-y-2">
+                {suggestions.map((s) => (
+                  <DefaultSuggestionCard key={s.id} suggestion={s} onClick={onSuggestionClick} />
+                ))}
+              </div>
             )}
           </div>
         </ScrollArea>
