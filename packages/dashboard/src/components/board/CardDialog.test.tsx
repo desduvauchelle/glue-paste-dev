@@ -175,16 +175,10 @@ describe("CardDialog — config defaults", () => {
     render(<CardDialog {...defaultProps} card={null} />);
 
     await waitFor(() => {
-      const autoCommitRadios = screen.getAllByRole("radio").filter((r) =>
-        (r as HTMLInputElement).name === "card-auto-commit"
-      );
-      // Only 2 radio buttons (On/Off), no Inherit
-      expect(autoCommitRadios).toHaveLength(2);
-      // "On" should be preselected (inherited from config)
-      const onRadio = autoCommitRadios.find((r) =>
-        r.closest("label")?.textContent?.includes("On")
-      );
-      expect(onRadio).toBeChecked();
+      const autoCommitLabel = screen.getByText(/auto-commit/i);
+      const autoCommitSwitch = autoCommitLabel.closest("div")?.querySelector('[role="switch"]');
+      expect(autoCommitSwitch).toBeDefined();
+      expect(autoCommitSwitch).toHaveAttribute("aria-checked", "true");
     });
   });
 
@@ -208,14 +202,10 @@ describe("CardDialog — config defaults", () => {
     render(<CardDialog {...defaultProps} card={null} />);
 
     await waitFor(() => {
-      const autoPushRadios = screen.getAllByRole("radio").filter((r) =>
-        (r as HTMLInputElement).name === "card-auto-push"
-      );
-      expect(autoPushRadios).toHaveLength(2);
-      const offRadio = autoPushRadios.find((r) =>
-        r.closest("label")?.textContent?.includes("Off")
-      );
-      expect(offRadio).toBeChecked();
+      const autoPushLabel = screen.getByText(/auto-push/i);
+      const autoPushSwitch = autoPushLabel.closest("div")?.querySelector('[role="switch"]');
+      expect(autoPushSwitch).toBeDefined();
+      expect(autoPushSwitch).toHaveAttribute("aria-checked", "false");
     });
   });
 
@@ -258,13 +248,10 @@ describe("CardDialog — config defaults", () => {
     render(<CardDialog {...defaultProps} card={cardWithOverride} />);
 
     await waitFor(() => {
-      const autoCommitRadios = screen.getAllByRole("radio").filter((r) =>
-        (r as HTMLInputElement).name === "card-auto-commit"
-      );
-      const onRadio = autoCommitRadios.find((r) =>
-        r.closest("label")?.textContent?.includes("On")
-      );
-      expect(onRadio).toBeChecked();
+      const autoCommitLabel = screen.getByText(/auto-commit/i);
+      const autoCommitSwitch = autoCommitLabel.closest("div")?.querySelector('[role="switch"]');
+      expect(autoCommitSwitch).toBeDefined();
+      expect(autoCommitSwitch).toHaveAttribute("aria-checked", "true");
     });
   });
 });

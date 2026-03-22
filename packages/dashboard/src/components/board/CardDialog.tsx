@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
 import { Send, Play, Trash2, Eraser, Brain, Zap, ChevronRight, ChevronDown, FolderOpen, X, FileCode, Settings, History, Bot, User } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
@@ -378,22 +379,20 @@ export function CardDialog({
 										)}
 									</div>
 
-									{/* Blocking checkbox */}
-									<div className="flex items-center gap-2">
-										<input
-											type="checkbox"
+									{/* Blocking toggle */}
+									<div className="flex items-center justify-between">
+										<div>
+											<label htmlFor="blocking" className="text-xs font-medium block text-muted-foreground uppercase tracking-wide cursor-pointer">Blocking</label>
+											<p className="text-xs text-muted-foreground mt-0.5">
+												Play All stops if this card fails
+											</p>
+										</div>
+										<Switch
 											id="blocking"
 											checked={blocking}
-											onChange={(e) => setBlocking(e.target.checked)}
-											className="h-4 w-4 rounded border-border bg-background accent-primary"
+											onCheckedChange={setBlocking}
 										/>
-										<label htmlFor="blocking" className="text-sm cursor-pointer">
-											Blocking
-										</label>
 									</div>
-									<p className="text-xs text-muted-foreground -mt-1">
-										Play All stops if this card fails
-									</p>
 
 									{/* Thinking Level */}
 									<div>
@@ -457,45 +456,23 @@ export function CardDialog({
 
 									{/* Auto-commit */}
 									<div>
-										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Auto-commit</label>
-										<div className="flex items-center gap-2">
-											{([true, false] as const).map((val) => {
-												const effective = autoCommit ?? configDefaults.autoCommit
-												return (
-													<label key={String(val)} className="flex items-center gap-1 cursor-pointer select-none">
-														<input
-															type="radio"
-															name="card-auto-commit"
-															checked={effective === val}
-															onChange={() => setAutoCommit(val)}
-															className="accent-primary h-3.5 w-3.5"
-														/>
-														<span className="text-xs">{val ? "On" : "Off"}</span>
-													</label>
-												)
-											})}
+										<div className="flex items-center justify-between">
+											<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-commit</label>
+											<Switch
+												checked={autoCommit ?? configDefaults.autoCommit}
+												onCheckedChange={(v) => setAutoCommit(v)}
+											/>
 										</div>
 									</div>
 
 									{/* Auto-push */}
 									<div>
-										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Auto-push</label>
-										<div className="flex items-center gap-2">
-											{([true, false] as const).map((val) => {
-												const effective = autoPush ?? configDefaults.autoPush
-												return (
-													<label key={String(val)} className="flex items-center gap-1 cursor-pointer select-none">
-														<input
-															type="radio"
-															name="card-auto-push"
-															checked={effective === val}
-															onChange={() => setAutoPush(val)}
-															className="accent-primary h-3.5 w-3.5"
-														/>
-														<span className="text-xs">{val ? "On" : "Off"}</span>
-													</label>
-												)
-											})}
+										<div className="flex items-center justify-between">
+											<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-push</label>
+											<Switch
+												checked={autoPush ?? configDefaults.autoPush}
+												onCheckedChange={(v) => setAutoPush(v)}
+											/>
 										</div>
 									</div>
 								</div>
