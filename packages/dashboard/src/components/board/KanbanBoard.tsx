@@ -13,7 +13,6 @@ import {
   type CollisionDetection,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import type { SortMode } from "@/hooks/use-card-sort";
 
 interface KanbanBoardProps {
   grouped: Record<string, CardWithTags[]>;
@@ -23,7 +22,6 @@ interface KanbanBoardProps {
   onCoPlanCard?: (card: CardWithTags) => void;
   onReorderCards: (updates: Array<{ id: string; status: string; position: number }>) => void;
   onAddCard?: (status: string) => void;
-  sortMode?: SortMode;
   doneHasMore?: boolean;
   onLoadMoreDone?: () => void;
 }
@@ -39,9 +37,9 @@ const COLUMNS = [
 const ADD_CARD_STATUSES = new Set(["todo", "queued"]);
 const SORTABLE_STATUSES = new Set(["todo", "queued"]);
 
-export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard, sortMode, doneHasMore, onLoadMoreDone }: KanbanBoardProps) {
+export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard, doneHasMore, onLoadMoreDone }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<CardWithTags | null>(null);
-  const isDraggable = sortMode === undefined || sortMode === "custom";
+  const isDraggable = true;
   // Local state for optimistic column updates during drag
   const [localGrouped, setLocalGrouped] = useState<Record<string, CardWithTags[]> | null>(null);
 
