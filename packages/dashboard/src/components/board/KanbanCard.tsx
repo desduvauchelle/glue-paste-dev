@@ -159,6 +159,7 @@ interface KanbanCardProps {
   onCoPlan?: (card: CardWithTags) => void;
   hasCardInProgress?: boolean;
   isDragOverlay?: boolean;
+  isDraggable?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -169,8 +170,9 @@ const statusColors: Record<string, string> = {
   failed: "bg-red-900/30 border-red-500/30",
 };
 
-export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInProgress, isDragOverlay }: KanbanCardProps) {
+export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInProgress, isDragOverlay, isDraggable }: KanbanCardProps) {
   const isRunning = card.status === "in-progress";
+  const draggingEnabled = isDraggable !== false && !isDragOverlay;
 
   const {
     attributes,
@@ -179,7 +181,7 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInP
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: card.id, disabled: isDragOverlay });
+  } = useSortable({ id: card.id, disabled: !draggingEnabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -202,15 +204,17 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInP
       <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-1.5 flex-1 min-w-0">
-            <button
-              type="button"
-              className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
-              {...attributes}
-              {...listeners}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <GripVertical className="w-3.5 h-3.5" />
-            </button>
+            {draggingEnabled && (
+              <button
+                type="button"
+                className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+                {...attributes}
+                {...listeners}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="w-3.5 h-3.5" />
+              </button>
+            )}
             <h4 className={cn("font-medium text-sm leading-tight break-all", !card.title && "text-muted-foreground")}>{cardLabel(card)}</h4>
           </div>
           {!isRunning && onCoPlan && (
