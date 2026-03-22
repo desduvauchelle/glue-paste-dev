@@ -33,6 +33,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { CaffeineToggle } from "@/components/CaffeineToggle";
 import { UpdateButton } from "@/components/UpdateButton";
+import { InstallWidget } from "@/components/InstallWidget";
 import { BOARD_COLORS, getBoardColor } from "@/lib/colors";
 import { CardDialog } from "@/components/board/CardDialog";
 import { cards as cardsApi } from "@/lib/api";
@@ -194,6 +195,7 @@ export function Home() {
 
   return (
     <div className="max-w-6xl mx-auto p-8">
+      <InstallWidget />
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <img src="/fav-original.jpeg" alt="GluePasteDev logo" className="w-12 h-12 rounded-xl object-cover" />
