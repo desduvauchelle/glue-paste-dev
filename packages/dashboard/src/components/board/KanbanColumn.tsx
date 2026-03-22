@@ -20,6 +20,7 @@ interface KanbanColumnProps {
   totalCount?: number;
   hasCardInProgress?: boolean;
   onAddCard?: (status: string) => void;
+  isDraggable?: boolean;
 }
 
 const columnColors: Record<string, string> = {
@@ -43,6 +44,7 @@ export function KanbanColumn({
   totalCount,
   hasCardInProgress,
   onAddCard,
+  isDraggable,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const cardIds = useMemo(() => cards.map((c) => c.id), [cards]);
@@ -88,6 +90,7 @@ export function KanbanColumn({
                 onClick={onClickCard}
                 onCoPlan={onCoPlanCard}
                 hasCardInProgress={hasCardInProgress}
+                isDraggable={isDraggable}
               />
             ))}
             {hasMore && onLoadMore && (
