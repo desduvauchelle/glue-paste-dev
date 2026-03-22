@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button"
 import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
 import { CoPlanSidebar } from "@/components/board/CoPlanSidebar"
-import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight } from "lucide-react"
+import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight, StickyNote } from "lucide-react"
 import { CaffeineToggle } from "@/components/CaffeineToggle"
+import { Scratchpad } from "@/components/board/Scratchpad"
 import { getBoardColor } from "@/lib/colors"
 
 interface BoardViewProps {
@@ -28,6 +29,7 @@ export function BoardView({ params }: BoardViewProps) {
 	const [queuePaused, setQueuePaused] = useState(false)
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [switcherOpen, setSwitcherOpen] = useState(false)
+	const [scratchpadOpen, setScratchpadOpen] = useState(false)
 	const [coPlanCard, setCoPlanCard] = useState<CardWithTags | null>(null)
 	const [autoRun, setAutoRun] = useState(() => {
 		const stored = localStorage.getItem(`queue-autorun-${boardId}`)
@@ -63,6 +65,10 @@ export function BoardView({ params }: BoardViewProps) {
 			if ((e.metaKey || e.ctrlKey) && e.key === "j" && !dialogOpen && !settingsOpen) {
 				e.preventDefault()
 				handleNewCard()
+			}
+			if ((e.metaKey || e.ctrlKey) && e.key === "." && !dialogOpen && !settingsOpen) {
+				e.preventDefault()
+				setScratchpadOpen((v) => !v)
 			}
 		}
 		window.addEventListener("keydown", handler)
@@ -217,6 +223,15 @@ export function BoardView({ params }: BoardViewProps) {
 				</div>
 				<div className="flex items-center gap-2">
 					<CaffeineToggle />
+					<button
+						type="button"
+						className="flex items-center gap-1 px-1.5 py-1 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+						onClick={() => setScratchpadOpen(true)}
+						title="Scratchpad"
+					>
+						<StickyNote className="w-4 h-4" />
+						<kbd className="px-1 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">⌘.</kbd>
+					</button>
 					<Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSettingsOpen(true)}>
 						<Settings className="w-4 h-4" />
 					</Button>
@@ -291,6 +306,15 @@ export function BoardView({ params }: BoardViewProps) {
 			{/* Project Switcher */}
 			{switcherOpen && (
 				<ProjectSwitcher currentBoardId={boardId} onClose={() => setSwitcherOpen(false)} />
+			)}
+
+			{/* Scratchpad */}
+			{scratchpadOpen && board && (
+				<Scratchpad
+					board={board}
+					onClose={() => setScratchpadOpen(false)}
+					onBoardUpdated={setBoard}
+				/>
 			)}
 
 			{/* Board Settings Dialog */}

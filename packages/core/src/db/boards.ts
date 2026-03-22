@@ -38,14 +38,15 @@ export function updateBoard(
   const description = input.description ?? current.description;
   const directory = input.directory ?? current.directory;
   const color = input.color !== undefined ? input.color : current.color;
+  const scratchpad = input.scratchpad ?? current.scratchpad;
 
   const row = db
     .query(
-      `UPDATE boards SET name = ?, description = ?, directory = ?, color = ?, updated_at = datetime('now')
+      `UPDATE boards SET name = ?, description = ?, directory = ?, color = ?, scratchpad = ?, updated_at = datetime('now')
        WHERE id = ?
        RETURNING *`
     )
-    .get(name, description, directory, color, id) as Board;
+    .get(name, description, directory, color, scratchpad, id) as Board;
   return row;
 }
 

@@ -8,6 +8,7 @@ export const BoardSchema = z.object({
   description: z.string().default(""),
   directory: z.string().min(1),
   color: z.string().nullable().default(null),
+  scratchpad: z.string().default(""),
   session_id: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -25,4 +26,5 @@ export const UpdateBoardSchema = z.object({
   description: z.string().optional(),
   directory: z.string().min(1).optional(),
   color: z.string().nullable().optional(),
+  scratchpad: z.string().optional(),
 });

@@ -171,6 +171,7 @@ interface Board {
   description: string;
   directory: string;
   color: string | null;
+  scratchpad: string;
   session_id: string | null;
   created_at: string;
   updated_at: string;

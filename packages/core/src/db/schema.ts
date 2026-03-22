@@ -254,6 +254,13 @@ export function initSchema(db: Database): void {
     // Column already exists — ignore
   }
 
+  // Migration: add scratchpad to boards
+  try {
+    db.exec(`ALTER TABLE boards ADD COLUMN scratchpad TEXT NOT NULL DEFAULT ''`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: allow NULLs in config table for project-level inheritance
   // Project configs use NULL to mean "inherit from global"
   try {
