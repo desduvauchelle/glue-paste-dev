@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import React from "react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Home } from "./Home";
 
 const mockBoards = [
-  { id: "b1", name: "Active Board", description: "desc", directory: "/tmp/a", session_id: null, created_at: "", updated_at: "" },
-  { id: "b2", name: "Idle Board", description: "", directory: "/tmp/b", session_id: null, created_at: "", updated_at: "" },
+  { id: "b1", name: "Active Board", description: "desc", directory: "/tmp/a", session_id: null, created_at: "", updated_at: "2024-01-10T00:00:00Z", color: null, scratchpad: "" },
+  { id: "b2", name: "Idle Board", description: "", directory: "/tmp/b", session_id: null, created_at: "", updated_at: "2024-01-05T00:00:00Z", color: null, scratchpad: "" },
 ];
 
 vi.mock("wouter", () => ({
@@ -43,12 +44,53 @@ vi.mock("@/lib/api", () => ({
     check: vi.fn(() => Promise.resolve({ available: false, currentVersion: "0.1.0", latestVersion: "0.1.0" })),
     apply: vi.fn(() => Promise.resolve({ ok: true })),
   },
+  cards: {
+    create: vi.fn(() => Promise.resolve({})),
+  },
 }));
 
 vi.mock("@/lib/ws", () => ({
   useWebSocket: vi.fn(),
   useWSEvent: vi.fn(),
 }));
+
+function makeLocalStorage() {
+  const store: Record<string, string> = {};
+  return {
+    getItem: (k: string) => store[k] ?? null,
+    setItem: (k: string, v: string) => { store[k] = v; },
+    removeItem: (k: string) => { delete store[k]; },
+    clear: () => { Object.keys(store).forEach((k) => delete store[k]); },
+  };
+}
+
+beforeEach(() => {
+  vi.stubGlobal("localStorage", makeLocalStorage());
+});
+
+vi.mock("@dnd-kit/core", async (importActual) => {
+  const actual = await importActual<typeof import("@dnd-kit/core")>();
+  return {
+    ...actual,
+    DndContext: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  };
+});
+
+vi.mock("@dnd-kit/sortable", async (importActual) => {
+  const actual = await importActual<typeof import("@dnd-kit/sortable")>();
+  return {
+    ...actual,
+    SortableContext: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    useSortable: () => ({
+      attributes: {},
+      listeners: {},
+      setNodeRef: () => {},
+      transform: null,
+      transition: null,
+      isDragging: false,
+    }),
+  };
+});
 
 describe("Home — activity indicator", () => {
   beforeEach(() => {
@@ -91,5 +133,50 @@ describe("Home — activity indicator", () => {
     const idleCard = screen.getByText("Idle Board").closest("[class*='cursor-pointer']")!;
     const noPing = idleCard.querySelector(".animate-ping");
     expect(noPing).not.toBeInTheDocument();
+  });
+});
+
+describe("Home — board sort modes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("defaults to 'recent' sort mode when no preference is stored", async () => {
+    render(<Home />);
+    await waitFor(() => expect(screen.getByText("Active Board")).toBeInTheDocument());
+
+    const recentBtn = screen.getByRole("button", { name: /recent/i });
+    expect(recentBtn).toHaveAttribute("data-active", "true");
+  });
+
+  it("persists sort mode to localStorage when changed", async () => {
+    render(<Home />);
+    await waitFor(() => expect(screen.getByText("Active Board")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /a-z/i }));
+
+    expect(localStorage.getItem("glue-board-sort")).toBe("alpha");
+  });
+
+  it("reads sort mode from localStorage on mount", async () => {
+    localStorage.setItem("glue-board-sort", "alpha");
+    render(<Home />);
+    await waitFor(() => expect(screen.getByText("Active Board")).toBeInTheDocument());
+
+    const alphaBtn = screen.getByRole("button", { name: /a-z/i });
+    expect(alphaBtn).toHaveAttribute("data-active", "true");
+  });
+
+  it("shows drag handles only in Custom mode", async () => {
+    render(<Home />);
+    await waitFor(() => expect(screen.getByText("Active Board")).toBeInTheDocument());
+
+    // No drag handles initially (default: recent)
+    expect(screen.queryAllByTitle("Drag to reorder")).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /custom/i }));
+
+    // Drag handles should appear for each board
+    expect(screen.getAllByTitle("Drag to reorder")).toHaveLength(mockBoards.length);
   });
 });

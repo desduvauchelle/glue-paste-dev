@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useBoards } from "@/hooks/use-boards";
 import { useBoardStats } from "@/hooks/use-board-stats";
@@ -16,13 +16,74 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FolderOpen, Check, X, Settings } from "lucide-react";
+import { Plus, FolderOpen, Check, X, Settings, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { CaffeineToggle } from "@/components/CaffeineToggle";
 import { UpdateButton } from "@/components/UpdateButton";
 import { BOARD_COLORS, getBoardColor } from "@/lib/colors";
 import { CardDialog } from "@/components/board/CardDialog";
 import { cards as cardsApi } from "@/lib/api";
 import type { CreateCard } from "@/lib/api";
+
+type SortMode = "custom" | "recent" | "alpha";
+
+function readSortMode(): SortMode {
+  const v = localStorage.getItem("glue-board-sort");
+  if (v === "custom" || v === "recent" || v === "alpha") return v;
+  return "recent";
+}
+
+function readCustomOrder(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem("glue-board-order") ?? "[]") as string[];
+  } catch {
+    return [];
+  }
+}
+
+function SortableBoardCard({
+  id,
+  children,
+}: {
+  id: string;
+  children: (dragHandle: React.ReactNode) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  const dragHandle = (
+    <div
+      {...attributes}
+      {...listeners}
+      title="Drag to reorder"
+      onClick={(e) => e.stopPropagation()}
+      className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground"
+    >
+      <GripVertical className="w-4 h-4" />
+    </div>
+  );
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children(dragHandle)}
+    </div>
+  );
+}
 
 const STATUS_PILL_COLORS: Record<StatusKey, { bg: string; text: string; label: string }> = {
   todo: { bg: "bg-zinc-100 dark:bg-zinc-800", text: "text-zinc-600 dark:text-zinc-400", label: "Todo" },
@@ -43,6 +104,48 @@ export function Home() {
   const [color, setColor] = useState<string | null>(null);
   const [activeBoards, setActiveBoards] = useState<Set<string>>(new Set());
   const [cardDialogBoardId, setCardDialogBoardId] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>(readSortMode);
+  const [customOrder, setCustomOrder] = useState<string[]>(readCustomOrder);
+
+  const sortedBoards = useMemo(() => {
+    if (sortMode === "alpha") {
+      return [...boards].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    if (sortMode === "recent") {
+      return [...boards].sort((a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
+    }
+    const orderMap = new Map(customOrder.map((id, i) => [id, i]));
+    return [...boards].sort((a, b) => {
+      const ai = orderMap.get(a.id) ?? Infinity;
+      const bi = orderMap.get(b.id) ?? Infinity;
+      return ai - bi;
+    });
+  }, [boards, sortMode, customOrder]);
+
+  const handleSortModeChange = useCallback((mode: SortMode) => {
+    setSortMode(mode);
+    localStorage.setItem("glue-board-sort", mode);
+    if (mode === "custom") {
+      const currentIds = sortedBoards.map((b) => b.id);
+      setCustomOrder(currentIds);
+      localStorage.setItem("glue-board-order", JSON.stringify(currentIds));
+    }
+  }, [sortedBoards]);
+
+  const sensors = useSensors(useSensor(PointerSensor));
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = sortedBoards.map((b) => b.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    const newOrder = arrayMove(ids, oldIndex, newIndex);
+    setCustomOrder(newOrder);
+    localStorage.setItem("glue-board-order", JSON.stringify(newOrder));
+  }, [sortedBoards]);
 
   const fetchAllQueueStatuses = useCallback(async (boardIds: string[]) => {
     const statuses = await Promise.all(
@@ -258,105 +361,143 @@ export function Home() {
           );
         })()}
 
-        <div className="flex flex-col gap-4">
-          {boards.map((board) => {
-            const series = donePerDayByBoard[board.id];
-            const hasActivity = series?.some((d) => d.count > 0);
-            const maxCount = hasActivity ? Math.max(...series!.map((d) => d.count), 1) : 1;
-            const boardColor = getBoardColor(board.color);
+        <div className="flex items-center gap-1 mb-4">
+          <span className="text-xs text-muted-foreground mr-2">Sort:</span>
+          {(["custom", "recent", "alpha"] as SortMode[]).map((mode) => {
+            const labels: Record<SortMode, string> = { custom: "Custom", recent: "Recent", alpha: "A-Z" };
             return (
-            <Card
-              key={board.id}
-              className="cursor-pointer hover:border-foreground/20 transition-colors overflow-hidden"
-              style={getBoardColor(board.color) ? { borderLeftWidth: "4px", borderLeftColor: getBoardColor(board.color)!.border } : undefined}
-              onClick={() => setLocation(`/boards/${board.id}`)}
-            >
-              <div className="flex flex-col md:flex-row">
-                <div className="flex-shrink-0 md:w-2/5 p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-semibold leading-none tracking-tight">{board.name}</h3>
-                      {activeBoards.has(board.id) && (
-                        <span className="relative flex h-3 w-3">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
-                        </span>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCardDialogBoardId(board.id);
-                      }}
-                      title="Add card"
-                    >
-                      <Plus className="w-4 h-4 text-muted-foreground" />
-                    </Button>
-                  </div>
-                  {board.description && (
-                    <p className="text-sm text-muted-foreground mt-1.5">{board.description}</p>
-                  )}
-                  {boardCounts[board.id] && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {(Object.keys(STATUS_PILL_COLORS) as StatusKey[]).map((status) => {
-                        const count = boardCounts[board.id]?.[status] ?? 0;
-                        if (count === 0) return null;
-                        const pill = STATUS_PILL_COLORS[status];
-                        return (
-                          <span
-                            key={status}
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${pill.bg} ${pill.text}`}
-                            title={pill.label}
-                          >
-                            {count} {pill.label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 p-6 pt-0 md:pt-6 md:pl-0">
-                  {hasActivity ? (
-                    <div className="flex gap-1 h-full" style={{ minHeight: 100 }}>
-                      {series!.map((d) => {
-                        const pct = (d.count / maxCount) * 100;
-                        const date = new Date(d.date + "T00:00:00");
-                        const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                        return (
-                          <div key={d.date} className="flex-1 flex flex-col items-center min-w-0">
-                            {d.count > 0 && (
-                              <span className="text-[10px] text-muted-foreground shrink-0">{d.count}</span>
-                            )}
-                            <div className="w-full flex-1 flex items-end">
-                              <div
-                                className="w-full rounded-sm transition-all"
-                                style={{
-                                  height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%`,
-                                  backgroundColor: boardColor ? `${boardColor.bg}cc` : "rgb(34 197 94 / 0.8)",
-                                }}
-                                title={`${label}: ${d.count}`}
-                              />
-                            </div>
-                            <span className="text-[9px] text-muted-foreground truncate w-full text-center shrink-0">
-                              {label}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-xs text-muted-foreground" style={{ minHeight: 100 }}>
-                      No activity yet
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Card>
+              <button
+                key={mode}
+                type="button"
+                aria-label={labels[mode]}
+                data-active={sortMode === mode ? "true" : "false"}
+                className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                  sortMode === mode
+                    ? "bg-foreground text-background border-foreground"
+                    : "border-border text-muted-foreground hover:border-foreground/40"
+                }`}
+                onClick={() => handleSortModeChange(mode)}
+              >
+                {labels[mode]}
+              </button>
             );
           })}
         </div>
+
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={sortedBoards.map((b) => b.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="flex flex-col gap-4">
+              {sortedBoards.map((board) => {
+                const series = donePerDayByBoard[board.id];
+                const hasActivity = series?.some((d) => d.count > 0);
+                const maxCount = hasActivity ? Math.max(...series!.map((d) => d.count), 1) : 1;
+                const boardColor = getBoardColor(board.color);
+                const cardContent = (dragHandle: React.ReactNode) => (
+                  <Card
+                    className="cursor-pointer hover:border-foreground/20 transition-colors overflow-hidden"
+                    style={getBoardColor(board.color) ? { borderLeftWidth: "4px", borderLeftColor: getBoardColor(board.color)!.border } : undefined}
+                    onClick={() => setLocation(`/boards/${board.id}`)}
+                  >
+                    <div className="flex flex-col md:flex-row">
+                      <div className="flex-shrink-0 md:w-2/5 p-6">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-2">
+                            {sortMode === "custom" && dragHandle}
+                            <h3 className="text-lg font-semibold leading-none tracking-tight">{board.name}</h3>
+                            {activeBoards.has(board.id) && (
+                              <span className="relative flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+                              </span>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCardDialogBoardId(board.id);
+                            }}
+                            title="Add card"
+                          >
+                            <Plus className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                        </div>
+                        {board.description && (
+                          <p className="text-sm text-muted-foreground mt-1.5">{board.description}</p>
+                        )}
+                        {boardCounts[board.id] && (
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            {(Object.keys(STATUS_PILL_COLORS) as StatusKey[]).map((status) => {
+                              const count = boardCounts[board.id]?.[status] ?? 0;
+                              if (count === 0) return null;
+                              const pill = STATUS_PILL_COLORS[status];
+                              return (
+                                <span
+                                  key={status}
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${pill.bg} ${pill.text}`}
+                                  title={pill.label}
+                                >
+                                  {count} {pill.label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 p-6 pt-0 md:pt-6 md:pl-0">
+                        {hasActivity ? (
+                          <div className="flex gap-1 h-full" style={{ minHeight: 100 }}>
+                            {series!.map((d) => {
+                              const pct = (d.count / maxCount) * 100;
+                              const date = new Date(d.date + "T00:00:00");
+                              const label = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                              return (
+                                <div key={d.date} className="flex-1 flex flex-col items-center min-w-0">
+                                  {d.count > 0 && (
+                                    <span className="text-[10px] text-muted-foreground shrink-0">{d.count}</span>
+                                  )}
+                                  <div className="w-full flex-1 flex items-end">
+                                    <div
+                                      className="w-full rounded-sm transition-all"
+                                      style={{
+                                        height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%`,
+                                        backgroundColor: boardColor ? `${boardColor.bg}cc` : "rgb(34 197 94 / 0.8)",
+                                      }}
+                                      title={`${label}: ${d.count}`}
+                                    />
+                                  </div>
+                                  <span className="text-[9px] text-muted-foreground truncate w-full text-center shrink-0">
+                                    {label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-xs text-muted-foreground" style={{ minHeight: 100 }}>
+                            No activity yet
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+
+                return sortMode === "custom" ? (
+                  <SortableBoardCard key={board.id} id={board.id}>
+                    {cardContent}
+                  </SortableBoardCard>
+                ) : (
+                  <div key={board.id}>{cardContent(null)}</div>
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
         </>
       )}
       {cardDialogBoardId && (
