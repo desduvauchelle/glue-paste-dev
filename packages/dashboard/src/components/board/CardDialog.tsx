@@ -380,18 +380,19 @@ export function CardDialog({
 										</div>
 
 										{/* Blocking toggle */}
-										<div className="flex items-center justify-between">
+										<div className="flex items-start gap-3">
+											<Switch
+												id="blocking"
+												checked={blocking}
+												onCheckedChange={setBlocking}
+												className="mt-0.5"
+											/>
 											<div>
 												<label htmlFor="blocking" className="text-xs font-medium block text-muted-foreground uppercase tracking-wide cursor-pointer">Blocking</label>
 												<p className="text-xs text-muted-foreground mt-0.5">
 													Play All stops if this card fails
 												</p>
 											</div>
-											<Switch
-												id="blocking"
-												checked={blocking}
-												onCheckedChange={setBlocking}
-											/>
 										</div>
 
 										{/* Thinking Level */}
@@ -456,23 +457,23 @@ export function CardDialog({
 
 										{/* Auto-commit */}
 										<div>
-											<div className="flex items-center justify-between">
-												<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-commit</label>
+											<div className="flex items-center gap-2">
 												<Switch
 													checked={autoCommit ?? configDefaults.autoCommit}
 													onCheckedChange={(v) => setAutoCommit(v)}
 												/>
+												<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-commit</label>
 											</div>
 										</div>
 
 										{/* Auto-push */}
 										<div>
-											<div className="flex items-center justify-between">
-												<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-push</label>
+											<div className="flex items-center gap-2">
 												<Switch
 													checked={autoPush ?? configDefaults.autoPush}
 													onCheckedChange={(v) => setAutoPush(v)}
 												/>
+												<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-push</label>
 											</div>
 										</div>
 									</div>
