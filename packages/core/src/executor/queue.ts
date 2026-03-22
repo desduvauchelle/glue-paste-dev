@@ -60,7 +60,7 @@ export function getQueueState(boardId: string): QueueState {
   );
 }
 
-/** Start sequential execution of all todo cards for a board */
+/** Start sequential execution of all queued cards for a board */
 export async function startQueue(
   db: Database,
   boardId: BoardId,
@@ -101,6 +101,7 @@ export async function executeSingleCard(
   const card = cardsDb.getCard(db, cardId);
   if (!card) throw new Error(`Card ${cardId} not found`);
   if (card.assignee === "human") throw new Error(`Card ${cardId} is assigned to a human and cannot be executed by AI`);
+  if (card.status === "todo") throw new Error(`Card ${cardId} has status "todo" (backlog) and cannot be executed directly — move it to "queued" first`);
 
   const board = boardsDb.getBoard(db, card.board_id as BoardId);
   if (!board) throw new Error(`Board ${card.board_id} not found`);
@@ -220,8 +221,11 @@ async function processQueue(
 
   const cardId = state.current as CardId;
   const card = cardsDb.getCard(db, cardId);
-  if (!card || card.assignee === "human") {
-    // Skip missing or human-assigned card
+  if (!card || card.assignee === "human" || card.status === "todo") {
+    // Skip missing, human-assigned, or todo cards — todo is backlog, never auto-executed
+    if (card?.status === "todo") {
+      log.warn("queue", `Skipping card "${cardLabel(card)}" — status is "todo" (backlog)`);
+    }
     advanceQueue(db, boardId, callbacks);
     return;
   }
