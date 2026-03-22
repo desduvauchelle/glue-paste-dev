@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { ShieldCheck, TestTubeDiagonal, Lightbulb } from "lucide-react";
+import { Accessibility, ShieldCheck, TestTubeDiagonal, Lightbulb } from "lucide-react";
 import type { ComponentType } from "react";
 
 export interface DefaultSuggestion {
@@ -23,6 +23,13 @@ export const DEFAULT_SUGGESTIONS: DefaultSuggestion[] = [
     description:
       "Scan the codebase for common security vulnerabilities (OWASP Top 10, dependency issues, secrets in code). Report the biggest gaps and add fixes or mitigations.",
     icon: ShieldCheck,
+  },
+  {
+    id: "accessibility-audit",
+    label: "Accessibility audit",
+    description:
+      "Audit the codebase for accessibility issues (WCAG 2.1 AA compliance): check semantic HTML, ARIA attributes, keyboard navigation, color contrast, and screen reader support. Report violations and apply fixes.",
+    icon: Accessibility,
   },
 ];
 
