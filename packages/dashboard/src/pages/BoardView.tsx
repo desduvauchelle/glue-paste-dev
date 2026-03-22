@@ -45,6 +45,8 @@ export function BoardView({ params }: BoardViewProps) {
 	const hasInProgressRef = useRef(false)
 	hasInProgressRef.current = (grouped["in-progress"]?.length ?? 0) > 0
 
+	const prevQueuedCountRef = useRef(grouped.queued?.length ?? 0)
+
 	const tryStartQueue = useCallback(async () => {
 		if (!autoRunRef.current || queueRunningRef.current) return
 		if (hasInProgressRef.current) return
@@ -97,6 +99,16 @@ export function BoardView({ params }: BoardViewProps) {
 		}
 	}, [autoRun])
 
+	// Auto-start queue when new queued cards appear (e.g., card created directly as "queued")
+	useEffect(() => {
+		const currentCount = grouped.queued?.length ?? 0
+		const hadNew = currentCount > prevQueuedCountRef.current
+		prevQueuedCountRef.current = currentCount
+		if (hadNew && autoRunRef.current && !queueRunningRef.current && !hasInProgressRef.current) {
+			void tryStartQueue()
+		}
+	}, [grouped.queued?.length, tryStartQueue])
+
 	useWebSocket((event) => {
 		if (event.type === "queue:updated") {
 			setQueueRunning(true)
@@ -147,6 +159,17 @@ export function BoardView({ params }: BoardViewProps) {
 
 	const handleReorderCards = async (updates: Array<{ id: string; status: string; position: number }>) => {
 		await reorder(updates)
+
+		// If a card was moved to "in-progress", execute it
+		const movedToInProgress = updates.find((u) => u.status === "in-progress")
+		if (movedToInProgress) {
+			const wasAlreadyInProgress = grouped["in-progress"]?.some((c) => c.id === movedToInProgress.id)
+			if (!wasAlreadyInProgress) {
+				void execute(movedToInProgress.id)
+			}
+		}
+
+		// If a card was moved to "queued", try to start the queue
 		const hasNewQueued = updates.some((u) => u.status === "queued")
 		if (hasNewQueued && autoRunRef.current && !queueRunningRef.current) {
 			void tryStartQueue()
