@@ -26,7 +26,7 @@ switch (command) {
     await restart();
     break;
   case "status":
-    await status();
+    await status(flags);
     break;
   case "logs":
     await logs(flags.includes("-f") || flags.includes("--follow"));
@@ -69,6 +69,10 @@ switch (command) {
   update         Check for updates and install if available
   uninstall      Remove GluePasteDev (--yes to confirm, --keep-data to back up DB)
 
+\x1b[2mMachine-readable output:\x1b[0m
+  Most commands accept --json for machine-readable JSON output.
+  Use this when calling from other CLI tools (Copilot, Claude, Cursor, etc.)
+
 \x1b[2mExamples:\x1b[0m
   glue-paste-dev up          # start daemon, open browser
   glue-paste-dev status      # check if running
@@ -78,6 +82,10 @@ switch (command) {
   glue-paste-dev add "Fix login bug" -p my-project
   glue-paste-dev add "Add tests" -p app --status queued
   glue-paste-dev add "Refactor auth" -p app --plan-thinking basic --auto-commit
+
+  # Machine-readable output for external tools
+  glue-paste-dev status --json
+  glue-paste-dev add "Fix bug" -p app --json
 `);
     break;
   default:

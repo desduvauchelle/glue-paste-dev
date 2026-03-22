@@ -1,10 +1,15 @@
 import { getDaemonStatus, PORT, LOG_FILE } from "../daemon.js";
 
-export async function status() {
+export async function status(flags: string[] = []) {
+  const jsonOut = flags.includes("--json");
   const { running, pid } = getDaemonStatus();
 
   if (!running) {
-    console.log("Daemon is \x1b[31mnot running\x1b[0m");
+    if (jsonOut) {
+      console.log(JSON.stringify({ running: false }));
+    } else {
+      console.log("Daemon is \x1b[31mnot running\x1b[0m");
+    }
     return;
   }
 
@@ -22,7 +27,9 @@ export async function status() {
     // not responding
   }
 
-  if (healthy) {
+  if (jsonOut) {
+    console.log(JSON.stringify({ running: true, healthy, pid, port: PORT, boards: boardCount, logs: LOG_FILE }));
+  } else if (healthy) {
     console.log(`Daemon is \x1b[32mrunning\x1b[0m`);
     console.log(`  PID:    ${pid}`);
     console.log(`  URL:    http://localhost:${PORT}`);
