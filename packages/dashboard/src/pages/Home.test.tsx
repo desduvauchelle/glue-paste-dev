@@ -55,6 +55,26 @@ describe("Home — activity indicator", () => {
     vi.clearAllMocks();
   });
 
+  it("does not render a delete button on board cards", async () => {
+    render(<Home />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Active Board")).toBeInTheDocument();
+    });
+
+    const cards = screen.getAllByText(/Board/)
+      .map((el) => el.closest("[class*='cursor-pointer']"))
+      .filter((el): el is HTMLElement => el !== null);
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      const buttons = card.querySelectorAll("button");
+      // Each card should only have the "Add card" plus button — no trash button
+      // The trash button previously had no title, add-card has title="Add card"
+      const unnamedButtons = Array.from(buttons).filter((b) => !b.getAttribute("title"));
+      expect(unnamedButtons).toHaveLength(0);
+    }
+  });
+
   it("shows a pulsating indicator for active boards", async () => {
     render(<Home />);
 

@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FolderOpen, Trash2, Check, X, Settings } from "lucide-react";
+import { Plus, FolderOpen, Check, X, Settings } from "lucide-react";
 import { CaffeineToggle } from "@/components/CaffeineToggle";
 import { UpdateButton } from "@/components/UpdateButton";
 import { BOARD_COLORS, getBoardColor } from "@/lib/colors";
@@ -33,7 +33,7 @@ const STATUS_PILL_COLORS: Record<StatusKey, { bg: string; text: string; label: s
 };
 
 export function Home() {
-  const { boards, loading, create, remove } = useBoards();
+  const { boards, loading, create } = useBoards();
   const { boardCounts, donePerDay, donePerDayByBoard } = useBoardStats();
   const [, setLocation] = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -283,29 +283,17 @@ export function Home() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCardDialogBoardId(board.id);
-                        }}
-                        title="Add card"
-                      >
-                        <Plus className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void remove(board.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 text-muted-foreground" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCardDialogBoardId(board.id);
+                      }}
+                      title="Add card"
+                    >
+                      <Plus className="w-4 h-4 text-muted-foreground" />
+                    </Button>
                   </div>
                   {board.description && (
                     <p className="text-sm text-muted-foreground mt-1.5">{board.description}</p>
