@@ -156,7 +156,7 @@ const PORT = Number(process.env.PORT) || 4242;
 
 // Caffeinate: keep machine awake while tasks are active
 checkAndToggleCaffeinate(db);
-const caffeinateInterval = setInterval(() => checkAndToggleCaffeinate(db), 300_000);
+const caffeinateInterval = setInterval(() => checkAndToggleCaffeinate(db), 120_000);
 const updateCheckInterval = startUpdateChecker(broadcast);
 function gracefulShutdown() {
   clearInterval(caffeinateInterval);

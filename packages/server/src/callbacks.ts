@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { boardsDb, cardLabel } from "@glue-paste-dev/core";
 import type { BoardId, QueueCallbacks } from "@glue-paste-dev/core";
+import { checkAndToggleCaffeinate } from "./caffeinate.js";
 
 export function makeCallbacks(db: Database, broadcast: (event: unknown) => void): QueueCallbacks {
   return {
@@ -32,6 +33,7 @@ export function makeCallbacks(db: Database, broadcast: (event: unknown) => void)
       });
     },
     onQueueStopped(boardId, reason) {
+      checkAndToggleCaffeinate(db);
       broadcast({
         type: "queue:stopped",
         payload: { boardId, reason },
@@ -68,6 +70,7 @@ export function makeCallbacks(db: Database, broadcast: (event: unknown) => void)
       });
     },
     onCardUpdated(card) {
+      checkAndToggleCaffeinate(db);
       broadcast({
         type: "card:updated",
         payload: card,
