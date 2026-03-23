@@ -404,10 +404,7 @@ function advanceQueue(
     if (allNew.length > 0) {
       state.queue = allNew.map((c) => c.id);
     } else {
-      state.isRunning = false;
-      state.current = null;
-      state.isPaused = false;
-      queues.set(boardId, state);
+      queues.delete(boardId);
       callbacks.onQueueStopped(boardId, "All cards completed");
       return;
     }

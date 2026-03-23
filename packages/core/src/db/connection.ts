@@ -23,6 +23,8 @@ export function getDb(dbPath?: string): Database {
   db = new Database(path, { create: true });
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
+  db.exec("PRAGMA cache_size = -2000"); // 2MB cache (negative = KB)
+  db.exec("PRAGMA mmap_size = 64000000"); // 64MB mmap — lets OS page data efficiently
 
   initSchema(db);
 

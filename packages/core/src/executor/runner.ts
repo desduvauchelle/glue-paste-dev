@@ -313,7 +313,8 @@ async function executePhase(
   // Track process for stop functionality
   activeCardProcesses.set(card.id, { proc, executionId: execution.id });
 
-  // Stream stdout
+  // Stream stdout — only keep tail in memory (full output goes to DB)
+  const MAX_OUTPUT_MEMORY = 50 * 1024; // 50KB
   let output = "";
   const reader = proc.stdout.getReader();
   const decoder = new TextDecoder();
@@ -345,13 +346,18 @@ async function executePhase(
           callbacks.onOutput(execution.id, line);
           executionsDb.appendExecutionOutput(db, execution.id, line + "\n");
         }
+        // Cap in-memory output to tail only (full output is in DB)
+        if (output.length > MAX_OUTPUT_MEMORY * 1.5) {
+          output = output.slice(-MAX_OUTPUT_MEMORY);
+        }
       }
     }
   } catch (err) {
     log.warn("runner", `Stream read error (execution ${execution.id}):`, err);
   }
 
-  // Read stderr
+  // Read stderr — only keep tail (last 2KB) since only the end is used for summaries
+  const MAX_STDERR = 2048;
   let stderrOutput = "";
   try {
     const stderrReader = proc.stderr.getReader();
@@ -360,6 +366,9 @@ async function executePhase(
       const { done, value } = await stderrReader.read();
       if (done) break;
       stderrOutput += stderrDecoder.decode(value, { stream: true });
+      if (stderrOutput.length > MAX_STDERR * 1.5) {
+        stderrOutput = stderrOutput.slice(-MAX_STDERR);
+      }
     }
   } catch (err) {
     log.warn("runner", `stderr read error (execution ${execution.id}):`, err);

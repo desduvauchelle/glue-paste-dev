@@ -116,7 +116,8 @@ export async function runChat(
 
   activeChatProcesses.set(card.id, proc);
 
-  // Stream stdout
+  // Stream stdout — cap in-memory to tail only
+  const MAX_CHAT_OUTPUT = 100 * 1024; // 100KB
   let output = "";
   const reader = proc.stdout.getReader();
   const decoder = new TextDecoder();
@@ -142,6 +143,9 @@ export async function runChat(
           output += line + "\n";
           callbacks.onOutput(card.id, line + "\n");
         }
+      }
+      if (output.length > MAX_CHAT_OUTPUT * 1.5) {
+        output = output.slice(-MAX_CHAT_OUTPUT);
       }
     }
   } catch (err) {

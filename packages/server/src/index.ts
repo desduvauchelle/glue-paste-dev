@@ -158,9 +158,14 @@ const PORT = Number(process.env.PORT) || 4242;
 checkAndToggleCaffeinate(db);
 const caffeinateInterval = setInterval(() => checkAndToggleCaffeinate(db), 120_000);
 const updateCheckInterval = startUpdateChecker(broadcast);
+// Periodic WAL checkpoint to prevent unbounded WAL growth
+const walCheckpointInterval = setInterval(() => {
+  try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch {}
+}, 5 * 60 * 1000);
 function gracefulShutdown() {
   clearInterval(caffeinateInterval);
   clearInterval(updateCheckInterval);
+  clearInterval(walCheckpointInterval);
   stopCaffeinate();
   killAllCardProcesses();
   killAllChatProcesses();
