@@ -74,7 +74,7 @@ export function RunningCards({ activeBoards, boards, onCardClick }: RunningCards
               <CardContent className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-sm leading-tight break-all">{cardLabel(card)}</h4>
+                    <h4 className="font-medium text-sm leading-tight break-words">{cardLabel(card)}</h4>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="relative flex h-2.5 w-2.5">
