@@ -130,13 +130,19 @@ export function BoardView({ params }: BoardViewProps) {
 	})
 
 	const handlePlayCard = async (id: string) => {
-		if (autoRun) {
-			// Push to queue — auto-start effect will pick it up
+		const allCards = Object.values(grouped).flat()
+		const card = allCards.find((c) => c.id === id)
+		if (!card) return
+
+		if (card.status === "todo") {
 			await update(id, { status: "queued" })
-		} else {
-			// Queue is off — move to queued then execute directly
-			await update(id, { status: "queued" })
-			await execute(id)
+		}
+		// Always start the queue to process the card (409 if already running is fine)
+		try {
+			await queueApi.start(boardId)
+			setQueueRunning(true)
+		} catch {
+			// 409 = already running, advanceQueue will pick up the new card
 		}
 	}
 

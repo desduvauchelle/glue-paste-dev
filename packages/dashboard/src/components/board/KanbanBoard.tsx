@@ -47,10 +47,6 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
 
   const displayGrouped = localGrouped ?? grouped;
 
-  const hasCardInProgress = useMemo(() => {
-    return (grouped["in-progress"]?.length ?? 0) > 0;
-  }, [grouped]);
-
   // All card IDs for lookup
   const allCards = useMemo(() => {
     const map = new Map<string, CardWithTags>();
@@ -225,7 +221,6 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
               onCoPlanCard={onCoPlanCard}
               hasMore={isDone ? doneHasMore : undefined}
               onLoadMore={isDone ? onLoadMoreDone : undefined}
-              hasCardInProgress={hasCardInProgress}
               onAddCard={ADD_CARD_STATUSES.has(status) ? onAddCard : undefined}
               isDraggable={isDraggable}
               suggestions={status === "todo" ? DEFAULT_SUGGESTIONS : undefined}

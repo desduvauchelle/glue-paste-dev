@@ -19,7 +19,6 @@ interface KanbanColumnProps {
   hasMore?: boolean;
   onLoadMore?: () => void;
   totalCount?: number;
-  hasCardInProgress?: boolean;
   onAddCard?: (status: string) => void;
   isDraggable?: boolean;
   suggestions?: DefaultSuggestion[];
@@ -45,7 +44,6 @@ export function KanbanColumn({
   hasMore,
   onLoadMore,
   totalCount,
-  hasCardInProgress,
   onAddCard,
   isDraggable,
   suggestions,
@@ -94,7 +92,6 @@ export function KanbanColumn({
                 onStop={onStopCard}
                 onClick={onClickCard}
                 onCoPlan={onCoPlanCard}
-                hasCardInProgress={hasCardInProgress}
                 isDraggable={isDraggable}
               />
             ))}
