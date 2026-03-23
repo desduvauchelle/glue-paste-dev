@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CardDialog } from "./CardDialog";
 
@@ -253,5 +253,80 @@ describe("CardDialog — config defaults", () => {
       expect(autoCommitSwitch).toBeDefined();
       expect(autoCommitSwitch).toHaveAttribute("aria-checked", "true");
     });
+  });
+});
+
+describe("CardDialog — Shift+Enter shortcut", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls onCreate when Shift+Enter is pressed in description textarea", async () => {
+    vi.mocked(configApi.getForBoard).mockResolvedValue({
+      cliProvider: "claude",
+      cliCustomCommand: "",
+      model: "claude-opus-4-6",
+      planModel: "",
+      executeModel: "",
+      maxBudgetUsd: 10,
+      autoCommit: false,
+      autoPush: false,
+      planThinking: "smart",
+      executeThinking: "smart",
+      customTags: [],
+      customInstructions: "",
+    });
+
+    const onCreate = vi.fn(() => Promise.resolve());
+    const onOpenChange = vi.fn();
+
+    render(
+      <CardDialog
+        {...defaultProps}
+        card={null}
+        onCreate={onCreate}
+        onOpenChange={onOpenChange}
+      />
+    );
+
+    const textarea = screen.getByPlaceholderText("Describe what needs to be done...");
+    fireEvent.change(textarea, { target: { value: "Test card description" } });
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+
+    await waitFor(() => {
+      expect(onCreate).toHaveBeenCalledTimes(1);
+      expect(onCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "Test card description" })
+      );
+    });
+  });
+
+  it("does not create card on Enter without Shift", async () => {
+    vi.mocked(configApi.getForBoard).mockResolvedValue({
+      cliProvider: "claude",
+      cliCustomCommand: "",
+      model: "claude-opus-4-6",
+      planModel: "",
+      executeModel: "",
+      maxBudgetUsd: 10,
+      autoCommit: false,
+      autoPush: false,
+      planThinking: "smart",
+      executeThinking: "smart",
+      customTags: [],
+      customInstructions: "",
+    });
+
+    const onCreate = vi.fn(() => Promise.resolve());
+
+    render(<CardDialog {...defaultProps} card={null} onCreate={onCreate} />);
+
+    const textarea = screen.getByPlaceholderText("Describe what needs to be done...");
+    fireEvent.change(textarea, { target: { value: "Test card description" } });
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: false });
+
+    // Give it a tick to ensure nothing fires
+    await new Promise((r) => setTimeout(r, 50));
+    expect(onCreate).not.toHaveBeenCalled();
   });
 });

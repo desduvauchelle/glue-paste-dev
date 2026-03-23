@@ -264,6 +264,12 @@ export function CardDialog({
 										placeholder="Describe what needs to be done..."
 										value={description}
 										onChange={(e) => setDescription(e.target.value)}
+										onKeyDown={(e) => {
+											if (e.key === "Enter" && e.shiftKey) {
+												e.preventDefault()
+												void handleSave()
+											}
+										}}
 										rows={3}
 										autoResize
 										autoFocus={!isEditing}
