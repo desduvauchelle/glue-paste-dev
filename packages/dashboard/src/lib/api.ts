@@ -135,6 +135,35 @@ export const files = {
     request<{ entries: FileEntry[]; truncated: boolean }>(`/files/board/${boardId}/tree`),
 };
 
+// Attachments
+export const attachments = {
+  // Upload files to a card's attachment directory
+  // Uses FormData, NOT JSON - so don't use the existing request() helper
+  upload: async (boardId: string, cardId: string, files: FileList | File[]): Promise<string[]> => {
+    const form = new FormData();
+    for (const file of files) {
+      form.append("files", file);
+    }
+    const res = await fetch(`/api/files/board/${boardId}/upload/${cardId}`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error((err as { error?: string }).error ?? res.statusText);
+    }
+    return res.json() as Promise<string[]>;
+  },
+
+  // Delete all attachments for a card
+  cleanup: (boardId: string, cardId: string) =>
+    request<{ ok: boolean }>(`/files/board/${boardId}/attachments/${cardId}`, { method: "DELETE" }),
+
+  // List attachments for a card
+  list: (boardId: string, cardId: string) =>
+    request<string[]>(`/files/board/${boardId}/attachments/${cardId}`),
+};
+
 // Chat
 export const chat = {
   send: (cardId: string, data: { message: string; mode: "plan" | "execute"; thinking: "smart" | "basic" }) =>

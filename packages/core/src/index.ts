@@ -13,6 +13,7 @@ export * from "./schemas/claude.js";
 
 // Utils
 export { cardLabel } from "./utils/cardLabel.js";
+export { cleanupCardAttachments } from "./utils/attachments.js";
 
 // Types
 export type * from "./types/index.js";

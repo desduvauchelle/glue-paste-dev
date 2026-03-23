@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import type { CardWithTags, CreateCard, UpdateCard, Board } from "@/lib/api"
-import { config as configApi, boards as boardsApi, cards as cardsApi } from "@/lib/api"
+import { config as configApi, boards as boardsApi, cards as cardsApi, attachments as attachmentsApi } from "@/lib/api"
 import { useComments } from "@/hooks/use-comments"
 import {
 	Dialog,
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2, GitCommit, ExternalLink } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2, GitCommit, ExternalLink, Upload } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
@@ -78,6 +78,54 @@ export function CardDialog({
 	const { commits } = useCommits(card?.id ?? null)
 	const [currentBoard, setCurrentBoard] = useState<BoardType | null>(null)
 	const activityEndRef = useRef<HTMLDivElement>(null)
+	const [isDragging, setIsDragging] = useState(false)
+	const [isUploading, setIsUploading] = useState(false)
+	const dragCounterRef = useRef(0)
+
+	const handleDragEnter = useCallback((e: React.DragEvent) => {
+		e.preventDefault()
+		e.stopPropagation()
+		dragCounterRef.current++
+		if (e.dataTransfer.types.includes("Files")) {
+			setIsDragging(true)
+		}
+	}, [])
+
+	const handleDragLeave = useCallback((e: React.DragEvent) => {
+		e.preventDefault()
+		e.stopPropagation()
+		dragCounterRef.current--
+		if (dragCounterRef.current === 0) {
+			setIsDragging(false)
+		}
+	}, [])
+
+	const handleDragOver = useCallback((e: React.DragEvent) => {
+		e.preventDefault()
+		e.stopPropagation()
+	}, [])
+
+	const handleDrop = useCallback(async (e: React.DragEvent) => {
+		e.preventDefault()
+		e.stopPropagation()
+		setIsDragging(false)
+		dragCounterRef.current = 0
+
+		const droppedFiles = e.dataTransfer.files
+		if (droppedFiles.length === 0) return
+
+		// For new cards without an ID, we need a temporary ID
+		const cardId = card?.id ?? `tmp-${Date.now()}`
+		setIsUploading(true)
+		try {
+			const paths = await attachmentsApi.upload(boardId, cardId, Array.from(droppedFiles))
+			setFiles((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
+		} catch (err) {
+			console.error("File upload failed:", err)
+		} finally {
+			setIsUploading(false)
+		}
+	}, [card?.id, boardId])
 
 	const executionMap = Object.fromEntries(executions.map((e) => [e.id, e])) as Record<string, Execution>
 
@@ -162,9 +210,13 @@ export function CardDialog({
 		return () => document.removeEventListener("keydown", handler, true)
 	}, [activityMaximized])
 
-	// Reset maximized state when dialog closes
+	// Reset maximized state and drag state when dialog closes
 	useEffect(() => {
-		if (!open) setActivityMaximized(false)
+		if (!open) {
+			setActivityMaximized(false)
+			setIsDragging(false)
+			dragCounterRef.current = 0
+		}
 	}, [open])
 
 	const handleSave = async () => {
@@ -232,7 +284,30 @@ export function CardDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-				<DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+				<DialogContent
+					className="max-w-5xl max-h-[90vh] flex flex-col relative"
+					onDragEnter={handleDragEnter}
+					onDragLeave={handleDragLeave}
+					onDragOver={handleDragOver}
+					onDrop={(e) => void handleDrop(e)}
+				>
+					{isDragging && (
+						<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg pointer-events-none">
+							<div className="flex flex-col items-center gap-2 text-primary">
+								<Upload className="w-10 h-10" />
+								<span className="text-lg font-medium">Drop files here</span>
+								<span className="text-sm text-muted-foreground">Files will be attached as AI context</span>
+							</div>
+						</div>
+					)}
+					{isUploading && (
+						<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg pointer-events-none">
+							<div className="flex items-center gap-2 text-muted-foreground">
+								<div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+								<span className="text-sm font-medium">Uploading...</span>
+							</div>
+						</div>
+					)}
 					<DialogHeader>
 						<DialogTitle>{isEditing ? "Edit Card" : "New Card"}{!isEditing ? ` — ${(targetBoardId && targetBoardId !== boardId ? allBoards.find((b) => b.id === targetBoardId)?.name : boardName) ?? ""}` : ""}</DialogTitle>
 					</DialogHeader>
@@ -281,6 +356,12 @@ export function CardDialog({
 										autoResize
 										autoFocus={!isEditing}
 									/>
+									<p className="text-xs text-muted-foreground/50 mt-1">
+										<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">Shift</kbd>
+										{" + "}
+										<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">Enter</kbd>
+										{" to submit"}
+									</p>
 								</div>
 
 								{/* Reference Files */}

@@ -9,6 +9,7 @@ import {
   MoveCardToBoardSchema,
   executeSingleCard,
   getQueueState,
+  cleanupCardAttachments,
 } from "@glue-paste-dev/core";
 import type { BoardId, CardId, CardWithTags } from "@glue-paste-dev/core";
 import { makeCallbacks } from "../callbacks.js";
@@ -126,6 +127,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
     const cardId = c.req.param("cardId") as CardId;
     const card = cardsDb.getCard(db, cardId);
     if (!card) return c.json({ error: "Card not found" }, 404);
+    cleanupCardAttachments(db, cardId);
     const deleted = cardsDb.deleteCard(db, cardId);
     if (!deleted) return c.json({ error: "Card not found" }, 404);
     broadcast({ type: "card:deleted", payload: { cardId: card.id, boardId: card.board_id } });

@@ -9,6 +9,7 @@ import { runCard, killCardProcess, type RunnerCallbacks } from "./runner.js";
 import type { RateLimitInfo } from "./rate-limit.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
+import { cleanupCardAttachments } from "../utils/attachments.js";
 
 export interface QueueState {
   boardId: string;
@@ -116,6 +117,7 @@ export async function executeSingleCard(
 
     if (result.success) {
       cardsDb.updateCardStatus(db, cardId, "done");
+      cleanupCardAttachments(db, cardId);
     } else if (result.rateLimitInfo?.isRateLimit) {
       notifyRateLimitOrOverload(db, card, result.rateLimitInfo, callbacks);
     } else {
@@ -125,6 +127,7 @@ export async function executeSingleCard(
         notifyRateLimitOrOverload(db, card, retryResult.rateLimitInfo, callbacks);
       } else {
         cardsDb.updateCardStatus(db, cardId, retryResult.success ? "done" : "failed");
+        if (retryResult.success) cleanupCardAttachments(db, cardId);
       }
     }
   } catch (err) {
@@ -243,6 +246,7 @@ async function processQueue(
 
     if (result.success) {
       cardsDb.updateCardStatus(db, cardId, "done");
+      cleanupCardAttachments(db, cardId);
       const updated = cardsDb.getCard(db, cardId);
       if (updated) callbacks.onCardUpdated(updated);
       advanceQueue(db, boardId, callbacks);
@@ -256,6 +260,7 @@ async function processQueue(
 
       if (retryResult.success) {
         cardsDb.updateCardStatus(db, cardId, "done");
+        cleanupCardAttachments(db, cardId);
         const updated = cardsDb.getCard(db, cardId);
         if (updated) callbacks.onCardUpdated(updated);
         advanceQueue(db, boardId, callbacks);
