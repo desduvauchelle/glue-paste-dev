@@ -130,7 +130,14 @@ export function BoardView({ params }: BoardViewProps) {
 	})
 
 	const handlePlayCard = async (id: string) => {
-		await execute(id)
+		if (autoRun) {
+			// Push to queue — auto-start effect will pick it up
+			await update(id, { status: "queued" })
+		} else {
+			// Queue is off — move to queued then execute directly
+			await update(id, { status: "queued" })
+			await execute(id)
+		}
 	}
 
 	const handleStopCard = async (id: string) => {

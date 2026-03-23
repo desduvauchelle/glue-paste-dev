@@ -237,7 +237,7 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, hasCardInP
               size="icon"
               className={cn("h-6 w-6 shrink-0", hasCardInProgress && "opacity-30 cursor-not-allowed")}
               disabled={hasCardInProgress}
-              title={hasCardInProgress ? "A card is already in progress" : undefined}
+              title={hasCardInProgress ? "A card is already in progress" : "Add to queue"}
               onClick={(e) => {
                 e.stopPropagation();
                 onPlay(card.id);

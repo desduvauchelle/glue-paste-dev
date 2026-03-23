@@ -871,7 +871,7 @@ export function CardDialog({
 								}}
 							>
 								<Play className="w-4 h-4 mr-2" />
-								Execute
+								Add to Queue
 							</Button>
 						)}
 						<Button variant="outline" onClick={() => onOpenChange(false)}>
