@@ -55,18 +55,21 @@ export async function update() {
     console.error("Download URL must use HTTPS.");
     process.exit(1);
   }
+  // Download first, only delete old files after successful download
+  const tarPath = join(DATA_DIR, "release.tar.gz");
+  const dlProc = Bun.spawnSync(["curl", "-fsSL", "-o", tarPath, downloadUrl]);
+  if (dlProc.exitCode !== 0) {
+    console.error("Failed to download update.");
+    process.exit(1);
+  }
+
+  // Download succeeded — now safe to delete old files and extract
   rmSync(join(DATA_DIR, "server"), { recursive: true, force: true });
   rmSync(join(DATA_DIR, "cli"), { recursive: true, force: true });
-  const dlSteps: string[][] = [
-    ["curl", "-fsSL", "-o", join(DATA_DIR, "release.tar.gz"), downloadUrl],
-    ["tar", "-xzf", join(DATA_DIR, "release.tar.gz"), "-C", DATA_DIR],
-  ];
-  for (const args of dlSteps) {
-    const proc = Bun.spawnSync(args);
-    if (proc.exitCode !== 0) {
-      console.error("Failed to download update.");
-      process.exit(1);
-    }
+  const extractProc = Bun.spawnSync(["tar", "-xzf", tarPath, "-C", DATA_DIR]);
+  if (extractProc.exitCode !== 0) {
+    console.error("Failed to extract update.");
+    process.exit(1);
   }
   rmSync(join(DATA_DIR, "release.tar.gz"), { force: true });
 

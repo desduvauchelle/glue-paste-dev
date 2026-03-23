@@ -50,8 +50,28 @@ async function checkForUpdate(): Promise<{
   }
 }
 
+// Cache the last successful update check so POST /apply doesn't need a redundant GitHub call
+let cachedResult: {
+  available: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  downloadUrl: string | null;
+} | null = null;
+let cachedAt = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedResult() {
+  if (cachedResult && Date.now() - cachedAt < CACHE_TTL) return cachedResult;
+  return null;
+}
+
+function setCachedResult(result: NonNullable<typeof cachedResult>) {
+  cachedResult = result;
+  cachedAt = Date.now();
+}
+
 /** Build safe download+extract args without shell interpolation. */
-export function buildDownloadArgs(dataDir: string, downloadUrl: string): string[][] {
+export function buildDownloadArgs(dataDir: string, downloadUrl: string): [string[], string[]] {
   if (!downloadUrl.startsWith("https://")) {
     throw new Error("Download URL must use HTTPS");
   }
@@ -73,12 +93,14 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     if (!result) {
       return c.json({ available: false, currentVersion: readVersion(), latestVersion: "unknown" });
     }
+    setCachedResult(result);
     return c.json(result);
   });
 
   // POST /api/update/apply — download and apply update, then restart
   app.post("/apply", async (c) => {
-    const result = await checkForUpdate();
+    // Use cached result from the GET check to avoid a redundant GitHub API call
+    const result = getCachedResult() ?? await checkForUpdate();
     if (!result?.available || !result.downloadUrl) {
       return c.json({ ok: false, error: "No update available" }, 400);
     }
@@ -86,18 +108,25 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     const dataDir = getDataDir();
     log.info("update", `Applying update v${result.currentVersion} → v${result.latestVersion}`);
 
+    // Download first, only delete old files after successful download
+    const tarPath = join(dataDir, "release.tar.gz");
+    const [dlArgs, extractArgs] = buildDownloadArgs(dataDir, result.downloadUrl);
+    const dlProc = Bun.spawnSync(dlArgs);
+    if (dlProc.exitCode !== 0) {
+      log.error("update", "Failed to download update");
+      return c.json({ ok: false, error: "Download failed" }, 500);
+    }
+
+    // Download succeeded — now safe to delete old files and extract
     rmSync(join(dataDir, "server"), { recursive: true, force: true });
     rmSync(join(dataDir, "cli"), { recursive: true, force: true });
 
-    const steps = buildDownloadArgs(dataDir, result.downloadUrl);
-    for (const args of steps) {
-      const proc = Bun.spawnSync(args);
-      if (proc.exitCode !== 0) {
-        log.error("update", "Failed to download update");
-        return c.json({ ok: false, error: "Download failed" }, 500);
-      }
+    const extractProc = Bun.spawnSync(extractArgs);
+    if (extractProc.exitCode !== 0) {
+      log.error("update", "Failed to extract update");
+      return c.json({ ok: false, error: "Extract failed" }, 500);
     }
-    rmSync(join(dataDir, "release.tar.gz"), { force: true });
+    rmSync(tarPath, { force: true });
 
     // Make CLI executable
     Bun.spawnSync(["chmod", "+x", join(dataDir, "cli", "src", "index.ts")]);
@@ -116,6 +145,7 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
 export function startUpdateChecker(broadcast: (event: unknown) => void): ReturnType<typeof setInterval> {
   const check = async () => {
     const result = await checkForUpdate();
+    if (result) setCachedResult(result);
     if (result?.available) {
       log.info("update", `Update available: v${result.currentVersion} → v${result.latestVersion}`);
       broadcast({

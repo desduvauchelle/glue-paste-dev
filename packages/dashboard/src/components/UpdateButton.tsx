@@ -2,13 +2,14 @@ import { useState, useCallback } from "react";
 import { update as updateApi } from "@/lib/api";
 import { useWSEvent, useWebSocket } from "@/lib/ws";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, ArrowDownToLine, Check } from "lucide-react";
+import { RefreshCw, ArrowDownToLine, Check, AlertCircle } from "lucide-react";
 
-type State = "idle" | "checking" | "up-to-date" | "update-available" | "updating";
+type State = "idle" | "checking" | "up-to-date" | "update-available" | "updating" | "error";
 
 export function UpdateButton() {
   const [state, setState] = useState<State>("idle");
   const [latestVersion, setLatestVersion] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   useWSEvent("update:available", (payload) => {
     const data = payload as { latestVersion: string };
@@ -24,12 +25,14 @@ export function UpdateButton() {
 
   const handleCheck = async () => {
     if (state === "checking" || state === "updating") return;
-    if (state === "update-available") {
+    if (state === "update-available" || state === "error") {
       setState("updating");
       try {
         await updateApi.apply();
-      } catch {
-        setState("update-available");
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : "Update failed");
+        setState("error");
+        setTimeout(() => setState("update-available"), 5000);
       }
       return;
     }
@@ -94,6 +97,25 @@ export function UpdateButton() {
         <ArrowDownToLine className="w-3.5 h-3.5" />
         v{latestVersion}
       </Button>
+    );
+  }
+
+  if (state === "error") {
+    return (
+      <div className="relative group">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleCheck}
+          className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 text-xs gap-1.5 h-8 px-2"
+        >
+          <AlertCircle className="w-3.5 h-3.5" />
+          Retry
+        </Button>
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-destructive text-destructive-foreground border border-border rounded shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+          {errorMsg}
+        </div>
+      </div>
     );
   }
 
