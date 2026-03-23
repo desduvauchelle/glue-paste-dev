@@ -1,12 +1,12 @@
 {
   "name": "glue-paste-dev",
-  "version": "0.1.167",
+  "version": "0.1.168",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "dev:server": "GPD_DEBUG=1 bun run --cwd packages/server dev",
+    "dev:server": "GPD_DEBUG=1 bun --hot packages/server/src/index.ts",
     "dev:dashboard": "VITE_GPD_DEBUG=1 bun run --cwd packages/dashboard dev",
     "build": "bun run build:dashboard && bun run build:server",
     "build:dashboard": "bun run --cwd packages/dashboard build",

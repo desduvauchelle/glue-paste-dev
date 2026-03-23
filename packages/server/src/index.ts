@@ -1,23 +1,22 @@
+import { cardsDb, executionsDb, getDb, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync, log } from "@glue-paste-dev/core";
 import { Hono } from "hono";
+import { createBunWebSocket, serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
-import { serveStatic } from "hono/bun";
-import { createBunWebSocket } from "hono/bun";
-import { getDb, log, cardsDb, executionsDb, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync } from "@glue-paste-dev/core";
-import { boardRoutes } from "./routes/boards.js";
-import { cardRoutes } from "./routes/cards.js";
-import { commentRoutes } from "./routes/comments.js";
-import { executionRoutes } from "./routes/executions.js";
-import { queueRoutes, cardExecuteRoutes } from "./routes/queue.js";
-import { configRoutes } from "./routes/config.js";
-import { tagRoutes } from "./routes/tags.js";
-import { statsRoutes } from "./routes/stats.js";
-import { fileRoutes } from "./routes/files.js";
-import { chatRoutes } from "./routes/chat.js";
-import { updateRoutes, startUpdateChecker } from "./routes/update.js";
-import { caffeinateRoutes } from "./routes/caffeinate.js";
-import { authRoutes } from "./routes/auth.js";
-import { commitRoutes } from "./routes/commits.js";
 import { checkAndToggleCaffeinate, stopCaffeinate } from "./caffeinate.js";
+import { authRoutes } from "./routes/auth.js";
+import { boardRoutes } from "./routes/boards.js";
+import { caffeinateRoutes } from "./routes/caffeinate.js";
+import { cardRoutes } from "./routes/cards.js";
+import { chatRoutes } from "./routes/chat.js";
+import { commentRoutes } from "./routes/comments.js";
+import { commitRoutes } from "./routes/commits.js";
+import { configRoutes } from "./routes/config.js";
+import { executionRoutes } from "./routes/executions.js";
+import { fileRoutes } from "./routes/files.js";
+import { cardExecuteRoutes, queueRoutes } from "./routes/queue.js";
+import { statsRoutes } from "./routes/stats.js";
+import { tagRoutes } from "./routes/tags.js";
+import { startUpdateChecker, updateRoutes } from "./routes/update.js";
 
 import type { ServerWebSocket } from "bun";
 
@@ -66,7 +65,7 @@ const app = new Hono();
 app.use(
   "/api/*",
   cors({
-    origin: (origin) => {
+    origin: origin => {
       if (!origin) return "*";
       try {
         const url = new URL(origin);
@@ -77,7 +76,7 @@ app.use(
         // invalid origin
       }
       return null as unknown as string;
-    },
+    }
   })
 );
 
@@ -129,7 +128,6 @@ app.route("/api/update", updateRoutes(broadcast));
 app.route("/api/caffeinate", caffeinateRoutes());
 app.route("/api/auth", authRoutes());
 
-
 // WebSocket endpoint
 app.get(
   "/ws",
@@ -144,13 +142,14 @@ app.get(
     },
     onMessage(_event, _ws) {
       // Client messages handled here if needed
-    },
+    }
   }))
 );
 
 // Serve static dashboard files (production)
-app.use("*", serveStatic({ root: "./public" }));
-app.use("*", serveStatic({ path: "./public/index.html" }));
+const publicDir = new URL("../public", import.meta.url).pathname;
+app.use("*", serveStatic({ root: publicDir }));
+app.use("*", serveStatic({ path: publicDir + "/index.html" }));
 
 const PORT = Number(process.env.PORT) || 4242;
 
@@ -159,9 +158,14 @@ checkAndToggleCaffeinate(db);
 const caffeinateInterval = setInterval(() => checkAndToggleCaffeinate(db), 120_000);
 const updateCheckInterval = startUpdateChecker(broadcast);
 // Periodic WAL checkpoint to prevent unbounded WAL growth
-const walCheckpointInterval = setInterval(() => {
-  try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch {}
-}, 5 * 60 * 1000);
+const walCheckpointInterval = setInterval(
+  () => {
+    try {
+      db.exec("PRAGMA wal_checkpoint(PASSIVE)");
+    } catch {}
+  },
+  5 * 60 * 1000
+);
 function gracefulShutdown() {
   clearInterval(caffeinateInterval);
   clearInterval(updateCheckInterval);
@@ -181,7 +185,7 @@ log.info("server", "Debug logging enabled (GPD_DEBUG)");
 export default {
   port: PORT,
   fetch: app.fetch,
-  websocket,
+  websocket
 };
 
 export { db };

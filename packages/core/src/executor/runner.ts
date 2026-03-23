@@ -341,7 +341,7 @@ async function executePhase(
   log.debug(
     "runner",
     `Full CLI args (${args.length}):`,
-    args.map((a, i) => `[${i}] ${a.length > 200 ? a.slice(0, 200) + "…(" + a.length + " chars)" : a}`)
+    args.map((a, i) => `${a.length > 200 ? a.slice(0, 200) + "…(" + a.length + " chars)" : a}`)
   );
   const proc = Bun.spawn(args, {
     cwd: board.directory,
