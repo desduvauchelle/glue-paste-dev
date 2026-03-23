@@ -24,6 +24,7 @@ import { useCommits } from "@/hooks/use-commits"
 import type { Execution, Board as BoardType } from "@/lib/api"
 import { parseFilesChanged } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { Markdown } from "@/components/ui/markdown"
 import { getBoardColor } from "@/lib/colors"
 
 interface CardDialogProps {
@@ -448,7 +449,9 @@ export function CardDialog({
 																<div key={comment.id} className="text-xs border-l-2 pl-2 border-primary/40">
 																	<span className="font-semibold capitalize text-muted-foreground">{comment.author}</span>
 																	<span className="text-muted-foreground/60 ml-2">{new Date(comment.created_at).toLocaleString()}</span>
-																	<p className="mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+																	<div className="mt-0.5">
+																		<Markdown>{comment.content}</Markdown>
+																	</div>
 																</div>
 															)
 														}
@@ -457,7 +460,9 @@ export function CardDialog({
 															return (
 																<div key={comment.id} className="text-xs border-l-2 pl-2 border-muted-foreground/40">
 																	<span className="text-muted-foreground/60">{new Date(comment.created_at).toLocaleString()}</span>
-																	<p className="mt-0.5 whitespace-pre-wrap">{comment.content}</p>
+																	<div className="mt-0.5">
+																		<Markdown>{comment.content}</Markdown>
+																	</div>
 																</div>
 															)
 														}

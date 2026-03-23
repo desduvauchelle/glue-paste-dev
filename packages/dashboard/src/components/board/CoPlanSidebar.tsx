@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { X, Send, Square, Brain, Zap, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Markdown } from "@/components/ui/markdown";
 import { cardLabel } from "@glue-paste-dev/core/browser";
 
 interface CoPlanSidebarProps {
@@ -146,8 +147,8 @@ export function CoPlanSidebar({ card, onClose }: CoPlanSidebarProps) {
           {/* Streaming AI response */}
           {isStreaming && streamingContent && (
             <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted whitespace-pre-wrap break-words">
-                {streamingContent}
+              <div className="max-w-[85%] rounded-lg px-3 py-2 text-sm bg-muted break-words">
+                <Markdown>{streamingContent}</Markdown>
               </div>
             </div>
           )}
@@ -212,13 +213,13 @@ function ChatMessage({ message }: { message: Comment }) {
     <div className={cn("flex", isUser ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words",
+          "max-w-[85%] rounded-lg px-3 py-2 text-sm break-words",
           isUser
             ? "bg-primary text-primary-foreground"
             : "bg-muted"
         )}
       >
-        {message.content}
+        <Markdown>{message.content}</Markdown>
       </div>
     </div>
   );
