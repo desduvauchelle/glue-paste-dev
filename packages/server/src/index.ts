@@ -16,6 +16,7 @@ import { chatRoutes } from "./routes/chat.js";
 import { updateRoutes, startUpdateChecker } from "./routes/update.js";
 import { caffeinateRoutes } from "./routes/caffeinate.js";
 import { authRoutes } from "./routes/auth.js";
+import { commitRoutes } from "./routes/commits.js";
 import { checkAndToggleCaffeinate, stopCaffeinate } from "./caffeinate.js";
 
 import type { ServerWebSocket } from "bun";
@@ -116,6 +117,7 @@ app.route("/api/boards", boardRoutes(db, broadcast));
 app.route("/api/cards", cardRoutes(db, broadcast));
 app.route("/api/comments", commentRoutes(db, broadcast));
 app.route("/api/executions", executionRoutes(db));
+app.route("/api/commits", commitRoutes(db));
 app.route("/api/queue", queueRoutes(db, broadcast));
 app.route("/api/cards", cardExecuteRoutes(db, broadcast));
 app.route("/api/config", configRoutes(db));

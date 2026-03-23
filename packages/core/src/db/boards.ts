@@ -18,8 +18,8 @@ export function createBoard(db: Database, input: CreateBoard): Board {
   const sessionId = crypto.randomUUID();
   const row = db
     .query(
-      `INSERT INTO boards (name, description, directory, session_id, color, slug)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO boards (name, description, directory, session_id, color, slug, github_url)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        RETURNING *`
     )
     .get(
@@ -28,7 +28,8 @@ export function createBoard(db: Database, input: CreateBoard): Board {
       input.directory,
       sessionId,
       input.color ?? null,
-      input.slug ?? null
+      input.slug ?? null,
+      input.github_url ?? null
     ) as Board;
   return row;
 }
@@ -47,14 +48,15 @@ export function updateBoard(
   const color = input.color !== undefined ? input.color : current.color;
   const scratchpad = input.scratchpad ?? current.scratchpad;
   const slug = input.slug !== undefined ? input.slug : current.slug;
+  const githubUrl = input.github_url !== undefined ? input.github_url : current.github_url;
 
   const row = db
     .query(
-      `UPDATE boards SET name = ?, description = ?, directory = ?, color = ?, scratchpad = ?, slug = ?, updated_at = datetime('now')
+      `UPDATE boards SET name = ?, description = ?, directory = ?, color = ?, scratchpad = ?, slug = ?, github_url = ?, updated_at = datetime('now')
        WHERE id = ?
        RETURNING *`
     )
-    .get(name, description, directory, color, scratchpad, slug, id) as Board;
+    .get(name, description, directory, color, scratchpad, slug, githubUrl, id) as Board;
   return row;
 }
 

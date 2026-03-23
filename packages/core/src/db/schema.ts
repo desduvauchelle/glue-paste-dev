@@ -74,11 +74,24 @@ export function initSchema(db: Database): void {
       PRIMARY KEY (card_id, file_path)
     );
 
+    CREATE TABLE IF NOT EXISTS card_commits (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      execution_id TEXT REFERENCES executions(id) ON DELETE SET NULL,
+      sha TEXT NOT NULL,
+      message TEXT NOT NULL DEFAULT '',
+      author_name TEXT NOT NULL DEFAULT '',
+      author_email TEXT NOT NULL DEFAULT '',
+      files_changed TEXT DEFAULT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_cards_board_id ON cards(board_id);
     CREATE INDEX IF NOT EXISTS idx_cards_status ON cards(status);
     CREATE INDEX IF NOT EXISTS idx_comments_card_id ON comments(card_id);
     CREATE INDEX IF NOT EXISTS idx_executions_card_id ON executions(card_id);
     CREATE INDEX IF NOT EXISTS idx_card_files_card_id ON card_files(card_id);
+    CREATE INDEX IF NOT EXISTS idx_card_commits_card_id ON card_commits(card_id);
 
     -- Insert default global config if not exists
     INSERT OR IGNORE INTO config (key) VALUES ('global');
@@ -308,5 +321,30 @@ export function initSchema(db: Database): void {
       ALTER TABLE config_new RENAME TO config;
     `);
     db.exec(`PRAGMA foreign_keys = ON`);
+  }
+
+  // Migration: add github_url to boards
+  try {
+    db.exec(`ALTER TABLE boards ADD COLUMN github_url TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add card_commits table for existing databases
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS card_commits (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      execution_id TEXT REFERENCES executions(id) ON DELETE SET NULL,
+      sha TEXT NOT NULL,
+      message TEXT NOT NULL DEFAULT '',
+      author_name TEXT NOT NULL DEFAULT '',
+      author_email TEXT NOT NULL DEFAULT '',
+      files_changed TEXT DEFAULT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_card_commits_card_id ON card_commits(card_id)`);
+  } catch {
+    // Table already exists — ignore
   }
 }

@@ -55,6 +55,7 @@ export function BoardSettingsDialog({
   const [customInstructions, setCustomInstructions] = useState("");
   const [color, setColor] = useState<string | null>(null);
   const [slug, setSlug] = useState<string>("");
+  const [githubUrl, setGithubUrl] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "cli" | "execution">("general");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -71,6 +72,7 @@ export function BoardSettingsDialog({
       setDirectory(board.directory);
       setColor(board.color ?? null);
       setSlug(board.slug ?? "");
+      setGithubUrl(board.github_url ?? "");
       setShowDeleteConfirm(false);
       setDeleteConfirmName("");
       setDeleting(false);
@@ -122,6 +124,7 @@ export function BoardSettingsDialog({
         directory: directory.trim(),
         color,
         slug: slug.trim() || null,
+        github_url: githubUrl.trim() || null,
       });
 
       // Only send fields that were explicitly set at project level or changed by user
@@ -230,6 +233,20 @@ export function BoardSettingsDialog({
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   The directory where the CLI will execute tasks
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">
+                  GitHub URL{" "}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
+                <Input
+                  placeholder="https://github.com/owner/repo"
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Links commits on cards to GitHub for code review
                 </p>
               </div>
               <div>

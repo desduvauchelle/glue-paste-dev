@@ -12,12 +12,17 @@ vi.mock("@/lib/api", () => ({
   executions: {
     list: vi.fn(() => Promise.resolve([])),
   },
+  commits: {
+    list: vi.fn(() => Promise.resolve([])),
+  },
   boards: {
     list: vi.fn(() => Promise.resolve([])),
+    get: vi.fn(() => Promise.resolve({ id: "board-1", name: "Test", github_url: null })),
   },
   cards: {
     moveToBoard: vi.fn(() => Promise.resolve()),
   },
+  parseFilesChanged: vi.fn(() => []),
 }));
 
 vi.mock("@/lib/ws", () => ({

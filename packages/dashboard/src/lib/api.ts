@@ -89,6 +89,11 @@ export const executions = {
   get: (id: string) => request<Execution>(`/executions/${id}`),
 };
 
+// Commits
+export const commits = {
+  list: (cardId: string) => request<CardCommit[]>(`/commits/card/${cardId}`),
+};
+
 // Queue
 export const queue = {
   status: (boardId: string) => request<QueueStatus>(`/queue/${boardId}`),
@@ -176,6 +181,7 @@ interface Board {
   color: string | null;
   scratchpad: string;
   slug: string | null;
+  github_url: string | null;
   session_id: string | null;
   created_at: string;
   updated_at: string;
@@ -187,6 +193,7 @@ interface CreateBoard {
   directory: string;
   color?: string | null;
   slug?: string | null;
+  github_url?: string | null;
 }
 
 interface CardWithTags {
@@ -265,6 +272,18 @@ interface Execution {
   files_changed: string | null;
 }
 
+interface CardCommit {
+  id: string;
+  card_id: string;
+  execution_id: string | null;
+  sha: string;
+  message: string;
+  author_name: string;
+  author_email: string;
+  files_changed: string | null;
+  created_at: string;
+}
+
 function parseFilesChanged(raw: string | null): FileChange[] {
   if (!raw) return [];
   try {
@@ -327,6 +346,7 @@ export type {
   Comment,
   Execution,
   FileChange,
+  CardCommit,
   QueueStatus,
   ConfigData,
   PartialConfigData,

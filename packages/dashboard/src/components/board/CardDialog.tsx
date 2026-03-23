@@ -15,12 +15,13 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2 } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2, GitCommit, ExternalLink } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
 import { useExecutions } from "@/hooks/use-executions"
-import type { Execution } from "@/lib/api"
+import { useCommits } from "@/hooks/use-commits"
+import type { Execution, Board as BoardType } from "@/lib/api"
 import { parseFilesChanged } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { getBoardColor } from "@/lib/colors"
@@ -74,6 +75,8 @@ export function CardDialog({
 	const [activityMaximized, setActivityMaximized] = useState(false)
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
+	const { commits } = useCommits(card?.id ?? null)
+	const [currentBoard, setCurrentBoard] = useState<BoardType | null>(null)
 	const activityEndRef = useRef<HTMLDivElement>(null)
 
 	const executionMap = Object.fromEntries(executions.map((e) => [e.id, e])) as Record<string, Execution>
@@ -127,6 +130,10 @@ export function CardDialog({
 
 	useEffect(() => {
 		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit, autoPush: c.autoPush }))
+	}, [boardId])
+
+	useEffect(() => {
+		void boardsApi.get(boardId).then(setCurrentBoard)
 	}, [boardId])
 
 	useEffect(() => {
@@ -723,6 +730,79 @@ export function CardDialog({
 															<span className="text-[10px] text-muted-foreground ml-auto">(current)</span>
 														)}
 													</label>
+												)
+											})}
+										</div>
+									</SidebarPanel>
+								)}
+
+							{/* Commits Panel (only when editing and has commits) */}
+								{isEditing && commits.length > 0 && (
+									<SidebarPanel
+										label={`Commits (${commits.length})`}
+										icon={<GitCommit className="w-3.5 h-3.5" />}
+										defaultOpen
+									>
+										<div className="space-y-2">
+											{commits.map((commit) => {
+												const shortSha = commit.sha.slice(0, 7)
+												const githubUrl = currentBoard?.github_url
+												const commitUrl = githubUrl
+													? `${githubUrl.replace(/\/$/, "")}/commit/${commit.sha}`
+													: null
+												const commitFiles = parseFilesChanged(commit.files_changed)
+												const totalAdd = commitFiles.reduce((s, f) => s + f.additions, 0)
+												const totalDel = commitFiles.reduce((s, f) => s + f.deletions, 0)
+
+												return (
+													<div key={commit.id} className="text-xs border-l-2 pl-2 border-border">
+														<div className="flex items-center gap-1.5">
+															<code className="text-[10px] bg-muted px-1 py-0.5 rounded font-mono">
+																{commitUrl ? (
+																	<a
+																		href={commitUrl}
+																		target="_blank"
+																		rel="noopener noreferrer"
+																		className="text-primary hover:underline inline-flex items-center gap-0.5"
+																		onClick={(e) => e.stopPropagation()}
+																	>
+																		{shortSha}
+																		<ExternalLink className="w-2.5 h-2.5" />
+																	</a>
+																) : (
+																	shortSha
+																)}
+															</code>
+															{commitFiles.length > 0 && (
+																<span className="text-muted-foreground">
+																	{commitFiles.length} {commitFiles.length === 1 ? "file" : "files"}
+																	{" "}
+																	<span className="text-green-400">+{totalAdd}</span>
+																	{" "}
+																	<span className="text-red-400">-{totalDel}</span>
+																</span>
+															)}
+														</div>
+														<p className="mt-0.5 truncate text-muted-foreground" title={commit.message}>
+															{commit.message}
+														</p>
+														{commitFiles.length > 0 && (
+															<details className="mt-1">
+																<summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">
+																	Show files
+																</summary>
+																<div className="mt-1 space-y-0.5 text-[10px] font-mono">
+																	{commitFiles.map((f) => (
+																		<div key={f.path} className="flex items-center gap-1.5">
+																			<span className="text-green-400 w-7 text-right">+{f.additions}</span>
+																			<span className="text-red-400 w-7 text-right">-{f.deletions}</span>
+																			<span className="truncate">{f.path}</span>
+																		</div>
+																	))}
+																</div>
+															</details>
+														)}
+													</div>
 												)
 											})}
 										</div>

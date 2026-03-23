@@ -11,6 +11,7 @@ const mockBoard = {
   color: null,
   scratchpad: "",
   slug: null,
+  github_url: null,
   created_at: "",
   updated_at: "",
 };

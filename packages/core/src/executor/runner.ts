@@ -3,6 +3,8 @@ import type { Board, CardWithTags, ConfigInput, CardId, Comment, ExecutionId, Fi
 import * as executionsDb from "../db/executions.js";
 import * as commentsDb from "../db/comments.js";
 import * as cardsDb from "../db/cards.js";
+import * as commitsDb from "../db/commits.js";
+import type { CreateCommitInput } from "../db/commits.js";
 import { buildPrompt } from "./prompt.js";
 import { parseStreamLine } from "./stream-parser.js";
 import { buildCliCommand } from "./cli-adapter.js";
@@ -181,6 +183,60 @@ async function captureFileChanges(directory: string, shaBefore: string): Promise
     return files;
   } catch (err) {
     log.warn("runner", `captureFileChanges threw:`, err);
+    return [];
+  }
+}
+
+async function captureNewCommits(directory: string, shaBefore: string): Promise<CreateCommitInput[]> {
+  try {
+    // Get commits made between shaBefore and HEAD
+    const proc = Bun.spawn(
+      ["git", "log", `${shaBefore}..HEAD`, "--format=%H%n%s%n%an%n%ae%n---END---", "--reverse"],
+      { cwd: directory, stdout: "pipe", stderr: "pipe" }
+    );
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+    if (exitCode !== 0 || !output.trim()) return [];
+
+    const commits: CreateCommitInput[] = [];
+    const entries = output.trim().split("---END---\n");
+    for (const entry of entries) {
+      const trimmed = entry.trim();
+      if (!trimmed) continue;
+      const lines = trimmed.split("\n");
+      if (lines.length < 4) continue;
+      const sha = lines[0]!;
+      const message = lines[1]!;
+      const authorName = lines[2]!;
+      const authorEmail = lines[3]!;
+
+      // Get per-commit file changes
+      const diffProc = Bun.spawn(
+        ["git", "diff", "--numstat", `${sha}~1`, sha],
+        { cwd: directory, stdout: "pipe", stderr: "pipe" }
+      );
+      const diffOutput = await new Response(diffProc.stdout).text();
+      await diffProc.exited;
+
+      const filesChanged: FileChange[] = [];
+      for (const line of diffOutput.trim().split("\n")) {
+        if (!line.trim()) continue;
+        const parts = line.split("\t");
+        if (parts.length < 3) continue;
+        const [addStr, delStr, ...pathParts] = parts;
+        const path = pathParts.join("\t");
+        const additions = addStr === "-" ? 0 : parseInt(addStr!, 10) || 0;
+        const deletions = delStr === "-" ? 0 : parseInt(delStr!, 10) || 0;
+        filesChanged.push({ path, additions, deletions });
+      }
+
+      commits.push({ sha, message, authorName, authorEmail, filesChanged });
+    }
+
+    log.info("runner", `captureNewCommits: found ${commits.length} new commits since ${shaBefore}`);
+    return commits;
+  } catch (err) {
+    log.warn("runner", `captureNewCommits threw:`, err);
     return [];
   }
 }
@@ -374,6 +430,19 @@ async function executePhase(
     }
   } else if (phase === "execute" && !shaBefore) {
     log.warn("runner", `Skipping no-changes detection: shaBefore is null (git SHA capture failed)`);
+  }
+
+  // Capture commits made during execute phase
+  if (phase === "execute" && shaBefore) {
+    try {
+      const newCommits = await captureNewCommits(board.directory, shaBefore);
+      if (newCommits.length > 0) {
+        commitsDb.addCommits(db, card.id as CardId, execution.id as ExecutionId, newCommits);
+        log.info("runner", `Stored ${newCommits.length} commits for card ${card.id}`);
+      }
+    } catch (err) {
+      log.warn("runner", `Failed to capture commits:`, err);
+    }
   }
 
   // Add system comment with summary (including duration)

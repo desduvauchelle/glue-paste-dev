@@ -7,6 +7,7 @@ export * from "./schemas/card.js";
 export * from "./schemas/comment.js";
 export * from "./schemas/execution.js";
 export * from "./schemas/config.js";
+export * from "./schemas/commit.js";
 export * from "./schemas/ws-events.js";
 export * from "./schemas/claude.js";
 
@@ -22,6 +23,7 @@ export * as boardsDb from "./db/boards.js";
 export * as cardsDb from "./db/cards.js";
 export * as commentsDb from "./db/comments.js";
 export * as executionsDb from "./db/executions.js";
+export * as commitsDb from "./db/commits.js";
 
 // Config
 export * from "./config/manager.js";

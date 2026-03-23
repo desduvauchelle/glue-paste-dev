@@ -10,6 +10,7 @@ const makeBoard = (overrides?: Partial<Board>): Board => ({
   color: null,
   scratchpad: "",
   slug: null,
+  github_url: null,
   session_id: null,
   created_at: "2024-01-01",
   updated_at: "2024-01-01",

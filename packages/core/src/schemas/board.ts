@@ -23,6 +23,7 @@ export const BoardSchema = z.object({
   color: z.string().nullable().default(null),
   scratchpad: z.string().default(""),
   slug: SlugSchema.default(null),
+  github_url: z.string().nullable().default(null),
   session_id: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -34,6 +35,7 @@ export const CreateBoardSchema = z.object({
   directory: AbsolutePathSchema,
   color: z.string().nullable().optional(),
   slug: SlugSchema.optional(),
+  github_url: z.string().nullable().optional(),
 });
 
 export const UpdateBoardSchema = z.object({
@@ -43,4 +45,5 @@ export const UpdateBoardSchema = z.object({
   color: z.string().nullable().optional(),
   scratchpad: z.string().optional(),
   slug: SlugSchema.optional(),
+  github_url: z.string().nullable().optional(),
 });

@@ -28,6 +28,10 @@ import type {
   ExecutionStatus,
   FileChangeSchema,
 } from "../schemas/execution.js";
+import type {
+  CardCommitSchema,
+  CommitIdSchema,
+} from "../schemas/commit.js";
 import type { ConfigSchema, ConfigInputSchema } from "../schemas/config.js";
 import type { WSEventSchema } from "../schemas/ws-events.js";
 import type { ClaudeStreamEventSchema } from "../schemas/claude.js";
@@ -62,6 +66,10 @@ export type Execution = z.infer<typeof ExecutionSchema>;
 export type ExecutionPhaseType = z.infer<typeof ExecutionPhase>;
 export type ExecutionStatusType = z.infer<typeof ExecutionStatus>;
 export type FileChange = z.infer<typeof FileChangeSchema>;
+
+// Commit types
+export type CardCommit = z.infer<typeof CardCommitSchema>;
+export type CommitId = z.infer<typeof CommitIdSchema>;
 
 // Config types
 export type Config = z.infer<typeof ConfigSchema>;
