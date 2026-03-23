@@ -1,0 +1,20 @@
+# Build outputs
+dist/
+build/
+coverage/
+
+# Package manager
+node_modules/
+
+# Lock files
+bun.lock
+bun.lockb
+package-lock.json
+yarn.lock
+
+# Generated files
+*.d.ts
+
+# Assets
+assets/
+public/
