@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { BranchMode } from "@/lib/api";
 
 interface ExecutionSettingsProps {
   maxBudgetUsd: number;
@@ -14,6 +15,10 @@ interface ExecutionSettingsProps {
   onExecuteThinkingChange: (v: "smart" | "basic") => void;
   customInstructions: string;
   onCustomInstructionsChange: (v: string) => void;
+  branchMode?: BranchMode;
+  onBranchModeChange?: (v: BranchMode) => void;
+  branchName?: string;
+  onBranchNameChange?: (v: string) => void;
   /** Unique prefix for radio button names to avoid conflicts */
   radioPrefix?: string;
 }
@@ -31,6 +36,10 @@ export function ExecutionSettings({
   onExecuteThinkingChange,
   customInstructions,
   onCustomInstructionsChange,
+  branchMode,
+  onBranchModeChange,
+  branchName,
+  onBranchNameChange,
   radioPrefix = "exec",
 }: ExecutionSettingsProps) {
   return (
@@ -104,6 +113,44 @@ export function ExecutionSettings({
           ))}
         </div>
       </div>
+
+      {onBranchModeChange && (
+        <div>
+          <label className="text-sm font-medium mb-1 block">Branch Mode</label>
+          <div className="flex items-center gap-3">
+            {(["current", "new", "specific"] as const).map((mode) => (
+              <label key={mode} className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name={`${radioPrefix}-branch-mode`}
+                  checked={branchMode === mode}
+                  onChange={() => onBranchModeChange(mode)}
+                  className="accent-primary"
+                />
+                <span className="text-sm">
+                  {mode === "current" ? "Current" : mode === "new" ? "New branch" : "Specific"}
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {branchMode === "current" && "Work on the current branch"}
+            {branchMode === "new" && "Create a new branch for each card"}
+            {branchMode === "specific" && "Use a specific branch name"}
+          </p>
+        </div>
+      )}
+
+      {onBranchNameChange && branchMode === "specific" && (
+        <div>
+          <label className="text-sm font-medium mb-1 block">Branch Name</label>
+          <Input
+            placeholder="e.g., feature/my-branch"
+            value={branchName ?? ""}
+            onChange={(e) => onBranchNameChange(e.target.value)}
+          />
+        </div>
+      )}
 
       <div>
         <label className="text-sm font-medium mb-1 block">Custom Instructions</label>

@@ -347,4 +347,38 @@ export function initSchema(db: Database): void {
   } catch {
     // Table already exists — ignore
   }
+
+  // Migration: add branch_mode and branch_name to config
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN branch_mode TEXT DEFAULT 'current'`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN branch_name TEXT DEFAULT ''`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add cli_provider, cli_custom_command, branch_mode, branch_name to cards
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN cli_provider TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN cli_custom_command TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN branch_mode TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN branch_name TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
 }

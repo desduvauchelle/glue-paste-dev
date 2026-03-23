@@ -23,6 +23,10 @@ function makeCard(overrides: Partial<CardWithTags> = {}): CardWithTags {
     execute_thinking: null,
     auto_commit: null,
     auto_push: null,
+    cli_provider: null,
+    cli_custom_command: null,
+    branch_mode: null,
+    branch_name: null,
     assignee: "ai",
     files: [],
     tags: [],
@@ -160,5 +164,71 @@ describe("applyCardOverrides — full config inheritance chain", () => {
     const effective = applyCardOverrides(merged, makeCard({ plan_thinking: "none" }));
 
     expect(effective.planThinking).toBeNull();
+  });
+
+  it("card cli_provider overrides merged config provider", () => {
+    updateGlobalConfig(db, { cliProvider: "claude" });
+
+    const merged = getMergedConfig(db, boardId);
+    const effective = applyCardOverrides(merged, makeCard({ cli_provider: "gemini" }));
+
+    expect(effective.cliProvider).toBe("gemini");
+  });
+
+  it("card cli_provider null inherits from merged config", () => {
+    updateGlobalConfig(db, { cliProvider: "aider" });
+
+    const merged = getMergedConfig(db, boardId);
+    const effective = applyCardOverrides(merged, makeCard({ cli_provider: null }));
+
+    expect(effective.cliProvider).toBe("aider");
+  });
+
+  it("card cli_custom_command overrides merged config", () => {
+    updateGlobalConfig(db, { cliCustomCommand: "global-cmd" });
+
+    const merged = getMergedConfig(db, boardId);
+    const effective = applyCardOverrides(merged, makeCard({ cli_custom_command: "card-cmd" }));
+
+    expect(effective.cliCustomCommand).toBe("card-cmd");
+  });
+
+  it("card branch_mode overrides merged config", () => {
+    updateGlobalConfig(db, { branchMode: "current" });
+
+    const merged = getMergedConfig(db, boardId);
+    const effective = applyCardOverrides(merged, makeCard({ branch_mode: "new" }));
+
+    expect(effective.branchMode).toBe("new");
+  });
+
+  it("card branch_name overrides merged config", () => {
+    updateGlobalConfig(db, { branchName: "global-branch" });
+
+    const merged = getMergedConfig(db, boardId);
+    const effective = applyCardOverrides(merged, makeCard({ branch_name: "card-branch" }));
+
+    expect(effective.branchName).toBe("card-branch");
+  });
+
+  it("project branch_mode overrides global, card inherits", () => {
+    updateGlobalConfig(db, { branchMode: "current" });
+    updateProjectConfig(db, boardId, { branchMode: "new" });
+
+    const merged = getMergedConfig(db, boardId);
+    expect(merged.branchMode).toBe("new");
+
+    const effective = applyCardOverrides(merged, makeCard());
+    expect(effective.branchMode).toBe("new");
+  });
+
+  it("card branch_mode overrides project override", () => {
+    updateGlobalConfig(db, { branchMode: "current" });
+    updateProjectConfig(db, boardId, { branchMode: "new" });
+
+    const merged = getMergedConfig(db, boardId);
+    const effective = applyCardOverrides(merged, makeCard({ branch_mode: "specific" }));
+
+    expect(effective.branchMode).toBe("specific");
   });
 });

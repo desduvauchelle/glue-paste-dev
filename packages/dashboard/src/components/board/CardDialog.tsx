@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import type { CardWithTags, CreateCard, UpdateCard, Board } from "@/lib/api"
+import type { CardWithTags, CreateCard, UpdateCard, Board, CliProvider, BranchMode } from "@/lib/api"
 import { config as configApi, boards as boardsApi, cards as cardsApi, attachments as attachmentsApi } from "@/lib/api"
 import { useComments } from "@/hooks/use-comments"
 import {
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2, GitCommit, ExternalLink, Upload } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2, GitCommit, ExternalLink, Upload, GitBranch } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
@@ -63,7 +63,11 @@ export function CardDialog({
 	const [autoCommit, setAutoCommit] = useState<boolean | null>(null)
 	const [autoPush, setAutoPush] = useState<boolean | null>(null)
 	const [assignee, setAssignee] = useState<"ai" | "human">("ai")
-	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic"; autoCommit: boolean; autoPush: boolean }>({ planThinking: "smart", executeThinking: "smart", autoCommit: false, autoPush: false })
+	const [cliProvider, setCliProvider] = useState<CliProvider | null>(null)
+	const [cliCustomCommand, setCliCustomCommand] = useState<string | null>(null)
+	const [branchMode, setBranchMode] = useState<BranchMode | null>(null)
+	const [branchName, setBranchName] = useState<string | null>(null)
+	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic"; autoCommit: boolean; autoPush: boolean; cliProvider: CliProvider; branchMode: BranchMode; branchName: string }>({ planThinking: "smart", executeThinking: "smart", autoCommit: false, autoPush: false, cliProvider: "claude", branchMode: "current", branchName: "" })
 	const [files, setFiles] = useState<string[]>([])
 	const [showFileBrowser, setShowFileBrowser] = useState(false)
 	const [commentText, setCommentText] = useState("")
@@ -155,6 +159,10 @@ export function CardDialog({
 			setExecuteThinking(card.execute_thinking)
 			setAutoCommit(card.auto_commit)
 			setAutoPush(card.auto_push)
+			setCliProvider(card.cli_provider ?? null)
+			setCliCustomCommand(card.cli_custom_command ?? null)
+			setBranchMode(card.branch_mode ?? null)
+			setBranchName(card.branch_name ?? null)
 			setAssignee(card.assignee ?? "ai")
 		} else {
 			setTitle("")
@@ -166,6 +174,10 @@ export function CardDialog({
 			setExecuteThinking(null)
 			setAutoCommit(null)
 			setAutoPush(null)
+			setCliProvider(null)
+			setCliCustomCommand(null)
+			setBranchMode(null)
+			setBranchName(null)
 			setAssignee("ai")
 			// Set status: use defaultStatus from column click, or last remembered value
 			let stored: string | null = null
@@ -178,7 +190,7 @@ export function CardDialog({
 	}, [card, open, defaultDescription])
 
 	useEffect(() => {
-		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit, autoPush: c.autoPush }))
+		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit, autoPush: c.autoPush, cliProvider: c.cliProvider, branchMode: c.branchMode, branchName: c.branchName }))
 	}, [boardId])
 
 	useEffect(() => {
@@ -233,6 +245,10 @@ export function CardDialog({
 				execute_thinking: executeThinking,
 				auto_commit: autoCommit,
 				auto_push: autoPush,
+				cli_provider: cliProvider,
+				cli_custom_command: cliCustomCommand,
+				branch_mode: branchMode,
+				branch_name: branchName,
 				assignee,
 			})
 		} else {
@@ -247,6 +263,10 @@ export function CardDialog({
 				execute_thinking: executeThinking,
 				auto_commit: autoCommit,
 				auto_push: autoPush,
+				cli_provider: cliProvider,
+				cli_custom_command: cliCustomCommand,
+				branch_mode: branchMode,
+				branch_name: branchName,
 				assignee,
 				status: selectedStatus,
 			}
@@ -895,44 +915,116 @@ export function CardDialog({
 									</SidebarPanel>
 								)}
 
-							{/* Advanced Panel (only when editing) */}
-								{isEditing && (
-									<SidebarPanel
-										label="Advanced"
-										icon={<Settings className="w-3.5 h-3.5" />}
-										defaultOpen={false}
-									>
-										<div className="space-y-2">
-											<label className="text-xs font-medium block text-muted-foreground uppercase tracking-wide">Move to project</label>
-											{allBoards.filter((b) => b.id !== boardId).length === 0 ? (
-												<p className="text-xs text-muted-foreground">No other projects available</p>
-											) : (
-												<div className="flex gap-2">
-													<select
-														className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5"
-														value={moveTargetBoardId}
-														onChange={(e) => setMoveTargetBoardId(e.target.value)}
-													>
-														<option value="">Select project...</option>
-														{allBoards
-															.filter((b) => b.id !== boardId)
-															.map((b) => (
-																<option key={b.id} value={b.id}>{b.name}</option>
-															))}
-													</select>
-													<Button
-														size="sm"
-														variant="outline"
-														disabled={isMoving || !moveTargetBoardId}
-														onClick={() => void handleMoveToBoard()}
-													>
-														Move
-													</Button>
-												</div>
-											)}
+							{/* Advanced Panel */}
+								<SidebarPanel
+									label="Advanced"
+									icon={<Settings className="w-3.5 h-3.5" />}
+									defaultOpen={false}
+								>
+									<div className="space-y-3">
+										{/* CLI Provider Override */}
+										<div>
+											<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">CLI Provider</label>
+											<select
+												className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+												value={cliProvider ?? ""}
+												onChange={(e) => setCliProvider(e.target.value ? e.target.value as CliProvider : null)}
+											>
+												<option value="">Inherit ({configDefaults.cliProvider})</option>
+												<option value="claude">Claude Code</option>
+												<option value="gemini">Gemini CLI</option>
+												<option value="codex">Codex CLI</option>
+												<option value="aider">Aider</option>
+												<option value="copilot">GitHub Copilot</option>
+												<option value="custom">Custom</option>
+											</select>
 										</div>
-									</SidebarPanel>
-								)}
+
+										{/* Custom command (only when provider is custom) */}
+										{cliProvider === "custom" && (
+											<div>
+												<label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wide">Custom Command</label>
+												<input
+													type="text"
+													className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+													placeholder="e.g., my-cli --flag"
+													value={cliCustomCommand ?? ""}
+													onChange={(e) => setCliCustomCommand(e.target.value || null)}
+												/>
+											</div>
+										)}
+
+										{/* Branch Settings */}
+										<div>
+											<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">
+												<span className="inline-flex items-center gap-1"><GitBranch className="w-3 h-3" /> Branch</span>
+											</label>
+											<select
+												className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+												value={branchMode ?? ""}
+												onChange={(e) => {
+													const val = e.target.value as BranchMode | "";
+													setBranchMode(val || null)
+													if (val !== "specific") setBranchName(null)
+												}}
+											>
+												<option value="">Inherit ({configDefaults.branchMode})</option>
+												<option value="current">Current branch</option>
+												<option value="new">New branch (auto-named)</option>
+												<option value="specific">Specific branch</option>
+											</select>
+										</div>
+
+										{/* Branch name (only when specific) */}
+										{(branchMode === "specific" || (branchMode === null && configDefaults.branchMode === "specific")) && (
+											<div>
+												<label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wide">Branch Name</label>
+												<input
+													type="text"
+													className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+													placeholder={configDefaults.branchName || "e.g., feature/my-branch"}
+													value={branchName ?? ""}
+													onChange={(e) => setBranchName(e.target.value || null)}
+												/>
+											</div>
+										)}
+
+										{/* Move to project (edit mode only) */}
+										{isEditing && (
+											<>
+												<div className="border-t border-border pt-3">
+													<label className="text-xs font-medium block text-muted-foreground uppercase tracking-wide">Move to project</label>
+												</div>
+												{allBoards.filter((b) => b.id !== boardId).length === 0 ? (
+													<p className="text-xs text-muted-foreground">No other projects available</p>
+												) : (
+													<div className="flex gap-2">
+														<select
+															className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5"
+															value={moveTargetBoardId}
+															onChange={(e) => setMoveTargetBoardId(e.target.value)}
+														>
+															<option value="">Select project...</option>
+															{allBoards
+																.filter((b) => b.id !== boardId)
+																.map((b) => (
+																	<option key={b.id} value={b.id}>{b.name}</option>
+																))}
+														</select>
+														<Button
+															size="sm"
+															variant="outline"
+															disabled={isMoving || !moveTargetBoardId}
+															onClick={() => void handleMoveToBoard()}
+														>
+															Move
+														</Button>
+													</div>
+												)}
+											</>
+										)}
+									</div>
+								</SidebarPanel>
 							</div>
 						</div>
 					</div>

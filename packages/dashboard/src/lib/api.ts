@@ -237,6 +237,10 @@ interface CardWithTags {
   execute_thinking: "smart" | "basic" | null;
   auto_commit: boolean | null;
   auto_push: boolean | null;
+  cli_provider: CliProvider | null;
+  cli_custom_command: string | null;
+  branch_mode: BranchMode | null;
+  branch_name: string | null;
   assignee: "ai" | "human";
   tags: string[];
   files: string[];
@@ -255,6 +259,10 @@ interface CreateCard {
   execute_thinking?: "smart" | "basic" | null;
   auto_commit?: boolean | null;
   auto_push?: boolean | null;
+  cli_provider?: CliProvider | null;
+  cli_custom_command?: string | null;
+  branch_mode?: BranchMode | null;
+  branch_name?: string | null;
   assignee?: "ai" | "human";
 }
 
@@ -270,6 +278,10 @@ interface UpdateCard {
   execute_thinking?: "smart" | "basic" | null;
   auto_commit?: boolean | null;
   auto_push?: boolean | null;
+  cli_provider?: CliProvider | null;
+  cli_custom_command?: string | null;
+  branch_mode?: BranchMode | null;
+  branch_name?: string | null;
   assignee?: "ai" | "human";
 }
 
@@ -332,6 +344,8 @@ interface QueueStatus {
 
 type CliProvider = "claude" | "gemini" | "codex" | "aider" | "copilot" | "custom";
 
+type BranchMode = "current" | "new" | "specific";
+
 interface ConfigData {
   cliProvider: CliProvider;
   cliCustomCommand: string;
@@ -345,6 +359,8 @@ interface ConfigData {
   executeThinking: "smart" | "basic";
   customTags: string[];
   customInstructions: string;
+  branchMode: BranchMode;
+  branchName: string;
 }
 
 /** Partial config where undefined/missing fields mean "inherit from global" */
@@ -380,6 +396,7 @@ export type {
   ConfigData,
   PartialConfigData,
   CliProvider,
+  BranchMode,
   StatusKey,
   BoardStatusCounts,
   FileEntry,

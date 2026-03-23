@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BoardIdSchema } from "./board.js";
+import { CliProviderSchema, BranchModeSchema } from "./config.js";
 
 export const CardIdSchema = z.string().brand<"CardId">();
 
@@ -29,6 +30,10 @@ export const CardSchema = z.object({
   execute_thinking: ThinkingLevel.nullable().default(null),
   auto_commit: z.boolean().nullable().default(null),
   auto_push: z.boolean().nullable().default(null),
+  cli_provider: CliProviderSchema.nullable().default(null),
+  cli_custom_command: z.string().nullable().default(null),
+  branch_mode: BranchModeSchema.nullable().default(null),
+  branch_name: z.string().nullable().default(null),
   assignee: CardAssignee.default("ai"),
   created_at: z.string(),
   updated_at: z.string(),
@@ -51,6 +56,10 @@ export const CreateCardSchema = z.object({
   execute_thinking: ThinkingLevel.nullable().optional().default(null),
   auto_commit: z.boolean().nullable().optional().default(null),
   auto_push: z.boolean().nullable().optional().default(null),
+  cli_provider: CliProviderSchema.nullable().optional().default(null),
+  cli_custom_command: z.string().max(1000).nullable().optional().default(null),
+  branch_mode: BranchModeSchema.nullable().optional().default(null),
+  branch_name: z.string().max(200).nullable().optional().default(null),
   assignee: CardAssignee.optional().default("ai"),
 });
 
@@ -66,6 +75,10 @@ export const UpdateCardSchema = z.object({
   execute_thinking: ThinkingLevel.nullable().optional(),
   auto_commit: z.boolean().nullable().optional(),
   auto_push: z.boolean().nullable().optional(),
+  cli_provider: CliProviderSchema.nullable().optional(),
+  cli_custom_command: z.string().max(1000).nullable().optional(),
+  branch_mode: BranchModeSchema.nullable().optional(),
+  branch_name: z.string().max(200).nullable().optional(),
   assignee: CardAssignee.optional(),
 });
 

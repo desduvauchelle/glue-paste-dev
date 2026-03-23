@@ -21,6 +21,8 @@ const makeConfig = (overrides?: Partial<Required<ConfigInput>>): Required<Config
   executeThinking: "smart",
   customTags: [],
   customInstructions: "",
+  branchMode: "current",
+  branchName: "",
   ...overrides,
 });
 
@@ -36,6 +38,10 @@ const makeCard = (overrides?: Partial<CardWithTags>): CardWithTags => ({
   execute_thinking: null,
   auto_commit: null,
   auto_push: null,
+  cli_provider: null,
+  cli_custom_command: null,
+  branch_mode: null,
+  branch_name: null,
   assignee: "ai",
   tags: [],
   files: [],

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Board, ConfigData, PartialConfigData, CliProvider } from "@/lib/api";
+import type { Board, ConfigData, PartialConfigData, CliProvider, BranchMode } from "@/lib/api";
 import { boards as boardsApi, config as configApi } from "@/lib/api";
 import {
   Dialog,
@@ -53,6 +53,8 @@ export function BoardSettingsDialog({
   const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>("smart");
   const [executeThinking, setExecuteThinking] = useState<"smart" | "basic">("smart");
   const [customInstructions, setCustomInstructions] = useState("");
+  const [branchMode, setBranchMode] = useState<BranchMode>("current");
+  const [branchName, setBranchName] = useState("");
   const [color, setColor] = useState<string | null>(null);
   const [slug, setSlug] = useState<string>("");
   const [githubUrl, setGithubUrl] = useState<string>("");
@@ -95,6 +97,8 @@ export function BoardSettingsDialog({
         if (raw.planThinking !== undefined) existing.add("planThinking");
         if (raw.executeThinking !== undefined) existing.add("executeThinking");
         if (raw.customInstructions !== undefined) existing.add("customInstructions");
+        if (raw.branchMode !== undefined) existing.add("branchMode");
+        if (raw.branchName !== undefined) existing.add("branchName");
         setDirtyFields(existing);
 
         setCliProvider(raw.cliProvider ?? global.cliProvider ?? "claude");
@@ -108,6 +112,8 @@ export function BoardSettingsDialog({
         setPlanThinking(raw.planThinking !== undefined ? raw.planThinking : global.planThinking ?? "smart");
         setExecuteThinking(raw.executeThinking ?? global.executeThinking ?? "smart");
         setCustomInstructions(raw.customInstructions ?? global.customInstructions ?? "");
+        setBranchMode(raw.branchMode ?? global.branchMode ?? "current");
+        setBranchName(raw.branchName ?? global.branchName ?? "");
       }).catch(() => {
         // Use defaults
       });
@@ -140,6 +146,8 @@ export function BoardSettingsDialog({
       if (dirtyFields.has("planThinking")) configUpdate.planThinking = planThinking;
       if (dirtyFields.has("executeThinking")) configUpdate.executeThinking = executeThinking;
       if (dirtyFields.has("customInstructions")) configUpdate.customInstructions = customInstructions.trim();
+      if (dirtyFields.has("branchMode")) configUpdate.branchMode = branchMode;
+      if (dirtyFields.has("branchName")) configUpdate.branchName = branchName.trim();
       await configApi.updateForBoard(board.id, configUpdate);
 
       onUpdated(updated);
@@ -428,6 +436,10 @@ export function BoardSettingsDialog({
               onExecuteThinkingChange={(v) => { setExecuteThinking(v); markDirty("executeThinking"); }}
               customInstructions={customInstructions}
               onCustomInstructionsChange={(v) => { setCustomInstructions(v); markDirty("customInstructions"); }}
+              branchMode={branchMode}
+              onBranchModeChange={(v) => { setBranchMode(v); markDirty("branchMode"); }}
+              branchName={branchName}
+              onBranchNameChange={(v) => { setBranchName(v); markDirty("branchName"); }}
               radioPrefix="board"
             />
           )}

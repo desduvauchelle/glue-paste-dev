@@ -23,6 +23,11 @@ export const CLI_PROVIDER_META: Record<CliProvider, { label: string; command: st
   custom: { label: "Custom", command: "", description: "Custom CLI command" },
 };
 
+/** Supported branch modes */
+export const BRANCH_MODES = ["current", "new", "specific"] as const;
+export const BranchModeSchema = z.enum(BRANCH_MODES);
+export type BranchMode = z.infer<typeof BranchModeSchema>;
+
 export const ConfigSchema = z.object({
   key: z.string(),
   cli_provider: z.string().default("claude"),
@@ -37,6 +42,8 @@ export const ConfigSchema = z.object({
   execute_thinking: z.string().default("smart"),
   custom_tags: z.string().default("[]"),
   custom_instructions: z.string().default(""),
+  branch_mode: z.string().default("current"),
+  branch_name: z.string().default(""),
 });
 
 /** User-facing config shape (custom_tags as array) */
@@ -53,6 +60,8 @@ export const ConfigInputSchema = z.object({
   executeThinking: z.enum(["smart", "basic"]).optional(),
   customTags: z.array(z.string()).optional(),
   customInstructions: z.string().max(50_000).optional(),
+  branchMode: BranchModeSchema.optional(),
+  branchName: z.string().max(200).optional(),
 });
 
 export const DEFAULT_CONFIG = {
@@ -68,4 +77,6 @@ export const DEFAULT_CONFIG = {
   executeThinking: "smart" as "smart" | "basic",
   customTags: [] as string[],
   customInstructions: "",
+  branchMode: "current" as BranchMode,
+  branchName: "",
 } as const;

@@ -62,6 +62,8 @@ describe("CardDialog — config defaults", () => {
       executeThinking: "smart",
       customTags: [],
       customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
     });
 
     render(<CardDialog {...defaultProps} card={null} />);
@@ -94,6 +96,8 @@ describe("CardDialog — config defaults", () => {
       executeThinking: "smart",
       customTags: [],
       customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
     });
 
     render(<CardDialog {...defaultProps} card={null} />);
@@ -125,6 +129,8 @@ describe("CardDialog — config defaults", () => {
       executeThinking: "smart",
       customTags: [],
       customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
     });
 
     const cardWithOverride = {
@@ -139,6 +145,10 @@ describe("CardDialog — config defaults", () => {
       execute_thinking: null,
       auto_commit: null,
       auto_push: null,
+      cli_provider: null,
+      cli_custom_command: null,
+      branch_mode: null,
+      branch_name: null,
       assignee: "ai" as const,
       files: [],
       tags: [],
@@ -175,6 +185,8 @@ describe("CardDialog — config defaults", () => {
       executeThinking: "smart",
       customTags: [],
       customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
     });
 
     render(<CardDialog {...defaultProps} card={null} />);
@@ -202,6 +214,8 @@ describe("CardDialog — config defaults", () => {
       executeThinking: "smart",
       customTags: [],
       customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
     });
 
     render(<CardDialog {...defaultProps} card={null} />);
@@ -229,6 +243,8 @@ describe("CardDialog — config defaults", () => {
       executeThinking: "smart",
       customTags: [],
       customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
     });
 
     const cardWithOverride = {
@@ -243,6 +259,10 @@ describe("CardDialog — config defaults", () => {
       execute_thinking: null,
       auto_commit: true,
       auto_push: null,
+      cli_provider: null,
+      cli_custom_command: null,
+      branch_mode: null,
+      branch_name: null,
       assignee: "ai" as const,
       files: [],
       tags: [],
@@ -280,6 +300,8 @@ describe("CardDialog — Shift+Enter shortcut", () => {
       executeThinking: "smart",
       customTags: [],
       customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
     });
 
     const onCreate = vi.fn(() => Promise.resolve());
@@ -320,6 +342,8 @@ describe("CardDialog — Shift+Enter shortcut", () => {
       executeThinking: "smart",
       customTags: [],
       customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
     });
 
     const onCreate = vi.fn(() => Promise.resolve());

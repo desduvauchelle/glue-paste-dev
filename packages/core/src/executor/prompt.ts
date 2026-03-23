@@ -112,6 +112,9 @@ export function buildPrompt(ctx: PromptContext): string {
         parts.push(`- If the push fails (authentication, permissions, protected branch, etc.), stop and report the exact error so the user can fix it`);
       }
     }
+    if (config.branchMode === "new" || config.branchMode === "specific") {
+      parts.push(`- You are working on a dedicated branch. Do NOT switch branches.`);
+    }
   }
 
   return parts.join("\n");

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import type { ConfigData, CliProvider } from "@/lib/api";
+import type { ConfigData, CliProvider, BranchMode } from "@/lib/api";
 import { config as configApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ export function GlobalSettings() {
   const [planThinking, setPlanThinking] = useState<"smart" | "basic" | null>("smart");
   const [executeThinking, setExecuteThinking] = useState<"smart" | "basic">("smart");
   const [customInstructions, setCustomInstructions] = useState("");
+  const [branchMode, setBranchMode] = useState<BranchMode>("current");
+  const [branchName, setBranchName] = useState("");
   const [customTags, setCustomTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
 
@@ -50,6 +52,8 @@ export function GlobalSettings() {
       setPlanThinking(cfg.planThinking);
       setExecuteThinking(cfg.executeThinking);
       setCustomInstructions(cfg.customInstructions);
+      setBranchMode(cfg.branchMode || "current");
+      setBranchName(cfg.branchName || "");
       setCustomTags(cfg.customTags || []);
       setLoading(false);
     }).catch(() => {
@@ -72,6 +76,8 @@ export function GlobalSettings() {
         planThinking,
         executeThinking,
         customInstructions: customInstructions.trim(),
+        branchMode,
+        branchName: branchName.trim(),
         customTags,
       });
       setLocation("/");
@@ -236,6 +242,10 @@ export function GlobalSettings() {
               onExecuteThinkingChange={setExecuteThinking}
               customInstructions={customInstructions}
               onCustomInstructionsChange={setCustomInstructions}
+              branchMode={branchMode}
+              onBranchModeChange={setBranchMode}
+              branchName={branchName}
+              onBranchNameChange={setBranchName}
               radioPrefix="global"
             />
 

@@ -92,6 +92,45 @@ export async function runCard(
     return THINKING_LEVEL_MODELS[thinkingLevel] ?? config.model ?? "claude-opus-4-6";
   };
 
+  // Handle branch checkout if configured
+  if (config.branchMode === "new" || config.branchMode === "specific") {
+    const targetBranch = config.branchMode === "new"
+      ? `glue-paste/${card.id}-${Date.now()}`
+      : config.branchName;
+
+    if (targetBranch) {
+      try {
+        if (config.branchMode === "new") {
+          const proc = Bun.spawn(["git", "checkout", "-b", targetBranch], {
+            cwd: board.directory,
+            stdout: "pipe",
+            stderr: "pipe",
+          });
+          await proc.exited;
+        } else {
+          // Try to checkout existing branch, create if it doesn't exist
+          const checkProc = Bun.spawn(["git", "checkout", targetBranch], {
+            cwd: board.directory,
+            stdout: "pipe",
+            stderr: "pipe",
+          });
+          const checkExit = await checkProc.exited;
+          if (checkExit !== 0) {
+            const createProc = Bun.spawn(["git", "checkout", "-b", targetBranch], {
+              cwd: board.directory,
+              stdout: "pipe",
+              stderr: "pipe",
+            });
+            await createProc.exited;
+          }
+        }
+        log.info("runner", `Checked out branch: ${targetBranch}`);
+      } catch (err) {
+        log.warn("runner", `Failed to checkout branch ${targetBranch}:`, err);
+      }
+    }
+  }
+
   // Use a single session for both plan and execute phases so execute inherits plan context
   const sessionId = crypto.randomUUID();
 

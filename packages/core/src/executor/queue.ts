@@ -27,7 +27,7 @@ export interface QueueCallbacks extends RunnerCallbacks {
   onOverloaded?: (boardId: string, cardTitle: string, retryInSeconds: number) => void;
 }
 
-/** Apply per-card overrides (plan_thinking, execute_thinking, auto_commit) to config */
+/** Apply per-card overrides (plan_thinking, execute_thinking, auto_commit, cli_provider, branch_mode, etc.) to config */
 export function applyCardOverrides(
   config: Required<ConfigInput>,
   card: CardWithTags
@@ -43,8 +43,12 @@ export function applyCardOverrides(
   const executeThinking = (card.execute_thinking !== null && card.execute_thinking !== undefined ? card.execute_thinking : config.executeThinking) ?? "smart";
   const autoCommit = card.auto_commit !== null && card.auto_commit !== undefined ? card.auto_commit : config.autoCommit;
   const autoPush = card.auto_push !== null && card.auto_push !== undefined ? card.auto_push : config.autoPush;
+  const cliProvider = card.cli_provider !== null && card.cli_provider !== undefined ? card.cli_provider : config.cliProvider;
+  const cliCustomCommand = card.cli_custom_command !== null && card.cli_custom_command !== undefined ? card.cli_custom_command : config.cliCustomCommand;
+  const branchMode = card.branch_mode !== null && card.branch_mode !== undefined ? card.branch_mode : config.branchMode;
+  const branchName = card.branch_name !== null && card.branch_name !== undefined ? card.branch_name : config.branchName;
 
-  return { ...config, planThinking, executeThinking, autoCommit, autoPush };
+  return { ...config, planThinking, executeThinking, autoCommit, autoPush, cliProvider, cliCustomCommand, branchMode, branchName };
 }
 
 const queues = new Map<string, QueueState>();
