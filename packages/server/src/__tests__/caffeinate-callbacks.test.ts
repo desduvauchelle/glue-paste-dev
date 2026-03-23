@@ -5,6 +5,7 @@ import type { BoardId, CardId } from "@glue-paste-dev/core";
 import { makeCallbacks } from "../callbacks.js";
 import {
   isCaffeinateActive,
+  isSleepPreventionSupported,
   startCaffeinate,
   stopCaffeinate,
 } from "../caffeinate.js";
@@ -26,7 +27,7 @@ describe("callbacks caffeinate integration", () => {
   it("onCardUpdated turns off caffeinate when card moves to done and no active cards remain", () => {
     // Start caffeinate manually
     startCaffeinate();
-    if (process.platform !== "darwin") return; // caffeinate only works on macOS
+    if (!isSleepPreventionSupported()) return;
 
     expect(isCaffeinateActive()).toBe(true);
 
@@ -50,7 +51,7 @@ describe("callbacks caffeinate integration", () => {
   });
 
   it("onCardUpdated keeps caffeinate on when other queued cards exist", () => {
-    if (process.platform !== "darwin") return;
+    if (!isSleepPreventionSupported()) return;
 
     const board = boardsDb.createBoard(db, {
       name: "Test",
@@ -78,7 +79,7 @@ describe("callbacks caffeinate integration", () => {
 
   it("onQueueStopped turns off caffeinate when no active cards", () => {
     startCaffeinate();
-    if (process.platform !== "darwin") return;
+    if (!isSleepPreventionSupported()) return;
 
     expect(isCaffeinateActive()).toBe(true);
 

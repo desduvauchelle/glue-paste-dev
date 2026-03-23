@@ -7,6 +7,7 @@ import {
   stopCaffeinate,
   isCaffeinateActive,
   checkAndToggleCaffeinate,
+  isSleepPreventionSupported,
 } from "../caffeinate.js";
 
 let db: Database;
@@ -25,13 +26,13 @@ describe("caffeinate", () => {
   describe("startCaffeinate / stopCaffeinate", () => {
     it("starts and reports active", () => {
       startCaffeinate();
-      expect(isCaffeinateActive()).toBe(process.platform === "darwin");
+      expect(isCaffeinateActive()).toBe(isSleepPreventionSupported());
     });
 
     it("is idempotent — calling start twice does not error", () => {
       startCaffeinate();
       startCaffeinate(); // should be a no-op
-      expect(isCaffeinateActive()).toBe(process.platform === "darwin");
+      expect(isCaffeinateActive()).toBe(isSleepPreventionSupported());
     });
 
     it("stops and reports inactive", () => {
@@ -50,13 +51,13 @@ describe("caffeinate", () => {
     it("starts caffeinate when queued cards exist", () => {
       const boardId = createBoardWithQueuedCard(db);
       checkAndToggleCaffeinate(db);
-      expect(isCaffeinateActive()).toBe(process.platform === "darwin");
+      expect(isCaffeinateActive()).toBe(isSleepPreventionSupported());
     });
 
     it("starts caffeinate when in-progress cards exist", () => {
       const boardId = createBoardWithInProgressCard(db);
       checkAndToggleCaffeinate(db);
-      expect(isCaffeinateActive()).toBe(process.platform === "darwin");
+      expect(isCaffeinateActive()).toBe(isSleepPreventionSupported());
     });
 
     it("stops caffeinate when no active cards", () => {
@@ -88,7 +89,7 @@ describe("caffeinate", () => {
       createCard(db, boardId, "done");
       createCard(db, boardId, "queued");
       checkAndToggleCaffeinate(db);
-      expect(isCaffeinateActive()).toBe(process.platform === "darwin");
+      expect(isCaffeinateActive()).toBe(isSleepPreventionSupported());
     });
 
     it("transitions from active to inactive when last card completes", () => {
@@ -96,7 +97,7 @@ describe("caffeinate", () => {
       const cardId = createCard(db, boardId, "in-progress");
 
       checkAndToggleCaffeinate(db);
-      expect(isCaffeinateActive()).toBe(process.platform === "darwin");
+      expect(isCaffeinateActive()).toBe(isSleepPreventionSupported());
 
       // Simulate card completing
       cardsDb.updateCardStatus(db, cardId as any, "done");
