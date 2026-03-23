@@ -46,6 +46,10 @@ vi.mock("@/lib/api", () => ({
   },
   cards: {
     create: vi.fn(() => Promise.resolve({})),
+    list: vi.fn(() => Promise.resolve({ cards: [], doneHasMore: false })),
+    update: vi.fn(() => Promise.resolve({})),
+    delete: vi.fn(() => Promise.resolve({ ok: true })),
+    stop: vi.fn(() => Promise.resolve({ ok: true })),
   },
 }));
 

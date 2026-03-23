@@ -39,6 +39,7 @@ import { CardDialog } from "@/components/board/CardDialog";
 import { cards as cardsApi } from "@/lib/api";
 import type { CreateCard } from "@/lib/api";
 import { readSortMode, readCustomOrder, sortBoards, type SortMode } from "@/lib/sort-boards";
+import { RunningCards } from "@/components/home/RunningCards";
 
 function SortableBoardCard({
   id,
@@ -90,6 +91,7 @@ export function Home() {
   const [color, setColor] = useState<string | null>(null);
   const [activeBoards, setActiveBoards] = useState<Set<string>>(new Set());
   const [cardDialogBoardId, setCardDialogBoardId] = useState<string | null>(null);
+  const [selectedRunningCard, setSelectedRunningCard] = useState<{ card: import("@/lib/api").CardWithTags; boardId: string } | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>(readSortMode);
   const [customOrder, setCustomOrder] = useState<string[]>(readCustomOrder);
 
@@ -336,6 +338,12 @@ export function Home() {
           );
         })()}
 
+        <RunningCards
+          activeBoards={activeBoards}
+          boards={boards}
+          onCardClick={(card, boardId) => setSelectedRunningCard({ card, boardId })}
+        />
+
         <div className="flex items-center gap-1 mb-4">
           <span className="text-xs text-muted-foreground mr-2">Sort:</span>
           {(["custom", "recent", "alpha"] as SortMode[]).map((mode) => {
@@ -490,6 +498,25 @@ export function Home() {
           onPlay={() => {}}
           defaultStatus="todo"
           boardName={boards.find((b) => b.id === cardDialogBoardId)?.name}
+        />
+      )}
+      {selectedRunningCard && (
+        <CardDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setSelectedRunningCard(null); }}
+          card={selectedRunningCard.card}
+          boardId={selectedRunningCard.boardId}
+          onCreate={async () => {}}
+          onUpdate={async (id, input) => {
+            await cardsApi.update(id, input);
+            setSelectedRunningCard(null);
+          }}
+          onDelete={async (id) => {
+            await cardsApi.delete(id);
+            setSelectedRunningCard(null);
+          }}
+          onPlay={() => {}}
+          boardName={boards.find((b) => b.id === selectedRunningCard.boardId)?.name}
         />
       )}
     </div>
