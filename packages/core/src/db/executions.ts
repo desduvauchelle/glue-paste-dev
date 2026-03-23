@@ -67,11 +67,26 @@ export function updateExecutionPid(
   db.query("UPDATE executions SET pid = ? WHERE id = ?").run(pid, id);
 }
 
+const MAX_DB_OUTPUT = 512 * 1024; // 512KB max stored per execution
+
 export function appendExecutionOutput(
   db: Database,
   id: ExecutionId,
   chunk: string
 ): void {
+  // Check current output length before appending to prevent unbounded growth
+  const row = db.query("SELECT length(output) as len FROM executions WHERE id = ?").get(id) as { len: number } | null;
+  const currentLen = row?.len ?? 0;
+  if (currentLen >= MAX_DB_OUTPUT) {
+    // Trim to tail: replace with last portion + new chunk
+    const keepSize = MAX_DB_OUTPUT - chunk.length;
+    if (keepSize > 0) {
+      db.query(
+        "UPDATE executions SET output = substr(output, -?) || ? WHERE id = ?"
+      ).run(keepSize, chunk, id);
+    }
+    return;
+  }
   db.query(
     "UPDATE executions SET output = output || ? WHERE id = ?"
   ).run(chunk, id);

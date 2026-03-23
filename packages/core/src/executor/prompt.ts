@@ -52,14 +52,21 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push("");
   }
 
-  // Comments (feedback history)
-  if (comments.length > 0) {
+  // Comments (feedback history) — limit to last 50 to prevent massive prompts
+  const MAX_PROMPT_COMMENTS = 50;
+  const recentComments = comments.length > MAX_PROMPT_COMMENTS
+    ? comments.slice(-MAX_PROMPT_COMMENTS)
+    : comments;
+  if (recentComments.length > 0) {
     parts.push(`## History & Feedback`);
+    if (comments.length > MAX_PROMPT_COMMENTS) {
+      parts.push(`(Showing last ${MAX_PROMPT_COMMENTS} of ${comments.length} comments)`);
+    }
     parts.push(
       "The following is the conversation history for this task. User comments are feedback you should incorporate. System comments are outputs from previous attempts."
     );
     parts.push("");
-    for (const comment of comments) {
+    for (const comment of recentComments) {
       const label =
         comment.author === "user"
           ? "User feedback"

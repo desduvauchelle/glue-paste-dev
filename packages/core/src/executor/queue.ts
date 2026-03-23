@@ -10,6 +10,7 @@ import type { RateLimitInfo } from "./rate-limit.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
 import { cleanupCardAttachments } from "../utils/attachments.js";
+import { walCheckpoint } from "../db/connection.js";
 
 export interface QueueState {
   boardId: string;
@@ -247,6 +248,7 @@ async function processQueue(
     if (result.success) {
       cardsDb.updateCardStatus(db, cardId, "done");
       cleanupCardAttachments(db, cardId);
+      walCheckpoint(db);
       const updated = cardsDb.getCard(db, cardId);
       if (updated) callbacks.onCardUpdated(updated);
       advanceQueue(db, boardId, callbacks);
@@ -261,6 +263,7 @@ async function processQueue(
       if (retryResult.success) {
         cardsDb.updateCardStatus(db, cardId, "done");
         cleanupCardAttachments(db, cardId);
+        walCheckpoint(db);
         const updated = cardsDb.getCard(db, cardId);
         if (updated) callbacks.onCardUpdated(updated);
         advanceQueue(db, boardId, callbacks);
@@ -269,6 +272,7 @@ async function processQueue(
       } else {
         // Failed after retry
         cardsDb.updateCardStatus(db, cardId, "failed");
+        walCheckpoint(db);
         const updated = cardsDb.getCard(db, cardId);
         if (updated) callbacks.onCardUpdated(updated);
 

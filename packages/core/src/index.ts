@@ -19,7 +19,7 @@ export { cleanupCardAttachments } from "./utils/attachments.js";
 export type * from "./types/index.js";
 
 // Database
-export { getDb, getTestDb, closeDb, getDataDir } from "./db/connection.js";
+export { getDb, getTestDb, closeDb, getDataDir, walCheckpoint } from "./db/connection.js";
 export * as boardsDb from "./db/boards.js";
 export * as cardsDb from "./db/cards.js";
 export * as commentsDb from "./db/comments.js";

@@ -118,6 +118,8 @@ export async function runCard(
     const planOutput = existingPlan ?? result!.output;
     const execConfig = { ...config, model: resolveModel("execute", config.executeThinking ?? "smart") };
     result = await executePhase(db, card, board, comments, execConfig, "execute", callbacks, sessionId, true, planOutput);
+    // Release plan output reference — no longer needed after execute phase
+    result = { ...result, output: result.output.slice(-1024) };
   } else {
     // Single phase: just execute directly
     const execConfig = { ...config, model: resolveModel("execute", config.executeThinking ?? "smart") };

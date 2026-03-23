@@ -39,6 +39,18 @@ export function getTestDb(): Database {
   return testDb;
 }
 
+/** Run a WAL checkpoint to reclaim disk space and reduce memory pressure */
+export function walCheckpoint(database?: Database): void {
+  const target = database ?? db;
+  if (target) {
+    try {
+      target.exec("PRAGMA wal_checkpoint(PASSIVE)");
+    } catch {
+      // checkpoint failure is non-fatal
+    }
+  }
+}
+
 /** Close the singleton database connection */
 export function closeDb(): void {
   if (db) {
