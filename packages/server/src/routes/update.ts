@@ -70,18 +70,37 @@ function setCachedResult(result: NonNullable<typeof cachedResult>) {
   cachedAt = Date.now();
 }
 
-/** Build safe download+extract args without shell interpolation. */
-export function buildDownloadArgs(dataDir: string, downloadUrl: string): [string[], string[]] {
-  if (!downloadUrl.startsWith("https://")) {
+/** Download a file using native fetch instead of shelling out to curl. */
+async function downloadFile(url: string, destPath: string): Promise<void> {
+  if (!url.startsWith("https://")) {
     throw new Error("Download URL must use HTTPS");
   }
-  if (/[;|&$`(){}]/.test(downloadUrl)) {
+  if (/[;|&$`(){}]/.test(url)) {
     throw new Error("Download URL contains invalid characters");
   }
-  return [
-    ["curl", "-fsSL", "-o", join(dataDir, "release.tar.gz"), downloadUrl],
-    ["tar", "-xzf", join(dataDir, "release.tar.gz"), "-C", dataDir],
-  ];
+  const res = await fetch(url, { redirect: "follow" });
+  if (!res.ok) {
+    throw new Error(`Download failed: ${res.status} ${res.statusText}`);
+  }
+  await Bun.write(destPath, res);
+}
+
+/** Find the tar binary on the system. */
+function findTar(): string {
+  for (const p of ["/usr/bin/tar", "/bin/tar", "/usr/local/bin/tar"]) {
+    if (existsSync(p)) return p;
+  }
+  try {
+    const result = Bun.spawnSync(["which", "tar"]);
+    const resolved = result.stdout.toString().trim();
+    if (result.exitCode === 0 && resolved) return resolved;
+  } catch { /* ignore */ }
+  return "tar";
+}
+
+/** Build safe extract args without shell interpolation. */
+export function buildExtractArgs(dataDir: string): string[] {
+  return [findTar(), "-xzf", join(dataDir, "release.tar.gz"), "-C", dataDir];
 }
 
 export function updateRoutes(broadcast: (event: unknown) => void) {
@@ -110,10 +129,10 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
 
     // Download first, only delete old files after successful download
     const tarPath = join(dataDir, "release.tar.gz");
-    const [dlArgs, extractArgs] = buildDownloadArgs(dataDir, result.downloadUrl);
-    const dlProc = Bun.spawnSync(dlArgs);
-    if (dlProc.exitCode !== 0) {
-      log.error("update", "Failed to download update");
+    try {
+      await downloadFile(result.downloadUrl, tarPath);
+    } catch (err) {
+      log.error("update", "Failed to download update", err);
       return c.json({ ok: false, error: "Download failed" }, 500);
     }
 
@@ -121,6 +140,7 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     rmSync(join(dataDir, "server"), { recursive: true, force: true });
     rmSync(join(dataDir, "cli"), { recursive: true, force: true });
 
+    const extractArgs = buildExtractArgs(dataDir);
     const extractProc = Bun.spawnSync(extractArgs);
     if (extractProc.exitCode !== 0) {
       log.error("update", "Failed to extract update");
