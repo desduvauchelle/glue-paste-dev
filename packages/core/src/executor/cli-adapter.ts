@@ -49,14 +49,7 @@ function buildClaudeCommand(
   phase: "plan" | "execute",
   resume?: boolean
 ): CliCommand {
-  const args = [
-    "claude",
-    "-p",
-    prompt,
-    "--output-format",
-    "stream-json",
-    "--verbose",
-  ];
+  const args = ["claude", "-p", prompt, "--output-format", "stream-json", "--verbose"];
 
   // Override Claude Code's default co-authoring behavior
   args.push(
@@ -85,10 +78,7 @@ function buildClaudeCommand(
   return { args, supportsStreamJson: true, supportsSession: true };
 }
 
-function buildGeminiCommand(
-  config: Required<ConfigInput>,
-  prompt: string
-): CliCommand {
+function buildGeminiCommand(config: Required<ConfigInput>, prompt: string): CliCommand {
   const args = ["gemini", "-p", prompt];
 
   if (config.model) {
@@ -98,10 +88,7 @@ function buildGeminiCommand(
   return { args, supportsStreamJson: false, supportsSession: false };
 }
 
-function buildCodexCommand(
-  config: Required<ConfigInput>,
-  prompt: string
-): CliCommand {
+function buildCodexCommand(config: Required<ConfigInput>, prompt: string): CliCommand {
   const args = ["codex", prompt];
 
   if (config.model) {
@@ -113,10 +100,7 @@ function buildCodexCommand(
   return { args, supportsStreamJson: false, supportsSession: false };
 }
 
-function buildAiderCommand(
-  config: Required<ConfigInput>,
-  prompt: string
-): CliCommand {
+function buildAiderCommand(config: Required<ConfigInput>, prompt: string): CliCommand {
   const args = ["aider", "--message", prompt, "--yes"];
 
   if (config.model) {
@@ -126,22 +110,18 @@ function buildAiderCommand(
   return { args, supportsStreamJson: false, supportsSession: false };
 }
 
-function buildCopilotCommand(
-  _config: Required<ConfigInput>,
-  prompt: string
-): CliCommand {
+function buildCopilotCommand(_config: Required<ConfigInput>, prompt: string): CliCommand {
   const args = ["gh", "copilot", "suggest", prompt];
 
   return { args, supportsStreamJson: false, supportsSession: false };
 }
 
-function buildCustomCommand(
-  config: Required<ConfigInput>,
-  prompt: string
-): CliCommand {
+function buildCustomCommand(config: Required<ConfigInput>, prompt: string): CliCommand {
   const customCmd = (config.cliCustomCommand ?? "").trim();
   if (!customCmd) {
-    throw new Error("Custom CLI provider selected but no command configured. Set cliCustomCommand in config.");
+    throw new Error(
+      "Custom CLI provider selected but no command configured. Set cliCustomCommand in config."
+    );
   }
 
   // Split the custom command, then append the prompt

@@ -1,19 +1,19 @@
 import type { Database } from "bun:sqlite";
-import type { Board, CardWithTags, ConfigInput, CardId, Comment, ExecutionId, FileChange } from "../types/index.js";
-import * as executionsDb from "../db/executions.js";
-import * as commentsDb from "../db/comments.js";
 import * as cardsDb from "../db/cards.js";
-import * as commitsDb from "../db/commits.js";
+import * as commentsDb from "../db/comments.js";
 import type { CreateCommitInput } from "../db/commits.js";
-import { buildPrompt } from "./prompt.js";
-import { parseStreamLine } from "./stream-parser.js";
+import * as commitsDb from "../db/commits.js";
+import * as executionsDb from "../db/executions.js";
+import { log } from "../logger.js";
+import type { Board, CardId, CardWithTags, Comment, ConfigInput, ExecutionId, FileChange } from "../types/index.js";
+import { cardLabel } from "../utils/cardLabel.js";
 import { buildCliCommand } from "./cli-adapter.js";
-import { detectRateLimit } from "./rate-limit.js";
+import { getFreshEnv } from "./fresh-env.js";
 import { detectGitError } from "./git-errors.js";
 import { killProcessTreeSync } from "./process-cleanup.js";
-import { getFreshEnv } from "./fresh-env.js";
-import { log } from "../logger.js";
-import { cardLabel } from "../utils/cardLabel.js";
+import { buildPrompt } from "./prompt.js";
+import { detectRateLimit } from "./rate-limit.js";
+import { parseStreamLine } from "./stream-parser.js";
 
 /** Track active processes by cardId so they can be killed */
 const activeCardProcesses = new Map<string, { proc: ReturnType<typeof Bun.spawn>; executionId: string }>();
@@ -82,7 +82,7 @@ export async function runCard(
 
   const THINKING_LEVEL_MODELS: Record<string, string> = {
     smart: "claude-opus-4-6",
-    basic: "claude-sonnet-4-6",
+    basic: "claude-sonnet-4-6"
   };
 
   /** Resolve model for a phase: explicit config model > thinking-level default > fallback */
@@ -94,9 +94,7 @@ export async function runCard(
 
   // Handle branch checkout if configured
   if (config.branchMode === "new" || config.branchMode === "specific") {
-    const targetBranch = config.branchMode === "new"
-      ? `glue-paste/${card.id}-${Date.now()}`
-      : config.branchName;
+    const targetBranch = config.branchMode === "new" ? `glue-paste/${card.id}-${Date.now()}` : config.branchName;
 
     if (targetBranch) {
       try {
@@ -104,7 +102,7 @@ export async function runCard(
           const proc = Bun.spawn(["git", "checkout", "-b", targetBranch], {
             cwd: board.directory,
             stdout: "pipe",
-            stderr: "pipe",
+            stderr: "pipe"
           });
           await proc.exited;
         } else {
@@ -112,14 +110,14 @@ export async function runCard(
           const checkProc = Bun.spawn(["git", "checkout", targetBranch], {
             cwd: board.directory,
             stdout: "pipe",
-            stderr: "pipe",
+            stderr: "pipe"
           });
           const checkExit = await checkProc.exited;
           if (checkExit !== 0) {
             const createProc = Bun.spawn(["git", "checkout", "-b", targetBranch], {
               cwd: board.directory,
               stdout: "pipe",
-              stderr: "pipe",
+              stderr: "pipe"
             });
             await createProc.exited;
           }
@@ -173,7 +171,7 @@ async function captureGitSha(directory: string): Promise<string | null> {
     const proc = Bun.spawn(["git", "rev-parse", "HEAD"], {
       cwd: directory,
       stdout: "pipe",
-      stderr: "pipe",
+      stderr: "pipe"
     });
     const output = await new Response(proc.stdout).text();
     const stderrText = await new Response(proc.stderr).text();
@@ -198,7 +196,7 @@ async function captureFileChanges(directory: string, shaBefore: string): Promise
     const proc = Bun.spawn(["git", "diff", "--numstat", shaBefore], {
       cwd: directory,
       stdout: "pipe",
-      stderr: "pipe",
+      stderr: "pipe"
     });
     const output = await new Response(proc.stdout).text();
     const stderrText = await new Response(proc.stderr).text();
@@ -220,7 +218,11 @@ async function captureFileChanges(directory: string, shaBefore: string): Promise
       const deletions = delStr === "-" ? 0 : parseInt(delStr!, 10) || 0;
       files.push({ path, additions, deletions });
     }
-    log.debug("runner", `captureFileChanges: ${files.length} files changed`, files.map(f => f.path));
+    log.debug(
+      "runner",
+      `captureFileChanges: ${files.length} files changed`,
+      files.map(f => f.path)
+    );
     return files;
   } catch (err) {
     log.warn("runner", `captureFileChanges threw:`, err);
@@ -231,10 +233,11 @@ async function captureFileChanges(directory: string, shaBefore: string): Promise
 async function captureNewCommits(directory: string, shaBefore: string): Promise<CreateCommitInput[]> {
   try {
     // Get commits made between shaBefore and HEAD
-    const proc = Bun.spawn(
-      ["git", "log", `${shaBefore}..HEAD`, "--format=%H%n%s%n%an%n%ae%n---END---", "--reverse"],
-      { cwd: directory, stdout: "pipe", stderr: "pipe" }
-    );
+    const proc = Bun.spawn(["git", "log", `${shaBefore}..HEAD`, "--format=%H%n%s%n%an%n%ae%n---END---", "--reverse"], {
+      cwd: directory,
+      stdout: "pipe",
+      stderr: "pipe"
+    });
     const output = await new Response(proc.stdout).text();
     const exitCode = await proc.exited;
     if (exitCode !== 0 || !output.trim()) return [];
@@ -252,10 +255,11 @@ async function captureNewCommits(directory: string, shaBefore: string): Promise<
       const authorEmail = lines[3]!;
 
       // Get per-commit file changes
-      const diffProc = Bun.spawn(
-        ["git", "diff", "--numstat", `${sha}~1`, sha],
-        { cwd: directory, stdout: "pipe", stderr: "pipe" }
-      );
+      const diffProc = Bun.spawn(["git", "diff", "--numstat", `${sha}~1`, sha], {
+        cwd: directory,
+        stdout: "pipe",
+        stderr: "pipe"
+      });
       const diffOutput = await new Response(diffProc.stdout).text();
       await diffProc.exited;
 
@@ -302,24 +306,14 @@ async function executePhase(
   log.debug("runner", `Prompt length: ${prompt.length} chars`);
 
   // Create execution record
-  const execution = executionsDb.createExecution(
-    db,
-    card.id as CardId,
-    sessionId,
-    phase
-  );
+  const execution = executionsDb.createExecution(db, card.id as CardId, sessionId, phase);
 
   callbacks.onExecutionStarted(card.id, execution.id, phase);
 
   // Add lifecycle comment: phase started
   const phaseStartedAt = Date.now();
   const phaseName = phase === "plan" ? "Plan" : "Execution";
-  const startedComment = commentsDb.addSystemComment(
-    db,
-    card.id as CardId,
-    execution.id,
-    `${phaseName} started.`
-  );
+  const startedComment = commentsDb.addSystemComment(db, card.id as CardId, execution.id, `${phaseName} started.`);
   callbacks.onCommentAdded(startedComment);
 
   // Capture git SHA before execution for file change tracking
@@ -337,13 +331,23 @@ async function executePhase(
   const cliCmd = buildCliCommand(config, prompt, sessionId, phase, resume);
   const args = cliCmd.args;
 
-  log.info("runner", `Spawning CLI: ${args[0]} ${args.slice(1).map(a => a.length > 100 ? a.slice(0, 100) + '…' : a).join(" ")}`);
-  log.debug("runner", `Full CLI args (${args.length}):`, args.map((a, i) => `[${i}] ${a.length > 200 ? a.slice(0, 200) + '…(' + a.length + ' chars)' : a}`));
+  log.info(
+    "runner",
+    `Spawning CLI: ${args[0]} ${args
+      .slice(1)
+      .map(a => (a.length > 100 ? a.slice(0, 100) + "…" : a))
+      .join(" ")}`
+  );
+  log.debug(
+    "runner",
+    `Full CLI args (${args.length}):`,
+    args.map((a, i) => `[${i}] ${a.length > 200 ? a.slice(0, 200) + "…(" + a.length + " chars)" : a}`)
+  );
   const proc = Bun.spawn(args, {
     cwd: board.directory,
     stdout: "pipe",
     stderr: "pipe",
-    env: getFreshEnv(),
+    env: getFreshEnv()
   });
 
   // Store PID for terminal attach
@@ -465,7 +469,11 @@ async function executePhase(
       }
 
       noChangesDetected = shouldFailNoChanges({
-        phase, exitCode, filesChanged, shaBefore, shaAfter,
+        phase,
+        exitCode,
+        filesChanged,
+        shaBefore,
+        shaAfter
       });
 
       if (noChangesDetected) {
@@ -499,19 +507,26 @@ async function executePhase(
   const durationMs = Date.now() - phaseStartedAt;
   const durationStr = formatDuration(durationMs);
   const summary = buildExecutionSummary({
-    phaseName, durationStr, success, noChangesDetected, exitCode, output, stderrOutput,
+    phaseName,
+    durationStr,
+    success,
+    noChangesDetected,
+    exitCode,
+    output,
+    stderrOutput
   });
   const comment = commentsDb.addSystemComment(db, card.id as CardId, execution.id, summary);
   callbacks.onCommentAdded(comment);
 
-  const shortError = !success && stderrOutput
-    ? stderrOutput.trim().split("\n").pop()?.slice(0, 100)
-    : undefined;
+  const shortError = !success && stderrOutput ? stderrOutput.trim().split("\n").pop()?.slice(0, 100) : undefined;
   callbacks.onExecutionCompleted(execution.id, status, exitCode, shortError);
 
   const rateLimitResult = !success ? detectRateLimit(output, stderrOutput, exitCode) : null;
 
-  log.info("runner", `Phase "${phase}" final result for card ${card.id}: success=${success} exitCode=${exitCode} noChangesDetected=${noChangesDetected} rateLimit=${rateLimitResult?.isRateLimit ?? false}`);
+  log.info(
+    "runner",
+    `Phase "${phase}" final result for card ${card.id}: success=${success} exitCode=${exitCode} noChangesDetected=${noChangesDetected} rateLimit=${rateLimitResult?.isRateLimit ?? false}`
+  );
   return { success, exitCode, output, ...(rateLimitResult ? { rateLimitInfo: rateLimitResult } : {}) };
 }
 
@@ -571,19 +586,11 @@ export function buildExecutionSummary(params: {
   return summary;
 }
 
-function buildFailureSummary(
-  phaseName: string,
-  exitCode: number,
-  output: string,
-  stderr: string,
-  durationStr?: string
-): string {
+function buildFailureSummary(phaseName: string, exitCode: number, output: string, stderr: string, durationStr?: string): string {
   const tail = (text: string, maxLen: number) => {
     const trimmed = text.trim();
     if (!trimmed) return "";
-    return trimmed.length > maxLen
-      ? "..." + trimmed.slice(-maxLen)
-      : trimmed;
+    return trimmed.length > maxLen ? "..." + trimmed.slice(-maxLen) : trimmed;
   };
 
   let summary = `${phaseName} failed with exit code ${exitCode}${durationStr ? ` after ${durationStr}` : ""}.`;
