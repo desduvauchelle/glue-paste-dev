@@ -46,14 +46,10 @@ export function BoardView({ params }: BoardViewProps) {
 
 	const { grouped, create, update, reorder, remove, execute, stop, loading, doneHasMore, loadMoreDone } = useCards(boardId)
 
-	const hasInProgressRef = useRef(false)
-	hasInProgressRef.current = (grouped["in-progress"]?.length ?? 0) > 0
-
 	const prevQueuedCountRef = useRef(grouped.queued?.length ?? 0)
 
 	const tryStartQueue = useCallback(async () => {
 		if (!autoRunRef.current || queueRunningRef.current) return
-		if (hasInProgressRef.current) return
 		try {
 			await queueApi.start(boardId)
 			setQueueRunning(true)
@@ -109,7 +105,7 @@ export function BoardView({ params }: BoardViewProps) {
 		const currentCount = grouped.queued?.length ?? 0
 		const hadNew = currentCount > prevQueuedCountRef.current
 		prevQueuedCountRef.current = currentCount
-		if (hadNew && autoRunRef.current && !queueRunningRef.current && !hasInProgressRef.current) {
+		if (hadNew && autoRunRef.current && !queueRunningRef.current) {
 			void tryStartQueue()
 		}
 	}, [grouped.queued?.length, tryStartQueue])
@@ -162,6 +158,8 @@ export function BoardView({ params }: BoardViewProps) {
 		localStorage.setItem(`queue-autorun-${boardId}`, String(next))
 		if (!next && queueRunning) {
 			void handleStopQueue()
+		} else if (next && !queueRunning) {
+			void tryStartQueue()
 		}
 	}
 
