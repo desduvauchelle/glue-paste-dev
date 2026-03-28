@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "wouter";
 import type { CardWithTags, Board } from "@/lib/api";
 import { cards as cardsApi } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { CardExecutionInfo } from "@/components/board/KanbanCard";
-import { Square } from "lucide-react";
+import { Square, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getBoardColor } from "@/lib/colors";
 import { cardLabel } from "@glue-paste-dev/core/browser";
@@ -16,6 +17,7 @@ interface RunningCardsProps {
 }
 
 export function RunningCards({ activeBoards, boards, onCardClick }: RunningCardsProps) {
+  const [, setLocation] = useLocation();
   const [runningCards, setRunningCards] = useState<CardWithTags[]>([]);
 
   const fetchRunningCards = useCallback(async () => {
@@ -95,9 +97,24 @@ export function RunningCards({ activeBoards, boards, onCardClick }: RunningCards
                   </div>
                 </div>
                 {board && (
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {board.name}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground truncate">
+                      {board.name}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 px-1.5 text-xs text-muted-foreground hover:text-foreground shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLocation(`/boards/${board.id}`);
+                      }}
+                      title={`Go to ${board.name}`}
+                    >
+                      Go to project
+                      <ArrowRight className="w-3 h-3 ml-1" />
+                    </Button>
+                  </div>
                 )}
                 <CardExecutionInfo card={card} />
               </CardContent>
