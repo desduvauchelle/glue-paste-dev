@@ -6,6 +6,7 @@ import { useWebSocket } from "@/lib/ws"
 import { KanbanBoard } from "@/components/board/KanbanBoard"
 import { CardDialog } from "@/components/board/CardDialog"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
 import { CoPlanSidebar } from "@/components/board/CoPlanSidebar"
@@ -152,17 +153,6 @@ export function BoardView({ params }: BoardViewProps) {
 		await stop(id)
 	}
 
-	const handleToggleAutoRun = () => {
-		const next = !autoRun
-		setAutoRun(next)
-		localStorage.setItem(`queue-autorun-${boardId}`, String(next))
-		if (!next && queueRunning) {
-			void handleStopQueue()
-		} else if (next && !queueRunning) {
-			void tryStartQueue()
-		}
-	}
-
 	const handlePauseQueue = async () => {
 		if (queuePaused) {
 			await queueApi.resume(boardId)
@@ -304,13 +294,22 @@ export function BoardView({ params }: BoardViewProps) {
 						Add Card
 						<kbd className="ml-1.5 px-1.5 py-0.5 text-[10px] font-mono bg-base-200 border border-base-300 rounded text-muted-foreground">⌘J</kbd>
 					</Button>
-					<Button
-						variant={autoRun ? "default" : "outline"}
-						size="sm"
-						onClick={handleToggleAutoRun}
-					>
-						Queue: {autoRun ? "On" : "Off"}
-					</Button>
+					<div className="flex items-center gap-2">
+						<span className={`text-sm font-medium transition-colors ${autoRun ? "text-foreground" : "text-muted-foreground"}`}>Q</span>
+						<Switch
+							checked={autoRun}
+							onCheckedChange={(checked) => {
+								setAutoRun(checked)
+								localStorage.setItem(`queue-autorun-${boardId}`, String(checked))
+								if (!checked && queueRunning) {
+									void handleStopQueue()
+								} else if (checked && !queueRunning) {
+									void tryStartQueue()
+								}
+							}}
+							checkedClassName="bg-emerald-500"
+						/>
+					</div>
 
 					{queueRunning && (
 						<TooltipProvider>
