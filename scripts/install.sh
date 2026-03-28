@@ -175,15 +175,8 @@ ok "Downloaded and extracted"
 mkdir -p "$BIN_DIR"
 ln -sf "$INSTALL_DIR/cli/src/index.ts" "$BIN_DIR/glue-paste-dev"
 
-# Try /usr/local/bin for convenience (may need sudo)
-if ln -sf "$INSTALL_DIR/cli/src/index.ts" /usr/local/bin/glue-paste-dev 2>/dev/null; then
-  ok "Symlinked to /usr/local/bin/glue-paste-dev"
-else
-  warn "Could not symlink to /usr/local/bin (no write permission)."
-  echo "     To fix this permanently, run:"
-  echo "       sudo ln -sf $INSTALL_DIR/cli/src/index.ts /usr/local/bin/glue-paste-dev"
-  echo "     Otherwise, $BIN_DIR will be added to your PATH."
-fi
+# Try /usr/local/bin for convenience (may need sudo — silently skip if it fails)
+ln -sf "$INSTALL_DIR/cli/src/index.ts" /usr/local/bin/glue-paste-dev 2>/dev/null || true
 
 # ─── Step 7: Ensure PATH ─────────────────────────────────────────────────────
 
