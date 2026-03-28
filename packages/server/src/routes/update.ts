@@ -85,22 +85,29 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
   await Bun.write(destPath, res);
 }
 
-/** Find the tar binary on the system. */
-function findTar(): string {
-  for (const p of ["/usr/bin/tar", "/bin/tar", "/usr/local/bin/tar"]) {
+/** Find a binary on the system by checking common paths then $PATH. */
+function findBinary(name: string, extraPaths: string[] = []): string {
+  const candidates = [
+    ...extraPaths,
+    `/usr/bin/${name}`,
+    `/bin/${name}`,
+    `/usr/local/bin/${name}`,
+    `/opt/homebrew/bin/${name}`,
+  ];
+  for (const p of candidates) {
     if (existsSync(p)) return p;
   }
   try {
-    const result = Bun.spawnSync(["which", "tar"]);
+    const result = Bun.spawnSync(["which", name]);
     const resolved = result.stdout.toString().trim();
     if (result.exitCode === 0 && resolved) return resolved;
   } catch { /* ignore */ }
-  return "tar";
+  return name;
 }
 
 /** Build safe extract args without shell interpolation. */
 export function buildExtractArgs(dataDir: string): string[] {
-  return [findTar(), "-xzf", join(dataDir, "release.tar.gz"), "-C", dataDir];
+  return [findBinary("tar"), "-xzf", join(dataDir, "release.tar.gz"), "-C", dataDir];
 }
 
 export function updateRoutes(broadcast: (event: unknown) => void) {
@@ -149,7 +156,9 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     rmSync(tarPath, { force: true });
 
     // Make CLI executable
-    Bun.spawnSync(["chmod", "+x", join(dataDir, "cli", "src", "index.ts")]);
+    try {
+      Bun.spawnSync([findBinary("chmod"), "+x", join(dataDir, "cli", "src", "index.ts")]);
+    } catch { /* non-critical */ }
 
     log.info("update", `Update applied: v${result.currentVersion} → v${result.latestVersion}`);
 

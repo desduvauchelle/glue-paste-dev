@@ -13,23 +13,28 @@ export function isSleepPreventionSupported(): boolean {
 export function startCaffeinate(): void {
   if (proc) return;
 
-  if (process.platform === "darwin") {
-    proc = Bun.spawn(["caffeinate", "-i"], {
-      stdout: "ignore",
-      stderr: "ignore",
-    });
-  } else if (process.platform === "win32") {
-    proc = Bun.spawn(
-      [
-        "powershell",
-        "-NoProfile",
-        "-Command",
-        `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class SleepUtil{[DllImport("kernel32.dll")]public static extern uint SetThreadExecutionState(uint esFlags);}'; while($true){[SleepUtil]::SetThreadExecutionState(0x80000001);Start-Sleep -Seconds 60}`,
-      ],
-      { stdout: "ignore", stderr: "ignore" }
-    );
-  } else {
-    log.info("caffeinate", `Sleep prevention not supported on ${process.platform}`);
+  try {
+    if (process.platform === "darwin") {
+      proc = Bun.spawn(["caffeinate", "-i"], {
+        stdout: "ignore",
+        stderr: "ignore",
+      });
+    } else if (process.platform === "win32") {
+      proc = Bun.spawn(
+        [
+          "powershell",
+          "-NoProfile",
+          "-Command",
+          `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class SleepUtil{[DllImport("kernel32.dll")]public static extern uint SetThreadExecutionState(uint esFlags);}'; while($true){[SleepUtil]::SetThreadExecutionState(0x80000001);Start-Sleep -Seconds 60}`,
+        ],
+        { stdout: "ignore", stderr: "ignore" }
+      );
+    } else {
+      log.info("caffeinate", `Sleep prevention not supported on ${process.platform}`);
+      return;
+    }
+  } catch (err) {
+    log.error("caffeinate", "Failed to start sleep prevention", err);
     return;
   }
 

@@ -18,6 +18,8 @@ import { statsRoutes } from "./routes/stats.js";
 import { tagRoutes } from "./routes/tags.js";
 import { startUpdateChecker, updateRoutes } from "./routes/update.js";
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { ServerWebSocket } from "bun";
 
 const { upgradeWebSocket, websocket } = createBunWebSocket();
@@ -147,7 +149,9 @@ app.get(
 );
 
 // Serve static dashboard files (production)
-const publicDir = new URL("../public", import.meta.url).pathname;
+const publicDir = existsSync(join(import.meta.dir, "public"))
+  ? join(import.meta.dir, "public")
+  : join(import.meta.dir, "..", "public");
 app.use("*", serveStatic({ root: publicDir }));
 app.use("*", serveStatic({ path: publicDir + "/index.html" }));
 
