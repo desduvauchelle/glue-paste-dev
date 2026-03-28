@@ -13,12 +13,14 @@ export function UpdateButton() {
 
   useWSEvent("update:available", (payload) => {
     const data = payload as { latestVersion: string };
+    console.warn("[update] WebSocket: update available, version:", data.latestVersion);
     setLatestVersion(data.latestVersion);
     setState("update-available");
   });
 
   useWebSocket(useCallback((event) => {
     if (event.type === "ws:reconnected" && state === "updating") {
+      console.warn("[update] WebSocket reconnected during update, reloading page");
       window.location.reload();
     }
   }, [state]));
@@ -26,19 +28,25 @@ export function UpdateButton() {
   const handleCheck = async () => {
     if (state === "checking" || state === "updating") return;
     if (state === "update-available" || state === "error") {
+      console.warn("[update] applying update...");
       setState("updating");
       try {
         await updateApi.apply();
+        console.warn("[update] apply request sent, waiting for restart...");
       } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : "Update failed");
+        const msg = err instanceof Error ? err.message : "Update failed";
+        console.error("[update] apply FAILED:", msg);
+        setErrorMsg(msg);
         setState("error");
         setTimeout(() => setState("update-available"), 5000);
       }
       return;
     }
+    console.warn("[update] checking for updates...");
     setState("checking");
     try {
       const res = await updateApi.check();
+      console.warn("[update] check result:", JSON.stringify(res));
       if (res.available) {
         setLatestVersion(res.latestVersion);
         setState("update-available");
@@ -46,7 +54,8 @@ export function UpdateButton() {
         setState("up-to-date");
         setTimeout(() => setState("idle"), 3000);
       }
-    } catch {
+    } catch (err) {
+      console.error("[update] check FAILED:", err);
       setState("idle");
     }
   };

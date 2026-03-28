@@ -8,10 +8,16 @@ const REPO = "desduvauchelle/glue-paste-dev";
 function readVersion(): string {
   try {
     const pkgPath = join(getDataDir(), "package.json");
-    if (!existsSync(pkgPath)) return "unknown";
+    if (!existsSync(pkgPath)) {
+      log.always("update", `readVersion: package.json not found at ${pkgPath}`);
+      return "unknown";
+    }
     const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
-    return pkg.version ?? "unknown";
-  } catch {
+    const version = pkg.version ?? "unknown";
+    log.always("update", `readVersion: ${version} (from ${pkgPath})`);
+    return version;
+  } catch (err) {
+    log.alwaysError("update", "readVersion: failed to read package.json", err);
     return "unknown";
   }
 }
@@ -23,10 +29,14 @@ async function checkForUpdate(): Promise<{
   downloadUrl: string | null;
 } | null> {
   try {
+    log.always("update", `checkForUpdate: fetching https://api.github.com/repos/${REPO}/releases/latest`);
     const res = await fetch(
       `https://api.github.com/repos/${REPO}/releases/latest`
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      log.alwaysError("update", `checkForUpdate: GitHub API returned ${res.status} ${res.statusText}`);
+      return null;
+    }
 
     const release = (await res.json()) as {
       tag_name: string;
@@ -39,14 +49,17 @@ async function checkForUpdate(): Promise<{
     );
     const downloadUrl = asset?.browser_download_url ?? null;
 
+    const available = currentVersion !== latestVersion && currentVersion !== "unknown" && downloadUrl !== null;
+    log.always("update", `checkForUpdate: current=${currentVersion} latest=${latestVersion} asset=${downloadUrl ? "found" : "MISSING"} available=${available}`);
+
     return {
-      available: currentVersion !== latestVersion && currentVersion !== "unknown" && downloadUrl !== null,
+      available,
       currentVersion,
       latestVersion,
       downloadUrl,
     };
   } catch (err) {
-    log.error("update", "Failed to check for updates", err);
+    log.alwaysError("update", "checkForUpdate: exception during update check", err);
     return null;
   }
 }
@@ -116,68 +129,93 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
 
   // GET /api/update — check for updates
   app.get("/", async (c) => {
+    log.always("update", "GET /api/update: check requested");
     const result = await checkForUpdate();
     if (!result) {
+      log.always("update", "GET /api/update: check returned null (GitHub unreachable or error)");
       return c.json({ available: false, currentVersion: readVersion(), latestVersion: "unknown" });
     }
     setCachedResult(result);
+    log.always("update", `GET /api/update: responding available=${result.available}`);
     return c.json(result);
   });
 
   // POST /api/update/apply — download and apply update, then restart
   app.post("/apply", async (c) => {
-    // Use cached result from the GET check to avoid a redundant GitHub API call
-    const result = getCachedResult() ?? await checkForUpdate();
+    log.always("update", "POST /api/update/apply: update apply requested");
+
+    const cached = getCachedResult();
+    log.always("update", `apply: cached result = ${cached ? `available=${cached.available} v${cached.latestVersion}` : "null (cache miss)"}`);
+    const result = cached ?? await checkForUpdate();
     if (!result?.available || !result.downloadUrl) {
+      log.alwaysError("update", `apply: no update available — available=${result?.available} downloadUrl=${result?.downloadUrl ?? "null"}`);
       return c.json({ ok: false, error: "No update available" }, 400);
     }
 
     const dataDir = getDataDir();
-    log.info("update", `Applying update v${result.currentVersion} → v${result.latestVersion}`);
+    log.always("update", `apply: starting v${result.currentVersion} → v${result.latestVersion}`);
+    log.always("update", `apply: dataDir=${dataDir}`);
+    log.always("update", `apply: downloadUrl=${result.downloadUrl}`);
 
     // Download first, only delete old files after successful download
     const tarPath = join(dataDir, "release.tar.gz");
     try {
+      log.always("update", `apply: downloading to ${tarPath}`);
       await downloadFile(result.downloadUrl, tarPath);
+      log.always("update", "apply: download complete");
     } catch (err) {
-      log.error("update", "Failed to download update", err);
-      return c.json({ ok: false, error: "Download failed" }, 500);
+      const msg = err instanceof Error ? err.message : String(err);
+      log.alwaysError("update", `apply: download FAILED — ${msg}`, err);
+      return c.json({ ok: false, error: `Download failed: ${msg}` }, 500);
     }
 
     // Download succeeded — now safe to delete old files and extract
     try {
+      log.always("update", "apply: removing old server/ and cli/ directories");
       rmSync(join(dataDir, "server"), { recursive: true, force: true });
       rmSync(join(dataDir, "cli"), { recursive: true, force: true });
+      log.always("update", "apply: old directories removed");
     } catch (err) {
-      log.error("update", "Failed to remove old files", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      log.alwaysError("update", `apply: failed to remove old files — ${msg}`, err);
       try { rmSync(tarPath, { force: true }); } catch { /* cleanup */ }
-      return c.json({ ok: false, error: "Failed to remove old version" }, 500);
+      return c.json({ ok: false, error: `Failed to remove old version: ${msg}` }, 500);
     }
 
     const extractArgs = buildExtractArgs(dataDir);
+    log.always("update", `apply: extracting with ${extractArgs.join(" ")}`);
     let extractFailed = false;
+    let extractError = "";
     try {
       const extractProc = Bun.spawnSync(extractArgs);
       if (extractProc.exitCode !== 0) {
         extractFailed = true;
+        extractError = extractProc.stderr.toString().trim() || `exit code ${extractProc.exitCode}`;
+        log.alwaysError("update", `apply: tar exited with code ${extractProc.exitCode}, stderr: ${extractError}`);
+      } else {
+        log.always("update", "apply: extraction complete");
       }
     } catch (err) {
-      log.error("update", "Failed to run tar extraction", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      log.alwaysError("update", `apply: tar threw exception — ${msg}`, err);
       extractFailed = true;
+      extractError = msg;
     }
 
     try { rmSync(tarPath, { force: true }); } catch { /* non-critical */ }
 
     if (extractFailed) {
-      log.error("update", "Failed to extract update");
-      return c.json({ ok: false, error: "Extract failed" }, 500);
+      return c.json({ ok: false, error: `Extract failed: ${extractError}` }, 500);
     }
 
     // Make CLI executable and ensure symlinks
     const cliEntry = join(dataDir, "cli", "src", "index.ts");
+    log.always("update", `apply: setting permissions on ${cliEntry}`);
     try {
       Bun.spawnSync([findBinary("chmod"), "+x", cliEntry]);
-    } catch { /* non-critical */ }
+    } catch (err) {
+      log.alwaysError("update", "apply: chmod failed (non-critical)", err);
+    }
 
     // Re-create bin symlink (cli/ was deleted and re-extracted)
     const binDir = join(dataDir, "bin");
@@ -186,16 +224,22 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
       mkdirSync(binDir, { recursive: true });
       try { unlinkSync(binLink); } catch { /* may not exist */ }
       symlinkSync(cliEntry, binLink);
-    } catch { /* non-critical */ }
+      log.always("update", `apply: symlink created ${binLink} → ${cliEntry}`);
+    } catch (err) {
+      log.alwaysError("update", "apply: bin symlink failed (non-critical)", err);
+    }
 
     // Try /usr/local/bin symlink for convenience
     try {
       const sysLink = "/usr/local/bin/glue-paste-dev";
       try { unlinkSync(sysLink); } catch { /* may not exist */ }
       symlinkSync(cliEntry, sysLink);
-    } catch { /* not critical */ }
+      log.always("update", `apply: system symlink created ${sysLink}`);
+    } catch (err) {
+      log.alwaysError("update", "apply: /usr/local/bin symlink failed (non-critical)", err);
+    }
 
-    log.info("update", `Update applied: v${result.currentVersion} → v${result.latestVersion}`);
+    log.always("update", `apply: SUCCESS v${result.currentVersion} → v${result.latestVersion}, restarting in 2s`);
 
     // Exit with non-zero code so daemon wrapper restarts with new code
     setTimeout(() => process.exit(1), 2000);
@@ -208,10 +252,11 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
 
 export function startUpdateChecker(broadcast: (event: unknown) => void): ReturnType<typeof setInterval> {
   const check = async () => {
+    log.always("update", "background check: starting periodic update check");
     const result = await checkForUpdate();
     if (result) setCachedResult(result);
     if (result?.available) {
-      log.info("update", `Update available: v${result.currentVersion} → v${result.latestVersion}`);
+      log.always("update", `background check: update available v${result.currentVersion} → v${result.latestVersion}, broadcasting`);
       broadcast({
         type: "update:available",
         payload: {
@@ -219,6 +264,8 @@ export function startUpdateChecker(broadcast: (event: unknown) => void): ReturnT
           latestVersion: result.latestVersion,
         },
       });
+    } else {
+      log.always("update", `background check: no update available (result=${result ? "checked" : "null"})`);
     }
   };
 

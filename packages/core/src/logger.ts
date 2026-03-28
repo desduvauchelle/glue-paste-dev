@@ -51,9 +51,22 @@ function write(level: LogLevel, scope: string, ...args: unknown[]) {
   }
 }
 
+function writeAlways(level: LogLevel, scope: string, ...args: unknown[]) {
+  const ts = new Date().toISOString();
+  const prefix = `[${ts}] [${LEVEL_LABEL[level]}] [${scope}]`;
+
+  if (level === "error" || level === "warn") {
+    console.error(prefix, ...args);
+  } else {
+    console.log(prefix, ...args);
+  }
+}
+
 export const log = {
   debug: (scope: string, ...args: unknown[]) => write("debug", scope, ...args),
   info: (scope: string, ...args: unknown[]) => write("info", scope, ...args),
   warn: (scope: string, ...args: unknown[]) => write("warn", scope, ...args),
   error: (scope: string, ...args: unknown[]) => write("error", scope, ...args),
+  always: (scope: string, ...args: unknown[]) => writeAlways("info", scope, ...args),
+  alwaysError: (scope: string, ...args: unknown[]) => writeAlways("error", scope, ...args),
 };
