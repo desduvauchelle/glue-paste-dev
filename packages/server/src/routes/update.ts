@@ -37,12 +37,13 @@ async function checkForUpdate(): Promise<{
     const asset = release.assets.find(
       (a) => a.name === "glue-paste-dev.tar.gz"
     );
+    const downloadUrl = asset?.browser_download_url ?? null;
 
     return {
-      available: currentVersion !== latestVersion && currentVersion !== "unknown",
+      available: currentVersion !== latestVersion && currentVersion !== "unknown" && downloadUrl !== null,
       currentVersion,
       latestVersion,
-      downloadUrl: asset?.browser_download_url ?? null,
+      downloadUrl,
     };
   } catch (err) {
     log.error("update", "Failed to check for updates", err);
@@ -144,16 +145,33 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     }
 
     // Download succeeded — now safe to delete old files and extract
-    rmSync(join(dataDir, "server"), { recursive: true, force: true });
-    rmSync(join(dataDir, "cli"), { recursive: true, force: true });
+    try {
+      rmSync(join(dataDir, "server"), { recursive: true, force: true });
+      rmSync(join(dataDir, "cli"), { recursive: true, force: true });
+    } catch (err) {
+      log.error("update", "Failed to remove old files", err);
+      try { rmSync(tarPath, { force: true }); } catch { /* cleanup */ }
+      return c.json({ ok: false, error: "Failed to remove old version" }, 500);
+    }
 
     const extractArgs = buildExtractArgs(dataDir);
-    const extractProc = Bun.spawnSync(extractArgs);
-    if (extractProc.exitCode !== 0) {
+    let extractFailed = false;
+    try {
+      const extractProc = Bun.spawnSync(extractArgs);
+      if (extractProc.exitCode !== 0) {
+        extractFailed = true;
+      }
+    } catch (err) {
+      log.error("update", "Failed to run tar extraction", err);
+      extractFailed = true;
+    }
+
+    try { rmSync(tarPath, { force: true }); } catch { /* non-critical */ }
+
+    if (extractFailed) {
       log.error("update", "Failed to extract update");
       return c.json({ ok: false, error: "Extract failed" }, 500);
     }
-    rmSync(tarPath, { force: true });
 
     // Make CLI executable and ensure symlinks
     const cliEntry = join(dataDir, "cli", "src", "index.ts");
@@ -180,7 +198,7 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     log.info("update", `Update applied: v${result.currentVersion} → v${result.latestVersion}`);
 
     // Exit with non-zero code so daemon wrapper restarts with new code
-    setTimeout(() => process.exit(1), 500);
+    setTimeout(() => process.exit(1), 2000);
 
     return c.json({ ok: true });
   });
