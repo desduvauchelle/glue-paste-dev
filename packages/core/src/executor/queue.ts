@@ -261,7 +261,11 @@ async function processCard(
   }
 
   const board = boardsDb.getBoard(db, boardId as BoardId);
-  if (!board) return;
+  if (!board) {
+    removeFromActive(boardId, cardId);
+    fillSlots(db, boardId, callbacks);
+    return;
+  }
 
   const comments = commentsDb.listComments(db, cardId);
   const config = applyCardOverrides(getMergedConfig(db, boardId as BoardId), card);
@@ -444,51 +448,61 @@ function fillSlots(
     return;
   }
 
-  const config = getMergedConfig(db, boardId as BoardId);
-  const maxConcurrent = Math.min(Math.max(config.maxConcurrentCards ?? 1, 1), 3);
-  const slotsAvailable = maxConcurrent - state.active.length;
+  try {
+    const config = getMergedConfig(db, boardId as BoardId);
+    const maxConcurrent = Math.min(Math.max(config.maxConcurrentCards ?? 1, 1), 3);
+    const slotsAvailable = maxConcurrent - state.active.length;
 
-  if (slotsAvailable <= 0 && state.active.length > 0) {
-    // All slots full, still running
-    syncCurrent(state);
-    broadcastQueueState(state, callbacks);
-    return;
-  }
-
-  if (state.queue.length === 0 && state.active.length === 0) {
-    // Re-check DB for newly queued or in-progress cards (added while queue was running)
-    const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued").filter((c) => c.assignee !== "human");
-    const newInProgress = cardsDb.listCardsByStatus(db, boardId as BoardId, "in-progress").filter((c) => c.assignee !== "human" && !state.active.includes(c.id));
-    const allNew = [...newInProgress, ...newQueued];
-    if (allNew.length > 0) {
-      state.queue = allNew.map((c) => c.id);
-    } else {
-      queues.delete(boardId);
-      callbacks.onQueueStopped(boardId, "All cards completed");
+    if (slotsAvailable <= 0 && state.active.length > 0) {
+      // All slots full, still running
+      syncCurrent(state);
+      broadcastQueueState(state, callbacks);
       return;
     }
-  }
 
-  // Fill available slots
-  const toStart: string[] = [];
-  while (state.active.length + toStart.length < maxConcurrent && state.queue.length > 0) {
-    const nextId = state.queue.shift()!;
-    toStart.push(nextId);
-  }
+    if (state.queue.length === 0 && state.active.length === 0) {
+      // Re-check DB for newly queued or in-progress cards (added while queue was running)
+      const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued").filter((c) => c.assignee !== "human");
+      const newInProgress = cardsDb.listCardsByStatus(db, boardId as BoardId, "in-progress").filter((c) => c.assignee !== "human" && !state.active.includes(c.id));
+      const allNew = [...newInProgress, ...newQueued];
+      if (allNew.length > 0) {
+        state.queue = allNew.map((c) => c.id);
+      } else {
+        queues.delete(boardId);
+        callbacks.onQueueStopped(boardId, "All cards completed");
+        return;
+      }
+    }
 
-  state.active.push(...toStart);
-  syncCurrent(state);
-  queues.set(boardId, state);
-  broadcastQueueState(state, callbacks);
+    // Fill available slots
+    const toStart: string[] = [];
+    while (state.active.length + toStart.length < maxConcurrent && state.queue.length > 0) {
+      const nextId = state.queue.shift()!;
+      toStart.push(nextId);
+    }
 
-  // Launch each new card concurrently
-  for (const cardId of toStart) {
-    void processCard(db, boardId, cardId as CardId, callbacks);
-  }
+    state.active.push(...toStart);
+    syncCurrent(state);
+    queues.set(boardId, state);
+    broadcastQueueState(state, callbacks);
 
-  // If nothing was started and no active cards, queue is done
-  if (toStart.length === 0 && state.active.length === 0) {
-    queues.delete(boardId);
-    callbacks.onQueueStopped(boardId, "All cards completed");
+    // Launch each new card concurrently
+    for (const cardId of toStart) {
+      void processCard(db, boardId, cardId as CardId, callbacks);
+    }
+
+    // If nothing was started and no active cards, queue is done
+    if (toStart.length === 0 && state.active.length === 0) {
+      queues.delete(boardId);
+      callbacks.onQueueStopped(boardId, "All cards completed");
+    }
+  } catch (err) {
+    log.error("queue", `fillSlots error for board ${boardId}, stopping queue:`, err);
+    state.isRunning = false;
+    state.queue = [];
+    state.active = [];
+    state.current = null;
+    queues.set(boardId, state);
+    callbacks.onQueueStopped(boardId, "Queue stopped due to internal error");
   }
 }

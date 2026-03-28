@@ -1,7 +1,7 @@
 import { describe, test, expect, beforeEach, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { initSchema } from "../../db/schema.js";
-import { createBoard } from "../../db/boards.js";
+import { createBoard, deleteBoard } from "../../db/boards.js";
 import {
   createCard,
   getCard,
@@ -689,5 +689,73 @@ describe("queue pause and resume", () => {
 
     // Now second card should be done too
     expect(getCard(db, c2.id as CardId)!.status).toBe("done");
+  });
+});
+
+describe("queue error recovery", () => {
+  test("processCard cleans up active slot when board is deleted mid-queue", async () => {
+    const c1 = createCard(db, boardId, {
+      title: "Card A",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+    const c2 = createCard(db, boardId, {
+      title: "Card B",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+
+    // Delete the board after the first card starts — processCard will find !board for card B
+    mockRunCardBehavior = async (card) => {
+      if (card.title === "Card A") {
+        // Delete the board so next processCard finds no board
+        deleteBoard(db, boardId);
+      }
+      return { success: true, exitCode: 0, output: "done" };
+    };
+
+    const { callbacks, completed } = makeCallbacksWithCompletion();
+    await startQueue(db, boardId, callbacks);
+    await completed;
+
+    // Queue should have stopped (not stuck forever)
+    const state = getQueueState(boardId);
+    expect(state.isRunning).toBe(false);
+    expect(state.active.length).toBe(0);
+  });
+
+  test("fillSlots error stops queue cleanly instead of leaving it stuck", async () => {
+    const c1 = createCard(db, boardId, {
+      title: "Card A",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+    const c2 = createCard(db, boardId, {
+      title: "Card B",
+      description: "",
+      tags: [],
+      status: "queued",
+    });
+
+    mockRunCardBehavior = async (card) => {
+      if (card.title === "Card A") {
+        // Drop the config table so getMergedConfig throws inside fillSlots
+        db.exec("DROP TABLE config");
+      }
+      return { success: true, exitCode: 0, output: "done" };
+    };
+
+    const { callbacks, completed } = makeCallbacksWithCompletion();
+    await startQueue(db, boardId, callbacks);
+    await completed;
+
+    // Queue should have stopped with an error, not be stuck forever
+    const stoppedEvent = events.find(
+      (e) => e.type === "queue:stopped" && (e.payload as Record<string, string>).reason?.includes("internal error")
+    );
+    expect(stoppedEvent).toBeTruthy();
   });
 });

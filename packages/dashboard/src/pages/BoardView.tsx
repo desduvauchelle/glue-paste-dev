@@ -127,6 +127,12 @@ export function BoardView({ params }: BoardViewProps) {
 				setTimeout(() => void tryStartQueue(), 500)
 			}
 		}
+		if (event.type === "ws:reconnected") {
+			void queueApi.status(boardId).then((s) => {
+				setQueueRunning(s.isRunning)
+				setQueuePaused(s.isPaused)
+			})
+		}
 	})
 
 	const handlePlayCard = async (id: string) => {
