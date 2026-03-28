@@ -287,12 +287,12 @@ describe("CardDialog — config defaults", () => {
   });
 });
 
-describe("CardDialog — Shift+Enter shortcut", () => {
+describe("CardDialog — Cmd/Ctrl+Enter shortcut", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("calls onCreate when Shift+Enter is pressed in description textarea", async () => {
+  it("calls onCreate when Cmd/Ctrl+Enter is pressed in description textarea", async () => {
     vi.mocked(configApi.getForBoard).mockResolvedValue({
       cliProvider: "claude",
       cliCustomCommand: "",
@@ -325,7 +325,7 @@ describe("CardDialog — Shift+Enter shortcut", () => {
 
     const textarea = screen.getByPlaceholderText("Describe what needs to be done...");
     fireEvent.change(textarea, { target: { value: "Test card description" } });
-    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+    fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
 
     await waitFor(() => {
       expect(onCreate).toHaveBeenCalledTimes(1);
@@ -335,7 +335,7 @@ describe("CardDialog — Shift+Enter shortcut", () => {
     });
   });
 
-  it("does not create card on Enter without Shift", async () => {
+  it("does not create card on Enter without Cmd/Ctrl", async () => {
     vi.mocked(configApi.getForBoard).mockResolvedValue({
       cliProvider: "claude",
       cliCustomCommand: "",

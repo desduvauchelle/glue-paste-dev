@@ -368,7 +368,7 @@ export function CardDialog({
 										value={description}
 										onChange={(e) => setDescription(e.target.value)}
 										onKeyDown={(e) => {
-											if (e.key === "Enter" && e.shiftKey) {
+											if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
 												e.preventDefault()
 												void handleSave()
 											}
@@ -378,7 +378,7 @@ export function CardDialog({
 										autoFocus={!isEditing}
 									/>
 									<p className="text-xs text-muted-foreground/50 mt-1">
-										<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">Shift</kbd>
+										<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">⌘/Ctrl</kbd>
 										{" + "}
 										<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">Enter</kbd>
 										{" to submit"}
