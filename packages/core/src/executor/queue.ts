@@ -67,6 +67,13 @@ function broadcastQueueState(state: QueueState, callbacks: QueueCallbacks): void
   callbacks.onQueueUpdated(state.boardId, state.queue, state.current, state.isPaused);
 }
 
+/** Return board IDs that currently have a running queue */
+export function getRunningQueueBoardIds(): string[] {
+  return [...queues.entries()]
+    .filter(([, s]) => s.isRunning)
+    .map(([id]) => id);
+}
+
 export function getQueueState(boardId: string): QueueState {
   return (
     queues.get(boardId) ?? {
@@ -429,6 +436,17 @@ function handleRateLimited(
       resumeQueue(db, boardId, callbacks);
     }
   }, retrySeconds * 1000);
+}
+
+/** Re-check concurrency after config changes and fill any new slots */
+export function refreshConcurrency(
+  db: Database,
+  boardId: string,
+  callbacks: QueueCallbacks
+): void {
+  const state = queues.get(boardId);
+  if (!state || !state.isRunning || state.isPaused) return;
+  fillSlots(db, boardId, callbacks);
 }
 
 /** Fill empty concurrency slots with cards from the queue */

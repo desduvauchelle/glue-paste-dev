@@ -30,7 +30,7 @@ export * as commitsDb from "./db/commits.js";
 export * from "./config/manager.js";
 
 // Executor
-export { startQueue, executeSingleCard, stopCard, stopQueue, pauseQueue, resumeQueue, getQueueState } from "./executor/queue.js";
+export { startQueue, executeSingleCard, stopCard, stopQueue, pauseQueue, resumeQueue, getQueueState, refreshConcurrency, getRunningQueueBoardIds } from "./executor/queue.js";
 export type { QueueState, QueueCallbacks } from "./executor/queue.js";
 export { killAllCardProcesses } from "./executor/runner.js";
 export type { RunnerCallbacks, RunResult } from "./executor/runner.js";

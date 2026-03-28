@@ -18,7 +18,7 @@ beforeEach(() => {
   boardId = board.id;
 
   app = new Hono();
-  app.route("/api/config", configRoutes(db));
+  app.route("/api/config", configRoutes(db, () => {}));
 });
 
 function req(method: string, path: string, body?: unknown) {

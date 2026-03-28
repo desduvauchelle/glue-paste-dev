@@ -121,7 +121,7 @@ app.route("/api/executions", executionRoutes(db));
 app.route("/api/commits", commitRoutes(db));
 app.route("/api/queue", queueRoutes(db, broadcast));
 app.route("/api/cards", cardExecuteRoutes(db, broadcast));
-app.route("/api/config", configRoutes(db));
+app.route("/api/config", configRoutes(db, broadcast));
 app.route("/api/tags", tagRoutes(db));
 app.route("/api/stats", statsRoutes(db));
 app.route("/api/files", fileRoutes(db));
