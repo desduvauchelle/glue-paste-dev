@@ -361,6 +361,7 @@ interface ConfigData {
   customInstructions: string;
   branchMode: BranchMode;
   branchName: string;
+  maxConcurrentCards: number;
 }
 
 /** Partial config where undefined/missing fields mean "inherit from global" */

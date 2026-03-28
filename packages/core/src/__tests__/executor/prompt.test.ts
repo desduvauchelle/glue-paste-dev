@@ -56,6 +56,7 @@ const makeConfig = (overrides?: Partial<Required<ConfigInput>>): Required<Config
   customInstructions: "",
   branchMode: "current",
   branchName: "",
+  maxConcurrentCards: 1,
   ...overrides,
 });
 

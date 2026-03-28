@@ -360,6 +360,13 @@ export function initSchema(db: Database): void {
     // Column already exists — ignore
   }
 
+  // Migration: add max_concurrent_cards to config
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN max_concurrent_cards INTEGER DEFAULT 1`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: add cli_provider, cli_custom_command, branch_mode, branch_name to cards
   try {
     db.exec(`ALTER TABLE cards ADD COLUMN cli_provider TEXT DEFAULT NULL`);

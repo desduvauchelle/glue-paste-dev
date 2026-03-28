@@ -64,6 +64,7 @@ describe("CardDialog — config defaults", () => {
       customInstructions: "",
       branchMode: "current" as const,
       branchName: "",
+      maxConcurrentCards: 1,
     });
 
     render(<CardDialog {...defaultProps} card={null} />);
@@ -98,6 +99,7 @@ describe("CardDialog — config defaults", () => {
       customInstructions: "",
       branchMode: "current" as const,
       branchName: "",
+      maxConcurrentCards: 1,
     });
 
     render(<CardDialog {...defaultProps} card={null} />);
@@ -131,6 +133,7 @@ describe("CardDialog — config defaults", () => {
       customInstructions: "",
       branchMode: "current" as const,
       branchName: "",
+      maxConcurrentCards: 1,
     });
 
     const cardWithOverride = {
@@ -187,6 +190,7 @@ describe("CardDialog — config defaults", () => {
       customInstructions: "",
       branchMode: "current" as const,
       branchName: "",
+      maxConcurrentCards: 1,
     });
 
     render(<CardDialog {...defaultProps} card={null} />);
@@ -216,6 +220,7 @@ describe("CardDialog — config defaults", () => {
       customInstructions: "",
       branchMode: "current" as const,
       branchName: "",
+      maxConcurrentCards: 1,
     });
 
     render(<CardDialog {...defaultProps} card={null} />);
@@ -245,6 +250,7 @@ describe("CardDialog — config defaults", () => {
       customInstructions: "",
       branchMode: "current" as const,
       branchName: "",
+      maxConcurrentCards: 1,
     });
 
     const cardWithOverride = {
@@ -302,6 +308,7 @@ describe("CardDialog — Shift+Enter shortcut", () => {
       customInstructions: "",
       branchMode: "current" as const,
       branchName: "",
+      maxConcurrentCards: 1,
     });
 
     const onCreate = vi.fn(() => Promise.resolve());
@@ -344,6 +351,7 @@ describe("CardDialog — Shift+Enter shortcut", () => {
       customInstructions: "",
       branchMode: "current" as const,
       branchName: "",
+      maxConcurrentCards: 1,
     });
 
     const onCreate = vi.fn(() => Promise.resolve());

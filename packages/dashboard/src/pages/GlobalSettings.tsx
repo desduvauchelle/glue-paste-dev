@@ -36,6 +36,7 @@ export function GlobalSettings() {
   const [customInstructions, setCustomInstructions] = useState("");
   const [branchMode, setBranchMode] = useState<BranchMode>("current");
   const [branchName, setBranchName] = useState("");
+  const [maxConcurrentCards, setMaxConcurrentCards] = useState(1);
   const [customTags, setCustomTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
 
@@ -54,6 +55,7 @@ export function GlobalSettings() {
       setCustomInstructions(cfg.customInstructions);
       setBranchMode(cfg.branchMode || "current");
       setBranchName(cfg.branchName || "");
+      setMaxConcurrentCards(cfg.maxConcurrentCards ?? 1);
       setCustomTags(cfg.customTags || []);
       setLoading(false);
     }).catch(() => {
@@ -78,6 +80,7 @@ export function GlobalSettings() {
         customInstructions: customInstructions.trim(),
         branchMode,
         branchName: branchName.trim(),
+        maxConcurrentCards,
         customTags,
       });
       setLocation("/");
@@ -232,6 +235,8 @@ export function GlobalSettings() {
             <ExecutionSettings
               maxBudgetUsd={maxBudgetUsd}
               onMaxBudgetUsdChange={setMaxBudgetUsd}
+              maxConcurrentCards={maxConcurrentCards}
+              onMaxConcurrentCardsChange={setMaxConcurrentCards}
               autoCommit={autoCommit}
               onAutoCommitChange={setAutoCommit}
               autoPush={autoPush}

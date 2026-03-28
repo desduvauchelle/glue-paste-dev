@@ -18,6 +18,7 @@ interface ConfigRow {
   custom_instructions: string | null;
   branch_mode: string | null;
   branch_name: string | null;
+  max_concurrent_cards: number | null;
 }
 
 /** Fully resolved config — used for global config and merged results */
@@ -37,6 +38,7 @@ function rowToConfigInput(row: ConfigRow): Required<ConfigInput> {
     customInstructions: row.custom_instructions || "",
     branchMode: (row.branch_mode || "current") as BranchMode,
     branchName: row.branch_name || "",
+    maxConcurrentCards: row.max_concurrent_cards ?? DEFAULT_CONFIG.maxConcurrentCards,
   };
 }
 
@@ -57,6 +59,7 @@ function rowToPartialConfig(row: ConfigRow): ConfigInput {
     customInstructions: row.custom_instructions !== null ? row.custom_instructions : undefined,
     branchMode: row.branch_mode !== null ? (row.branch_mode as BranchMode) : undefined,
     branchName: row.branch_name !== null ? row.branch_name : undefined,
+    maxConcurrentCards: row.max_concurrent_cards !== null ? row.max_concurrent_cards : undefined,
   };
 }
 
@@ -119,6 +122,7 @@ export function getMergedConfig(
     customInstructions: project.customInstructions ?? global.customInstructions,
     branchMode: project.branchMode ?? global.branchMode,
     branchName: project.branchName ?? global.branchName,
+    maxConcurrentCards: project.maxConcurrentCards ?? global.maxConcurrentCards,
   };
 }
 
@@ -164,11 +168,12 @@ function upsertGlobalConfig(
     customInstructions: input.customInstructions ?? current.customInstructions,
     branchMode: input.branchMode ?? current.branchMode,
     branchName: input.branchName ?? current.branchName,
+    maxConcurrentCards: input.maxConcurrentCards ?? current.maxConcurrentCards,
   };
 
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions, branch_mode, branch_name)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions, branch_mode, branch_name, max_concurrent_cards)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
        cli_custom_command = excluded.cli_custom_command,
@@ -183,7 +188,8 @@ function upsertGlobalConfig(
        custom_tags = excluded.custom_tags,
        custom_instructions = excluded.custom_instructions,
        branch_mode = excluded.branch_mode,
-       branch_name = excluded.branch_name`
+       branch_name = excluded.branch_name,
+       max_concurrent_cards = excluded.max_concurrent_cards`
   ).run(
     "global",
     merged.cliProvider ?? "claude",
@@ -199,7 +205,8 @@ function upsertGlobalConfig(
     JSON.stringify(merged.customTags ?? []),
     merged.customInstructions ?? "",
     merged.branchMode ?? "current",
-    merged.branchName ?? ""
+    merged.branchName ?? "",
+    merged.maxConcurrentCards ?? 1
   );
 
   return merged;
@@ -212,8 +219,8 @@ function upsertProjectConfig(
   input: ConfigInput
 ): Required<ConfigInput> {
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions, branch_mode, branch_name)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions, branch_mode, branch_name, max_concurrent_cards)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
        cli_custom_command = excluded.cli_custom_command,
@@ -228,7 +235,8 @@ function upsertProjectConfig(
        custom_tags = excluded.custom_tags,
        custom_instructions = excluded.custom_instructions,
        branch_mode = excluded.branch_mode,
-       branch_name = excluded.branch_name`
+       branch_name = excluded.branch_name,
+       max_concurrent_cards = excluded.max_concurrent_cards`
   ).run(
     key,
     input.cliProvider ?? null,
@@ -244,7 +252,8 @@ function upsertProjectConfig(
     input.customTags !== undefined ? JSON.stringify(input.customTags) : null,
     input.customInstructions ?? null,
     input.branchMode ?? null,
-    input.branchName ?? null
+    input.branchName ?? null,
+    input.maxConcurrentCards ?? null
   );
 
   // Return the merged config for API response

@@ -44,6 +44,7 @@ export const ConfigSchema = z.object({
   custom_instructions: z.string().default(""),
   branch_mode: z.string().default("current"),
   branch_name: z.string().default(""),
+  max_concurrent_cards: z.number().int().min(1).max(3).default(1),
 });
 
 /** User-facing config shape (custom_tags as array) */
@@ -62,6 +63,7 @@ export const ConfigInputSchema = z.object({
   customInstructions: z.string().max(50_000).optional(),
   branchMode: BranchModeSchema.optional(),
   branchName: z.string().max(200).optional(),
+  maxConcurrentCards: z.number().int().min(1).max(3).optional(),
 });
 
 export const DEFAULT_CONFIG = {
@@ -79,4 +81,5 @@ export const DEFAULT_CONFIG = {
   customInstructions: "",
   branchMode: "current" as BranchMode,
   branchName: "",
+  maxConcurrentCards: 1,
 } as const;

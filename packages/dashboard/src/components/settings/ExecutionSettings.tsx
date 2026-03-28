@@ -19,6 +19,8 @@ interface ExecutionSettingsProps {
   onBranchModeChange?: (v: BranchMode) => void;
   branchName?: string;
   onBranchNameChange?: (v: string) => void;
+  maxConcurrentCards?: number;
+  onMaxConcurrentCardsChange?: (v: number) => void;
   /** Unique prefix for radio button names to avoid conflicts */
   radioPrefix?: string;
 }
@@ -38,6 +40,8 @@ export function ExecutionSettings({
   onCustomInstructionsChange,
   branchMode,
   onBranchModeChange,
+  maxConcurrentCards,
+  onMaxConcurrentCardsChange,
   branchName,
   onBranchNameChange,
   radioPrefix = "exec",
@@ -54,6 +58,29 @@ export function ExecutionSettings({
           onChange={(e) => onMaxBudgetUsdChange(Number(e.target.value))}
         />
       </div>
+
+      {onMaxConcurrentCardsChange && (
+        <div>
+          <label className="text-sm font-medium mb-1 block">Simultaneous Tasks</label>
+          <div className="flex items-center gap-3">
+            {([1, 2, 3] as const).map((n) => (
+              <label key={n} className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name={`${radioPrefix}-max-concurrent`}
+                  checked={maxConcurrentCards === n}
+                  onChange={() => onMaxConcurrentCardsChange(n)}
+                  className="accent-primary"
+                />
+                <span className="text-sm">{n}</span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Maximum cards executing at the same time per board
+          </p>
+        </div>
+      )}
 
       <label className="flex items-center gap-2 cursor-pointer">
         <input
