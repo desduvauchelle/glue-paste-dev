@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
 import { CoPlanSidebar } from "@/components/board/CoPlanSidebar"
-import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight, StickyNote } from "lucide-react"
+import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight, StickyNote, Copy, FolderOpen, Check } from "lucide-react"
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { CaffeineToggle } from "@/components/CaffeineToggle"
@@ -35,6 +35,7 @@ export function BoardView({ params }: BoardViewProps) {
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [switcherOpen, setSwitcherOpen] = useState(false)
 	const [scratchpadOpen, setScratchpadOpen] = useState(false)
+	const [copiedPath, setCopiedPath] = useState(false)
 	const [coPlanCard, setCoPlanCard] = useState<CardWithTags | null>(null)
 	const [autoRun, setAutoRun] = useState(() => {
 		const stored = localStorage.getItem(`queue-autorun-${boardId}`)
@@ -252,12 +253,7 @@ export function BoardView({ params }: BoardViewProps) {
 								style={{ backgroundColor: boardColor.bg }}
 							/>
 						)}
-						<div>
-							<h1 className="text-lg font-semibold">{board.name}</h1>
-							{board.directory && (
-								<p className="text-xs text-muted-foreground font-mono">{board.directory}</p>
-							)}
-						</div>
+						<h1 className="text-lg font-semibold">{board.name}</h1>
 					</button>
 					<button
 						type="button"
@@ -333,6 +329,49 @@ export function BoardView({ params }: BoardViewProps) {
 					)}
 				</div>
 			</header>
+
+			{/* Project Path Bar */}
+			{board.directory && (
+				<div className="border-b border-border px-4 py-1 flex items-center gap-2 shrink-0 bg-muted/30">
+					<span className="text-xs text-muted-foreground font-mono truncate">{board.directory}</span>
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									type="button"
+									className="p-0.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground shrink-0"
+									onClick={() => {
+										void navigator.clipboard.writeText(board.directory!)
+										setCopiedPath(true)
+										setTimeout(() => setCopiedPath(false), 2000)
+									}}
+								>
+									{copiedPath ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+								</button>
+							</TooltipTrigger>
+							<TooltipContent>{copiedPath ? "Copied!" : "Copy path"}</TooltipContent>
+						</Tooltip>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<button
+									type="button"
+									className="p-0.5 rounded hover:bg-accent transition-colors text-muted-foreground hover:text-foreground shrink-0"
+									onClick={() => {
+										void fetch(`/api/system/open-folder`, {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({ path: board.directory }),
+										})
+									}}
+								>
+									<FolderOpen className="w-3 h-3" />
+								</button>
+							</TooltipTrigger>
+							<TooltipContent>Open in Finder</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				</div>
+			)}
 
 			{/* Kanban Board + Co-Plan Sidebar */}
 			<div className="flex-1 flex overflow-hidden">

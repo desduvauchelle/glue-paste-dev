@@ -16,6 +16,7 @@ import { fileRoutes } from "./routes/files.js";
 import { cardExecuteRoutes, queueRoutes } from "./routes/queue.js";
 import { statsRoutes } from "./routes/stats.js";
 import { tagRoutes } from "./routes/tags.js";
+import { systemRoutes } from "./routes/system.js";
 import { startUpdateChecker, updateRoutes } from "./routes/update.js";
 
 import { existsSync } from "node:fs";
@@ -129,6 +130,7 @@ app.route("/api/cards", chatRoutes(db, broadcast));
 app.route("/api/update", updateRoutes(broadcast));
 app.route("/api/caffeinate", caffeinateRoutes());
 app.route("/api/auth", authRoutes());
+app.route("/api/system", systemRoutes());
 
 // WebSocket endpoint
 app.get(
