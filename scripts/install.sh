@@ -179,7 +179,10 @@ ln -sf "$INSTALL_DIR/cli/src/index.ts" "$BIN_DIR/glue-paste-dev"
 if ln -sf "$INSTALL_DIR/cli/src/index.ts" /usr/local/bin/glue-paste-dev 2>/dev/null; then
   ok "Symlinked to /usr/local/bin/glue-paste-dev"
 else
-  info "Could not symlink to /usr/local/bin (no write permission — using $BIN_DIR instead)"
+  warn "Could not symlink to /usr/local/bin (no write permission)."
+  echo "     To fix this permanently, run:"
+  echo "       sudo ln -sf $INSTALL_DIR/cli/src/index.ts /usr/local/bin/glue-paste-dev"
+  echo "     Otherwise, $BIN_DIR will be added to your PATH."
 fi
 
 # ─── Step 7: Ensure PATH ─────────────────────────────────────────────────────
@@ -232,7 +235,11 @@ echo "    glue-paste-dev stop      Stop the server"
 echo "    glue-paste-dev status    Check server status"
 echo "    glue-paste-dev update    Update to latest version"
 echo ""
-if ! echo "$PATH" | grep -q "$BIN_DIR" || ! command -v glue-paste-dev &>/dev/null; then
-  echo -e "${YELLOW}Note: Restart your terminal or run 'source $SHELL_PROFILE' for the command to be available everywhere.${NC}"
+if ! command -v glue-paste-dev &>/dev/null; then
+  echo -e "${YELLOW}Note: Run this to activate the command in your current terminal:${NC}"
+  echo ""
+  echo "  source $SHELL_PROFILE"
+  echo ""
+  echo -e "${YELLOW}Or restart your terminal for the command to be available everywhere.${NC}"
   echo ""
 fi

@@ -1,7 +1,7 @@
 import { DATA_DIR, getDaemonStatus } from "../daemon.js";
 import { stop } from "./stop.js";
 import { start } from "./start.js";
-import { readFileSync, existsSync, rmSync } from "node:fs";
+import { readFileSync, existsSync, rmSync, mkdirSync, symlinkSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 const REPO = "desduvauchelle/glue-paste-dev";
@@ -74,7 +74,22 @@ export async function update() {
   rmSync(join(DATA_DIR, "release.tar.gz"), { force: true });
 
   // Make CLI executable
-  Bun.spawnSync(["chmod", "+x", join(DATA_DIR, "cli", "src", "index.ts")]);
+  const cliEntry = join(DATA_DIR, "cli", "src", "index.ts");
+  Bun.spawnSync(["chmod", "+x", cliEntry]);
+
+  // Ensure bin symlink exists (re-create after cli/ was deleted and re-extracted)
+  const binDir = join(DATA_DIR, "bin");
+  const binLink = join(binDir, "glue-paste-dev");
+  mkdirSync(binDir, { recursive: true });
+  try { unlinkSync(binLink); } catch { /* may not exist */ }
+  symlinkSync(cliEntry, binLink);
+
+  // Try /usr/local/bin symlink for convenience (may fail without sudo)
+  try {
+    const sysLink = "/usr/local/bin/glue-paste-dev";
+    try { unlinkSync(sysLink); } catch { /* may not exist */ }
+    symlinkSync(cliEntry, sysLink);
+  } catch { /* not critical — ~/.glue-paste-dev/bin is the primary PATH entry */ }
 
   console.log(`\x1b[32mUpdated successfully!\x1b[0m v${currentVersion} → v${latestVersion}`);
 

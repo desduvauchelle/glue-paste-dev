@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getDataDir, log } from "@glue-paste-dev/core";
-import { readFileSync, existsSync, rmSync } from "node:fs";
+import { readFileSync, existsSync, rmSync, mkdirSync, symlinkSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 const REPO = "desduvauchelle/glue-paste-dev";
@@ -155,10 +155,27 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     }
     rmSync(tarPath, { force: true });
 
-    // Make CLI executable
+    // Make CLI executable and ensure symlinks
+    const cliEntry = join(dataDir, "cli", "src", "index.ts");
     try {
-      Bun.spawnSync([findBinary("chmod"), "+x", join(dataDir, "cli", "src", "index.ts")]);
+      Bun.spawnSync([findBinary("chmod"), "+x", cliEntry]);
     } catch { /* non-critical */ }
+
+    // Re-create bin symlink (cli/ was deleted and re-extracted)
+    const binDir = join(dataDir, "bin");
+    const binLink = join(binDir, "glue-paste-dev");
+    try {
+      mkdirSync(binDir, { recursive: true });
+      try { unlinkSync(binLink); } catch { /* may not exist */ }
+      symlinkSync(cliEntry, binLink);
+    } catch { /* non-critical */ }
+
+    // Try /usr/local/bin symlink for convenience
+    try {
+      const sysLink = "/usr/local/bin/glue-paste-dev";
+      try { unlinkSync(sysLink); } catch { /* may not exist */ }
+      symlinkSync(cliEntry, sysLink);
+    } catch { /* not critical */ }
 
     log.info("update", `Update applied: v${result.currentVersion} → v${result.latestVersion}`);
 
