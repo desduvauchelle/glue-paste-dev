@@ -244,7 +244,7 @@ export function BoardView({ params }: BoardViewProps) {
 					<button
 						type="button"
 						className="text-left hover:opacity-80 transition-opacity flex items-center gap-2"
-						onClick={() => setSettingsOpen(true)}
+						onClick={() => setSwitcherOpen(true)}
 					>
 						{boardColor && (
 							<span
