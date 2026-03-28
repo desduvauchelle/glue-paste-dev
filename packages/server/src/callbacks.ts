@@ -26,10 +26,10 @@ export function makeCallbacks(db: Database, broadcast: (event: unknown) => void)
     onCommentAdded(comment) {
       broadcast({ type: "comment:added", payload: comment });
     },
-    onQueueUpdated(boardId, queue, current, isPaused) {
+    onQueueUpdated(boardId: string, queue: string[], current: string | null, isPaused: boolean, active?: string[]) {
       broadcast({
         type: "queue:updated",
-        payload: { boardId, queue, current, isPaused },
+        payload: { boardId, queue, current, isPaused, active: active ?? [] },
       });
     },
     onQueueStopped(boardId, reason) {

@@ -67,13 +67,14 @@ describe("makeCallbacks", () => {
     expect((broadcasts[0] as any).payload).toEqual(comment);
   });
 
-  it("onQueueUpdated broadcasts queue:updated", () => {
+  it("onQueueUpdated broadcasts queue:updated with active array", () => {
     const cbs = makeCallbacks(db, (e) => broadcasts.push(e));
-    cbs.onQueueUpdated(boardId, [], null, false);
+    cbs.onQueueUpdated(boardId, [], null, false, ["card-1", "card-2"]);
 
     expect(broadcasts).toHaveLength(1);
     expect((broadcasts[0] as any).type).toBe("queue:updated");
     expect((broadcasts[0] as any).payload.boardId).toBe(boardId);
+    expect((broadcasts[0] as any).payload.active).toEqual(["card-1", "card-2"]);
   });
 
   it("onCardUpdated broadcasts card:updated and notification for done status", () => {

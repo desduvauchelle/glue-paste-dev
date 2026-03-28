@@ -40,10 +40,10 @@ function makeCallbacksWithCompletion() {
   });
 
   const callbacks: QueueCallbacks = {
-    onQueueUpdated: (bid, queue, current, isPaused) => {
+    onQueueUpdated: (bid, queue, current, isPaused, active) => {
       events.push({
         type: "queue:updated",
-        payload: { boardId: bid, queue, current, isPaused },
+        payload: { boardId: bid, queue, current, isPaused, active },
       });
     },
     onQueueStopped: (bid, reason) => {

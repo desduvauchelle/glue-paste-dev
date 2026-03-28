@@ -24,7 +24,7 @@ export interface QueueState {
 }
 
 export interface QueueCallbacks extends RunnerCallbacks {
-  onQueueUpdated: (boardId: string, queue: string[], current: string | null, isPaused: boolean) => void;
+  onQueueUpdated: (boardId: string, queue: string[], current: string | null, isPaused: boolean, active?: string[]) => void;
   onQueueStopped: (boardId: string, reason: string) => void;
   onRateLimited?: (boardId: string, cardTitle: string, retryInSeconds: number, resetMessage?: string) => void;
   onOverloaded?: (boardId: string, cardTitle: string, retryInSeconds: number) => void;
@@ -64,7 +64,7 @@ function syncCurrent(state: QueueState): void {
 
 /** Notify WS clients about queue state */
 function broadcastQueueState(state: QueueState, callbacks: QueueCallbacks): void {
-  callbacks.onQueueUpdated(state.boardId, state.queue, state.current, state.isPaused);
+  callbacks.onQueueUpdated(state.boardId, state.queue, state.current, state.isPaused, [...state.active]);
 }
 
 /** Return board IDs that currently have a running queue */
@@ -423,7 +423,7 @@ function handleRateLimited(
   if (state) {
     state.isPaused = true;
     queues.set(boardId, state);
-    callbacks.onQueueUpdated(boardId, state.queue, null, true);
+    callbacks.onQueueUpdated(boardId, state.queue, null, true, [...state.active]);
   }
 
   log.warn("queue", `${rateLimitInfo.isOverloaded ? "Overloaded" : "Rate limited"} on card "${cardLabel(card)}". Queue paused, auto-resuming in ${retrySeconds}s.`);
@@ -436,6 +436,17 @@ function handleRateLimited(
       resumeQueue(db, boardId, callbacks);
     }
   }, retrySeconds * 1000);
+}
+
+/** Notify the running queue that a new card was added — fills any open slots immediately */
+export function notifyNewCard(
+  db: Database,
+  boardId: string,
+  callbacks: QueueCallbacks
+): void {
+  const state = queues.get(boardId);
+  if (!state || !state.isRunning || state.isPaused) return;
+  fillSlots(db, boardId, callbacks);
 }
 
 /** Re-check concurrency after config changes and fill any new slots */
@@ -478,16 +489,21 @@ function fillSlots(
       return;
     }
 
-    if (state.queue.length === 0 && state.active.length === 0) {
+    if (state.queue.length === 0) {
       // Re-check DB for newly queued or in-progress cards (added while queue was running)
       const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued").filter((c) => c.assignee !== "human");
       const newInProgress = cardsDb.listCardsByStatus(db, boardId as BoardId, "in-progress").filter((c) => c.assignee !== "human" && !state.active.includes(c.id));
       const allNew = [...newInProgress, ...newQueued];
       if (allNew.length > 0) {
         state.queue = allNew.map((c) => c.id);
-      } else {
+      } else if (state.active.length === 0) {
         queues.delete(boardId);
         callbacks.onQueueStopped(boardId, "All cards completed");
+        return;
+      } else {
+        // Slots available but no new cards — keep running, wait for active cards
+        syncCurrent(state);
+        broadcastQueueState(state, callbacks);
         return;
       }
     }
