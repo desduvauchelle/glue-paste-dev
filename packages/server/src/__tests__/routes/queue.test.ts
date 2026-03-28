@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import { Hono } from "hono";
 import { boardsDb, cardsDb, getTestDb } from "@glue-paste-dev/core";
 import type { Database } from "bun:sqlite";
-import type { BoardId } from "@glue-paste-dev/core";
+import type { BoardId, CardId } from "@glue-paste-dev/core";
 import { queueRoutes, cardExecuteRoutes } from "../../routes/queue.js";
 
 let app: Hono;
@@ -112,6 +112,25 @@ describe("card execute routes", () => {
 
     // Clean up - wait for execution attempt to complete/fail
     await new Promise((r) => setTimeout(r, 200));
+  });
+
+  it("POST /:cardId/execute returns 400 for human-assigned card", async () => {
+    const card = cardsDb.createCard(db, boardId as BoardId, {
+      title: "Human Card",
+      description: "",
+      tags: [],
+      status: "queued",
+      assignee: "human",
+    });
+
+    const res = await cardReq("POST", `/${card.id}/execute`);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.error).toContain("Human");
+
+    // Card status should remain queued
+    const updated = cardsDb.getCard(db, card.id as CardId);
+    expect(updated!.status).toBe("queued");
   });
 
   it("POST /:cardId/stop returns 200", async () => {

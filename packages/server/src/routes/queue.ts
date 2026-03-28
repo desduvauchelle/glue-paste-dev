@@ -8,6 +8,7 @@ import {
   pauseQueue,
   resumeQueue,
   getQueueState,
+  cardsDb,
 } from "@glue-paste-dev/core";
 import type { BoardId, CardId } from "@glue-paste-dev/core";
 import { makeCallbacks } from "../callbacks.js";
@@ -80,6 +81,11 @@ export function cardExecuteRoutes(
   // POST /api/cards/:cardId/execute - execute single card
   app.post("/:cardId/execute", async (c) => {
     const cardId = c.req.param("cardId") as CardId;
+    const card = cardsDb.getCard(db, cardId);
+    if (!card) return c.json({ error: "Card not found" }, 404);
+    if (card.assignee === "human") {
+      return c.json({ error: "Human-assigned cards cannot be executed by the system" }, 400);
+    }
 
     // Execute in background
     void executeSingleCard(db, cardId, callbacks);

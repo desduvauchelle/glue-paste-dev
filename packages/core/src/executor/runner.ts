@@ -73,6 +73,9 @@ export async function runCard(
   callbacks: RunnerCallbacks,
   options?: { existingPlanOutput?: string }
 ): Promise<RunResult> {
+  if (card.assignee === "human") {
+    throw new Error(`Card "${cardLabel(card)}" (${card.id}) is assigned to a human — the system must not plan or execute it`);
+  }
   log.info("runner", `=== Running card "${cardLabel(card)}" (${card.id}) on board "${board.name}" ===`);
   log.info("runner", `Card: title="${card.title}" status=${card.status} assignee=${card.assignee} tags=[${card.tags.join(",")}]`);
   log.info("runner", `Board directory: ${board.directory}`);
