@@ -34,7 +34,7 @@ Requires [Bun](https://bun.sh) (installed automatically if missing) and [Claude 
 
 ```bash
 # Start the daemon (opens browser automatically)
-glue-paste-dev up
+glue-paste-dev start
 
 # Check status
 glue-paste-dev status
@@ -49,7 +49,10 @@ glue-paste-dev open
 glue-paste-dev restart
 
 # Stop
-glue-paste-dev down
+glue-paste-dev stop
+
+# Update to latest version
+glue-paste-dev update
 ```
 
 The dashboard runs at **http://localhost:4242**.
