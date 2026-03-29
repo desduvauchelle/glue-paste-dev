@@ -438,15 +438,20 @@ function handleRateLimited(
   }, retrySeconds * 1000);
 }
 
-/** Notify the running queue that a new card was added — fills any open slots immediately */
+/** Notify the queue that a new card was added — fills open slots or auto-starts if idle */
 export function notifyNewCard(
   db: Database,
   boardId: string,
   callbacks: QueueCallbacks
 ): void {
   const state = queues.get(boardId);
-  if (!state || !state.isRunning || state.isPaused) return;
-  fillSlots(db, boardId, callbacks);
+  if (state?.isPaused) return;
+  if (state?.isRunning) {
+    fillSlots(db, boardId, callbacks);
+    return;
+  }
+  // No queue running — auto-start so queued cards are picked up immediately
+  void startQueue(db, boardId as BoardId, callbacks);
 }
 
 /** Re-check concurrency after config changes and fill any new slots */
