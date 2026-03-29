@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useMemo } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Lightbulb } from "lucide-react";
 
 interface KanbanColumnProps {
   title: string;
@@ -20,6 +20,7 @@ interface KanbanColumnProps {
   onLoadMore?: () => void;
   totalCount?: number;
   onAddCard?: (status: string) => void;
+  onBrainstorm?: (status: string) => void;
   isDraggable?: boolean;
   suggestions?: DefaultSuggestion[];
   onSuggestionClick?: (suggestion: DefaultSuggestion) => void;
@@ -45,6 +46,7 @@ export function KanbanColumn({
   onLoadMore,
   totalCount,
   onAddCard,
+  onBrainstorm,
   isDraggable,
   suggestions,
   onSuggestionClick,
@@ -69,15 +71,25 @@ export function KanbanColumn({
           {totalCount ?? cards.length}
         </span>
       </div>
-      <div className="h-8 flex items-center justify-center px-2">
+      <div className="h-8 flex items-center justify-center px-2 gap-1">
         {onAddCard && (
           <button
             type="button"
             onClick={() => onAddCard(status)}
-            className="opacity-0 group-hover/col:opacity-100 transition-opacity w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground rounded border border-dashed border-transparent hover:border-border py-1"
+            className="opacity-0 group-hover/col:opacity-100 transition-opacity flex-1 flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground rounded border border-dashed border-transparent hover:border-border py-1"
           >
             <Plus className="w-3 h-3" />
             Add card
+          </button>
+        )}
+        {onBrainstorm && (
+          <button
+            type="button"
+            onClick={() => onBrainstorm(status)}
+            className="opacity-0 group-hover/col:opacity-100 transition-opacity flex-1 flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-amber-400 rounded border border-dashed border-transparent hover:border-amber-400/30 py-1"
+          >
+            <Lightbulb className="w-3 h-3" />
+            Brainstorm
           </button>
         )}
       </div>

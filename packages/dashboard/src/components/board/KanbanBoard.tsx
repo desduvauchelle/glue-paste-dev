@@ -23,6 +23,7 @@ interface KanbanBoardProps {
   onCoPlanCard?: (card: CardWithTags) => void;
   onReorderCards: (updates: Array<{ id: string; status: string; position: number }>) => void;
   onAddCard?: (status: string) => void;
+  onBrainstorm?: (status: string) => void;
   onSuggestionClick?: (suggestion: DefaultSuggestion) => void;
   doneHasMore?: boolean;
   onLoadMoreDone?: () => void;
@@ -39,7 +40,7 @@ const COLUMNS = [
 const ADD_CARD_STATUSES = new Set(["todo", "queued"]);
 const SORTABLE_STATUSES = new Set(["todo", "queued"]);
 
-export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard, onSuggestionClick, doneHasMore, onLoadMoreDone }: KanbanBoardProps) {
+export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCoPlanCard, onReorderCards, onAddCard, onBrainstorm, onSuggestionClick, doneHasMore, onLoadMoreDone }: KanbanBoardProps) {
   const [activeCard, setActiveCard] = useState<CardWithTags | null>(null);
   const isDraggable = true;
   // Local state for optimistic column updates during drag
@@ -222,6 +223,7 @@ export function KanbanBoard({ grouped, onPlayCard, onStopCard, onClickCard, onCo
               hasMore={isDone ? doneHasMore : undefined}
               onLoadMore={isDone ? onLoadMoreDone : undefined}
               onAddCard={ADD_CARD_STATUSES.has(status) ? onAddCard : undefined}
+              onBrainstorm={ADD_CARD_STATUSES.has(status) ? onBrainstorm : undefined}
               isDraggable={isDraggable}
               suggestions={status === "todo" ? DEFAULT_SUGGESTIONS : undefined}
               onSuggestionClick={status === "todo" ? onSuggestionClick : undefined}

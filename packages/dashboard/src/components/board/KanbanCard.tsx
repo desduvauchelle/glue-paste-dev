@@ -4,7 +4,7 @@ import { parseFilesChanged } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle, MessageSquare, FileCode, User } from "lucide-react";
+import { Play, Check, X, GripVertical, Square, Brain, Zap, Circle, Lightbulb, FileCode, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cardLabel } from "@glue-paste-dev/core/browser";
 import { useSortable } from "@dnd-kit/sortable";
@@ -225,9 +225,9 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, isDragOver
                 e.stopPropagation();
                 onCoPlan(card);
               }}
-              title="Co-Plan"
+              title="Brainstorm"
             >
-              <MessageSquare className="w-3 h-3" />
+              <Lightbulb className="w-3 h-3" />
             </Button>
           )}
           {card.status === "todo" && card.assignee !== "human" && (

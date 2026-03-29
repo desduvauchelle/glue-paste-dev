@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { BoardSettingsDialog } from "@/components/board/BoardSettingsDialog"
 import { ProjectSwitcher } from "@/components/board/ProjectSwitcher"
-import { CoPlanSidebar } from "@/components/board/CoPlanSidebar"
+import { BrainstormPanel } from "@/components/board/BrainstormPanel"
 import { ArrowLeft, Plus, Pause, Square, Settings, ArrowLeftRight, StickyNote, Copy, FolderOpen, Check } from "lucide-react"
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -36,7 +36,7 @@ export function BoardView({ params }: BoardViewProps) {
 	const [switcherOpen, setSwitcherOpen] = useState(false)
 	const [scratchpadOpen, setScratchpadOpen] = useState(false)
 	const [copiedPath, setCopiedPath] = useState(false)
-	const [coPlanCard, setCoPlanCard] = useState<CardWithTags | null>(null)
+	const [brainstormCard, setBrainstormCard] = useState<CardWithTags | null | "fresh">(null)
 	const [autoRun, setAutoRun] = useState(() => {
 		const stored = localStorage.getItem(`queue-autorun-${boardId}`)
 		return stored === null ? true : stored === "true"
@@ -384,9 +384,10 @@ export function BoardView({ params }: BoardViewProps) {
 							onPlayCard={(id) => void handlePlayCard(id)}
 							onStopCard={(id) => void handleStopCard(id)}
 							onClickCard={handleClickCard}
-							onCoPlanCard={(card) => setCoPlanCard(card)}
+							onCoPlanCard={(card) => setBrainstormCard(card)}
 							onReorderCards={(updates) => void handleReorderCards(updates)}
 							onAddCard={handleNewCardWithStatus}
+							onBrainstorm={() => setBrainstormCard("fresh")}
 							onSuggestionClick={handleSuggestionClick}
 							doneHasMore={doneHasMore}
 							onLoadMoreDone={loadMoreDone}
@@ -394,10 +395,12 @@ export function BoardView({ params }: BoardViewProps) {
 					)}
 				</main>
 
-				{coPlanCard && (
-					<CoPlanSidebar
-						card={coPlanCard}
-						onClose={() => setCoPlanCard(null)}
+				{brainstormCard && (
+					<BrainstormPanel
+						card={brainstormCard === "fresh" ? null : brainstormCard}
+						boardId={boardId}
+						onClose={() => setBrainstormCard(null)}
+						onCardCreated={() => setBrainstormCard(null)}
 					/>
 				)}
 			</div>
