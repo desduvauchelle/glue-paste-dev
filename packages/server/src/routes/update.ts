@@ -99,33 +99,31 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
   await Bun.write(destPath, res);
 }
 
-/** Find a binary on the system by checking common paths then $PATH. */
-function findBinary(name: string, extraPaths: string[] = []): string {
-  const candidates = [
-    ...extraPaths,
-    `/usr/bin/${name}`,
-    `/bin/${name}`,
-    `/usr/local/bin/${name}`,
-    `/opt/homebrew/bin/${name}`,
-  ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  try {
-    const result = Bun.spawnSync(["which", name]);
-    const resolved = result.stdout.toString().trim();
-    if (result.exitCode === 0 && resolved) return resolved;
-  } catch { /* ignore */ }
-  return name;
-}
-
 /** Build safe extract args without shell interpolation. */
 export function buildExtractArgs(dataDir: string): string[] {
-  return [findBinary("tar"), "-xzf", join(dataDir, "release.tar.gz"), "-C", dataDir];
+  return ["tar", "-xzf", join(dataDir, "release.tar.gz"), "-C", dataDir];
 }
 
 export function updateRoutes(broadcast: (event: unknown) => void) {
   const app = new Hono();
+
+  // GET /api/update/logs — return recent update-related log entries
+  app.get("/logs", async (c) => {
+    try {
+      const logPath = join(getDataDir(), "glue-paste-dev.log");
+      if (!existsSync(logPath)) {
+        return c.json({ lines: [], message: "No log file found" });
+      }
+      const content = readFileSync(logPath, "utf-8");
+      const allLines = content.split("\n");
+      const updateLines = allLines.filter((line) => line.includes("[update]"));
+      const last20 = updateLines.slice(-20);
+      return c.json({ lines: last20 });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.json({ lines: [], message: `Failed to read logs: ${msg}` });
+    }
+  });
 
   // GET /api/update — check for updates
   app.get("/", async (c) => {
@@ -212,7 +210,7 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     const cliEntry = join(dataDir, "cli", "src", "index.ts");
     log.always("update", `apply: setting permissions on ${cliEntry}`);
     try {
-      Bun.spawnSync([findBinary("chmod"), "+x", cliEntry]);
+      Bun.spawnSync(["chmod", "+x", cliEntry]);
     } catch (err) {
       log.alwaysError("update", "apply: chmod failed (non-critical)", err);
     }

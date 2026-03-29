@@ -187,6 +187,8 @@ export const update = {
     request<{ available: boolean; currentVersion: string; latestVersion: string }>("/update"),
   apply: () =>
     request<{ ok: boolean }>("/update/apply", { method: "POST" }),
+  logs: () =>
+    request<{ lines: string[]; message?: string }>("/update/logs"),
 };
 
 // Caffeinate
