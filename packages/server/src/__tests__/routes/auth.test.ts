@@ -1,12 +1,22 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, afterAll } from "bun:test";
 import { Hono } from "hono";
 import { authRoutes } from "../../routes/auth.js";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+
+const tmpDir = mkdtempSync(join(tmpdir(), "auth-test-"));
+const tmpTokenFile = join(tmpDir, "oauth-token");
+
+afterAll(() => {
+  rmSync(tmpDir, { recursive: true, force: true });
+});
 
 let app: Hono;
 
 beforeEach(() => {
   app = new Hono();
-  app.route("/api/auth", authRoutes());
+  app.route("/api/auth", authRoutes(tmpTokenFile));
 });
 
 function req(method: string, path: string, body?: unknown) {
@@ -26,5 +36,8 @@ describe("POST /token", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
+    // Verify it wrote to the temp file, not the real one
+    const written = readFileSync(tmpTokenFile, "utf-8");
+    expect(written).toBe("test-oauth-token");
   });
 });

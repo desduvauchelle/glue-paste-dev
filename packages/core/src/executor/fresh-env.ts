@@ -5,6 +5,14 @@ import { homedir } from "node:os";
 
 const TOKEN_FILE = join(homedir(), ".glue-paste-dev", "oauth-token");
 
+/**
+ * Rejects obviously invalid tokens (test stubs, short strings).
+ * Real OAuth tokens are typically 100+ characters.
+ */
+function looksLikeOAuthToken(token: string): boolean {
+  return token.length >= 40 && !/^test[-_]/.test(token);
+}
+
 let cachedEnv: Record<string, string | undefined> | null = null;
 let cachedAt = 0;
 const ENV_CACHE_TTL = 5000; // 5 seconds
@@ -29,7 +37,7 @@ export function getFreshEnv(): Record<string, string | undefined> {
   try {
     if (existsSync(TOKEN_FILE)) {
       const token = readFileSync(TOKEN_FILE, "utf-8").trim();
-      if (token) {
+      if (token && looksLikeOAuthToken(token)) {
         result = { ...process.env, CLAUDE_CODE_OAUTH_TOKEN: token };
       }
     }
