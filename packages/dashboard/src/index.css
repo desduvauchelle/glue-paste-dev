@@ -61,7 +61,7 @@ body {
 /* Markdown prose styles */
 .prose-markdown {
   line-height: 1.6;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .prose-markdown p {
