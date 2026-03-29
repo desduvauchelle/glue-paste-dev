@@ -189,6 +189,33 @@ export function fileRoutes(db: Database) {
     }
   });
 
+  // DELETE /api/files/board/:boardId/attachments/:cardId/:filename
+  app.delete("/board/:boardId/attachments/:cardId/:filename", (c) => {
+    const boardId = c.req.param("boardId") as BoardId;
+    const cardId = c.req.param("cardId");
+    const filename = c.req.param("filename");
+    const board = boardsDb.getBoard(db, boardId);
+    if (!board) {
+      return c.json({ error: "Board not found" }, 404);
+    }
+
+    const safeName = sanitizeFilename(filename);
+    if (!safeName) {
+      return c.json({ error: "Invalid filename" }, 400);
+    }
+
+    const rootDir = resolve(board.directory);
+    const filePath = join(rootDir, ".glue-paste", "attachments", cardId, safeName);
+
+    try {
+      rmSync(filePath);
+    } catch {
+      // file may not exist
+    }
+
+    return c.json({ ok: true });
+  });
+
   // DELETE /api/files/board/:boardId/attachments/:cardId
   app.delete("/board/:boardId/attachments/:cardId", (c) => {
     const boardId = c.req.param("boardId") as BoardId;

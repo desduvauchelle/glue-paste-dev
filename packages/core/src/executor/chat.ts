@@ -8,6 +8,8 @@ import { parseStreamLine } from "./stream-parser.js";
 import { killProcessTreeSync } from "./process-cleanup.js";
 import { getFreshEnv } from "./fresh-env.js";
 import { log } from "../logger.js";
+import { readdirSync } from "fs";
+import { join, resolve } from "path";
 import { cardLabel } from "../utils/cardLabel.js";
 
 /** Track active chat processes by cardId */
@@ -198,6 +200,16 @@ function buildChatPrompt(ctx: {
 }): string {
   const { card, board, comments, config, mode, userMessage } = ctx;
 
+  // Resolve attachment paths for this card
+  let attachmentPaths: string[] = [];
+  try {
+    const attachDir = join(resolve(board.directory), ".glue-paste", "attachments", card.id);
+    const names = readdirSync(attachDir);
+    attachmentPaths = names.map((name) => `.glue-paste/attachments/${card.id}/${name}`);
+  } catch {
+    // no attachments directory
+  }
+
   // Reuse the standard prompt builder for context
   const basePrompt = buildPrompt({
     card,
@@ -205,6 +217,7 @@ function buildChatPrompt(ctx: {
     comments,
     config,
     phase: mode,
+    attachmentPaths,
   });
 
   const parts = [basePrompt];

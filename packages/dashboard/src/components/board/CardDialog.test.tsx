@@ -22,6 +22,12 @@ vi.mock("@/lib/api", () => ({
   cards: {
     moveToBoard: vi.fn(() => Promise.resolve()),
   },
+  attachments: {
+    list: vi.fn(() => Promise.resolve([])),
+    upload: vi.fn(() => Promise.resolve([])),
+    cleanup: vi.fn(() => Promise.resolve({ ok: true })),
+    deleteFile: vi.fn(() => Promise.resolve({ ok: true })),
+  },
   parseFilesChanged: vi.fn(() => []),
 }));
 

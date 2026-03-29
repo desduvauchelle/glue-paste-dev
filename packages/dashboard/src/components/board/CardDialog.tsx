@@ -69,6 +69,7 @@ export function CardDialog({
 	const [branchName, setBranchName] = useState<string | null>(null)
 	const [configDefaults, setConfigDefaults] = useState<{ planThinking: "smart" | "basic" | null; executeThinking: "smart" | "basic"; autoCommit: boolean; autoPush: boolean; cliProvider: CliProvider; branchMode: BranchMode; branchName: string }>({ planThinking: "smart", executeThinking: "smart", autoCommit: false, autoPush: false, cliProvider: "claude", branchMode: "current", branchName: "" })
 	const [files, setFiles] = useState<string[]>([])
+	const [attachedFiles, setAttachedFiles] = useState<string[]>([])
 	const [showFileBrowser, setShowFileBrowser] = useState(false)
 	const [commentText, setCommentText] = useState("")
 	const [confirmDelete, setConfirmDelete] = useState(false)
@@ -124,7 +125,7 @@ export function CardDialog({
 		setIsUploading(true)
 		try {
 			const paths = await attachmentsApi.upload(boardId, cardId, Array.from(droppedFiles))
-			setFiles((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
+			setAttachedFiles((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
 		} catch (err) {
 			console.error("File upload failed:", err)
 		} finally {
@@ -154,6 +155,7 @@ export function CardDialog({
 			setDescription(card.description)
 			setSelectedTags(card.tags)
 			setFiles(card.files ?? [])
+			void attachmentsApi.list(boardId, card.id).then(setAttachedFiles)
 			setBlocking(card.blocking)
 			setPlanThinking(card.plan_thinking)
 			setExecuteThinking(card.execute_thinking)
@@ -169,6 +171,7 @@ export function CardDialog({
 			setDescription(defaultDescription ?? "")
 			setSelectedTags([])
 			setFiles([])
+			setAttachedFiles([])
 			setBlocking(false)
 			setPlanThinking(null)
 			setExecuteThinking(null)
@@ -443,6 +446,64 @@ export function CardDialog({
 											/>
 										</div>
 									)}
+								</div>
+
+								{/* Attached Files */}
+								<div>
+									<label className="text-sm font-medium mb-1 block">Attached Files</label>
+									<p className="text-xs text-muted-foreground mb-2">
+										Drag & drop anywhere, or click to upload screenshots and files for AI context.
+									</p>
+									{attachedFiles.length > 0 && (
+										<div className="flex flex-wrap gap-1 mb-2">
+											{attachedFiles.map((f) => (
+												<span
+													key={f}
+													className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-300 px-2 py-1 rounded"
+												>
+													<span className="truncate max-w-[180px]">{f.split("/").pop()}</span>
+													<button
+														type="button"
+														className="hover:text-destructive"
+														onClick={() => {
+															setAttachedFiles((prev) => prev.filter((p) => p !== f))
+															if (card?.id) {
+																void attachmentsApi.deleteFile(boardId, card.id, f.split("/").pop()!)
+															}
+														}}
+													>
+														<X className="w-3 h-3" />
+													</button>
+												</span>
+											))}
+										</div>
+									)}
+									<label className="cursor-pointer">
+										<input
+											type="file"
+											multiple
+											className="hidden"
+											onChange={async (e) => {
+												const selectedFiles = e.target.files
+												if (!selectedFiles || selectedFiles.length === 0) return
+												const cardId = card?.id ?? `tmp-${Date.now()}`
+												setIsUploading(true)
+												try {
+													const paths = await attachmentsApi.upload(boardId, cardId, Array.from(selectedFiles))
+													setAttachedFiles((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
+												} catch (err) {
+													console.error("File upload failed:", err)
+												} finally {
+													setIsUploading(false)
+													e.target.value = ""
+												}
+											}}
+										/>
+										<span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-dashed border-border hover:border-primary hover:text-primary transition-colors cursor-pointer">
+											<Upload className="w-3.5 h-3.5" />
+											Upload files
+										</span>
+									</label>
 								</div>
 
 								{/* Activity / User Comments (only when editing) */}

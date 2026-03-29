@@ -162,6 +162,10 @@ export const attachments = {
   // List attachments for a card
   list: (boardId: string, cardId: string) =>
     request<string[]>(`/files/board/${boardId}/attachments/${cardId}`),
+
+  // Delete a single attachment file
+  deleteFile: (boardId: string, cardId: string, filename: string) =>
+    request<{ ok: boolean }>(`/files/board/${boardId}/attachments/${cardId}/${encodeURIComponent(filename)}`, { method: "DELETE" }),
 };
 
 // Chat

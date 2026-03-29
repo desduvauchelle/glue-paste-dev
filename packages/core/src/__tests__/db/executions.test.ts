@@ -184,3 +184,26 @@ describe("executions", () => {
     expect(updated!.finished_at).not.toBeNull();
   });
 });
+
+describe("appendExecutionOutput trimming", () => {
+  it("trims output to tail when exceeding 512KB", () => {
+    const exec = createExecution(db, cardId, "s1", "plan");
+    const execId = exec.id as ExecutionId;
+    const bigChunk = "x".repeat(512 * 1024);
+    appendExecutionOutput(db, execId, bigChunk);
+    appendExecutionOutput(db, execId, "NEW_TAIL");
+    const updated = getExecution(db, execId);
+    expect(updated!.output).toContain("NEW_TAIL");
+    expect(updated!.output!.length).toBeLessThanOrEqual(512 * 1024 + 100);
+  });
+
+  it("keeps appending normally under 512KB", () => {
+    const exec = createExecution(db, cardId, "s1", "plan");
+    const execId = exec.id as ExecutionId;
+    appendExecutionOutput(db, execId, "chunk1-");
+    appendExecutionOutput(db, execId, "chunk2-");
+    appendExecutionOutput(db, execId, "chunk3");
+    const updated = getExecution(db, execId);
+    expect(updated!.output).toBe("chunk1-chunk2-chunk3");
+  });
+});

@@ -7,6 +7,7 @@ interface PromptContext {
   config: Required<ConfigInput>;
   phase: "plan" | "execute";
   planOutput?: string | undefined;
+  attachmentPaths?: string[];
 }
 
 export function buildPrompt(ctx: PromptContext): string {
@@ -47,6 +48,16 @@ export function buildPrompt(ctx: PromptContext): string {
     parts.push(`## Reference Files`);
     parts.push(`Read the following files for additional context on this task:`);
     for (const filePath of card.files) {
+      parts.push(`- ${filePath}`);
+    }
+    parts.push("");
+  }
+
+  // Attached files (uploaded screenshots, images, etc.)
+  if (ctx.attachmentPaths && ctx.attachmentPaths.length > 0) {
+    parts.push(`## Attached Files`);
+    parts.push(`The following files have been attached for visual context. Read these files to see screenshots, images, or documents the user has provided:`);
+    for (const filePath of ctx.attachmentPaths) {
       parts.push(`- ${filePath}`);
     }
     parts.push("");

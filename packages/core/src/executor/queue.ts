@@ -9,7 +9,7 @@ import { runCard, killCardProcess, type RunnerCallbacks } from "./runner.js";
 import type { RateLimitInfo } from "./rate-limit.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
-import { cleanupCardAttachments } from "../utils/attachments.js";
+import { cleanupCardAttachments, cleanupStaleAttachments, enforceAttachmentCap } from "../utils/attachments.js";
 import { walCheckpoint } from "../db/connection.js";
 
 export interface QueueState {
@@ -96,6 +96,12 @@ export async function startQueue(
   const board = boardsDb.getBoard(db, boardId);
   if (!board) throw new Error(`Board ${boardId} not found`);
 
+  // Clean up stale attachments from cards that never completed (7 day TTL)
+  cleanupStaleAttachments(board.directory, 7);
+
+  // Enforce attachment file cap (delete oldest from completed cards when over limit)
+  enforceAttachmentCap(db, boardId);
+
   const allQueuedCards = cardsDb.listCardsByStatus(db, boardId, "queued");
   const queuedCards = allQueuedCards.filter((c) => c.assignee !== "human");
   log.info("queue", `Starting queue for board ${boardId} with ${queuedCards.length} queued cards (${allQueuedCards.length - queuedCards.length} human-assigned skipped)`);
@@ -152,7 +158,7 @@ export async function executeSingleCard(
 
     if (result.success) {
       cardsDb.updateCardStatus(db, cardId, "done");
-      cleanupCardAttachments(db, cardId);
+      enforceAttachmentCap(db, card.board_id as BoardId);
     } else if (result.rateLimitInfo?.isRateLimit) {
       notifyRateLimitOrOverload(db, card, result.rateLimitInfo, callbacks);
     } else {
@@ -162,7 +168,7 @@ export async function executeSingleCard(
         notifyRateLimitOrOverload(db, card, retryResult.rateLimitInfo, callbacks);
       } else {
         cardsDb.updateCardStatus(db, cardId, retryResult.success ? "done" : "failed");
-        if (retryResult.success) cleanupCardAttachments(db, cardId);
+        if (retryResult.success) enforceAttachmentCap(db, card.board_id as BoardId);
       }
     }
   } catch (err) {
@@ -283,7 +289,7 @@ async function processCard(
 
     if (result.success) {
       cardsDb.updateCardStatus(db, cardId, "done");
-      cleanupCardAttachments(db, cardId);
+      enforceAttachmentCap(db, card.board_id as BoardId);
       walCheckpoint(db);
       const updated = cardsDb.getCard(db, cardId);
       if (updated) callbacks.onCardUpdated(updated);
@@ -299,7 +305,7 @@ async function processCard(
 
       if (retryResult.success) {
         cardsDb.updateCardStatus(db, cardId, "done");
-        cleanupCardAttachments(db, cardId);
+        enforceAttachmentCap(db, card.board_id as BoardId);
         walCheckpoint(db);
         const updated = cardsDb.getCard(db, cardId);
         if (updated) callbacks.onCardUpdated(updated);

@@ -14,6 +14,8 @@ import { killProcessTreeSync } from "./process-cleanup.js";
 import { buildPrompt } from "./prompt.js";
 import { detectRateLimit } from "./rate-limit.js";
 import { parseStreamLine } from "./stream-parser.js";
+import { readdirSync } from "fs";
+import { join, resolve } from "path";
 
 /** Track active processes by cardId so they can be killed */
 const activeCardProcesses = new Map<string, { proc: ReturnType<typeof Bun.spawn>; executionId: string }>();
@@ -305,7 +307,17 @@ async function executePhase(
   log.info("runner", `Config: provider=${config.cliProvider} model=${config.model} autoCommit=${config.autoCommit} autoPush=${config.autoPush}`);
   log.debug("runner", `Phase "${phase}" using session ${sessionId}, resume=${resume}`);
   log.debug("runner", `Board directory: ${board.directory}`);
-  const prompt = buildPrompt({ card, board, comments, config, phase, planOutput });
+  // Resolve attachment paths for this card
+  let attachmentPaths: string[] = [];
+  try {
+    const attachDir = join(resolve(board.directory), ".glue-paste", "attachments", card.id);
+    const names = readdirSync(attachDir);
+    attachmentPaths = names.map((name) => `.glue-paste/attachments/${card.id}/${name}`);
+  } catch {
+    // no attachments directory
+  }
+
+  const prompt = buildPrompt({ card, board, comments, config, phase, planOutput, attachmentPaths });
   log.debug("runner", `Prompt length: ${prompt.length} chars`);
 
   // Create execution record
