@@ -25,6 +25,28 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
+describe("BoardSettingsDialog — top save button", () => {
+  const onOpenChange = vi.fn();
+  const onUpdated = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders a save button in the header", () => {
+    render(
+      <BoardSettingsDialog
+        open={true}
+        onOpenChange={onOpenChange}
+        board={mockBoard}
+        onUpdated={onUpdated}
+      />
+    );
+    const saveButtons = screen.getAllByText("Save");
+    expect(saveButtons.length).toBe(2);
+  });
+});
+
 describe("BoardSettingsDialog — delete confirmation", () => {
   const onDelete = vi.fn(() => Promise.resolve());
   const onOpenChange = vi.fn();

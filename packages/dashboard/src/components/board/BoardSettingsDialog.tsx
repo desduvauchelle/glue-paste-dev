@@ -182,8 +182,15 @@ export function BoardSettingsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between gap-4 pr-8">
           <DialogTitle>Board Settings</DialogTitle>
+          <Button
+            size="sm"
+            onClick={() => void handleSave()}
+            disabled={!name.trim() || saving}
+          >
+            {saving ? "Saving..." : "Save"}
+          </Button>
         </DialogHeader>
 
         {/* Tabs */}
