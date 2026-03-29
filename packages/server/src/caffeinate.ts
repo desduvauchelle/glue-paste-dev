@@ -43,7 +43,11 @@ export function startCaffeinate(): void {
 
 export function stopCaffeinate(): void {
   if (!proc) return;
-  proc.kill();
+  try {
+    proc.kill();
+  } catch {
+    // Process may have already exited
+  }
   proc = null;
   log.info("caffeinate", "Stopped sleep prevention");
 }

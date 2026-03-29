@@ -6,6 +6,7 @@ import { checkAndToggleCaffeinate } from "./caffeinate.js";
 export function makeCallbacks(db: Database, broadcast: (event: unknown) => void): QueueCallbacks {
   return {
     onExecutionStarted(cardId, executionId, phase) {
+      checkAndToggleCaffeinate(db);
       broadcast({
         type: "execution:started",
         payload: { cardId, executionId, phase },

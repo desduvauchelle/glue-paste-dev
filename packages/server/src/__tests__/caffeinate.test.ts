@@ -45,6 +45,16 @@ describe("caffeinate", () => {
       stopCaffeinate(); // already stopped
       expect(isCaffeinateActive()).toBe(false);
     });
+
+    it("stopCaffeinate works even if the underlying process has already exited", () => {
+      startCaffeinate();
+      if (!isSleepPreventionSupported()) return;
+      expect(isCaffeinateActive()).toBe(true);
+
+      stopCaffeinate();
+      stopCaffeinate();
+      expect(isCaffeinateActive()).toBe(false);
+    });
   });
 
   describe("checkAndToggleCaffeinate", () => {
@@ -103,6 +113,25 @@ describe("caffeinate", () => {
       cardsDb.updateCardStatus(db, cardId as any, "done");
       checkAndToggleCaffeinate(db);
       expect(isCaffeinateActive()).toBe(false);
+    });
+
+    it("auto-check overrides manual start when no active cards exist", () => {
+      startCaffeinate();
+      if (!isSleepPreventionSupported()) return;
+      expect(isCaffeinateActive()).toBe(true);
+
+      checkAndToggleCaffeinate(db);
+      expect(isCaffeinateActive()).toBe(false);
+    });
+
+    it("auto-check does not override when active cards exist", () => {
+      if (!isSleepPreventionSupported()) return;
+
+      const boardId = createBoard(db);
+      createCard(db, boardId, "queued");
+
+      checkAndToggleCaffeinate(db);
+      expect(isCaffeinateActive()).toBe(true);
     });
   });
 });

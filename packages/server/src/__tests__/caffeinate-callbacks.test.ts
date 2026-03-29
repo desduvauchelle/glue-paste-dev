@@ -95,6 +95,26 @@ describe("callbacks caffeinate integration", () => {
     expect(isCaffeinateActive()).toBe(false);
   });
 
+  it("onExecutionStarted triggers caffeinate check", () => {
+    if (!isSleepPreventionSupported()) return;
+
+    const board = boardsDb.createBoard(db, {
+      name: "Test",
+      description: "",
+      directory: "/tmp/test-cb-exec",
+    });
+    const card = cardsDb.createCard(db, board.id as BoardId, {
+      title: "Card",
+      description: "",
+    });
+    cardsDb.updateCardStatus(db, card.id as CardId, "in-progress");
+
+    const callbacks = makeCallbacks(db, (e) => broadcasts.push(e));
+    callbacks.onExecutionStarted(card.id, "exec-1", "plan");
+
+    expect(isCaffeinateActive()).toBe(true);
+  });
+
   it("onQueueStopped still broadcasts the queue:stopped event", () => {
     const board = boardsDb.createBoard(db, {
       name: "Test",

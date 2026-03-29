@@ -16,6 +16,7 @@ import {
   listCardsByStatus,
   countCardsByStatusAllBoards,
   countDonePerDay,
+  countActiveCards,
 } from "../../db/cards.js";
 import { createExecution, getCompletedPlanOutput, updateExecutionStatus } from "../../db/executions.js";
 import type { BoardId, CardId, ExecutionId } from "../../types/index.js";
@@ -252,5 +253,57 @@ describe("cards", () => {
     db.query("UPDATE executions SET output = ? WHERE id = ?").run("The plan", planExec.id);
 
     expect(getCompletedPlanOutput(db, card.id as CardId)).toBe("The plan");
+  });
+
+  describe("countActiveCards", () => {
+    it("returns 0 when no cards exist", () => {
+      expect(countActiveCards(db)).toBe(0);
+    });
+
+    it("returns 0 when all cards are todo", () => {
+      createCard(db, boardId, { title: "A", description: "" });
+      expect(countActiveCards(db)).toBe(0);
+    });
+
+    it("counts queued cards", () => {
+      const card = createCard(db, boardId, { title: "A", description: "" });
+      updateCardStatus(db, card.id as CardId, "queued");
+      expect(countActiveCards(db)).toBe(1);
+    });
+
+    it("counts in-progress cards", () => {
+      const card = createCard(db, boardId, { title: "A", description: "" });
+      updateCardStatus(db, card.id as CardId, "in-progress");
+      expect(countActiveCards(db)).toBe(1);
+    });
+
+    it("does not count done cards", () => {
+      const card = createCard(db, boardId, { title: "A", description: "" });
+      updateCardStatus(db, card.id as CardId, "done");
+      expect(countActiveCards(db)).toBe(0);
+    });
+
+    it("does not count failed cards", () => {
+      const card = createCard(db, boardId, { title: "A", description: "" });
+      updateCardStatus(db, card.id as CardId, "failed");
+      expect(countActiveCards(db)).toBe(0);
+    });
+
+    it("counts across multiple boards", () => {
+      const board2 = createBoard(db, { name: "B2", description: "", directory: "/tmp/b2" });
+      const c1 = createCard(db, boardId, { title: "A", description: "" });
+      const c2 = createCard(db, board2.id as BoardId, { title: "B", description: "" });
+      updateCardStatus(db, c1.id as CardId, "queued");
+      updateCardStatus(db, c2.id as CardId, "in-progress");
+      expect(countActiveCards(db)).toBe(2);
+    });
+
+    it("returns 0 after resetStaleCards clears all active cards", () => {
+      const card = createCard(db, boardId, { title: "A", description: "" });
+      updateCardStatus(db, card.id as CardId, "in-progress");
+      expect(countActiveCards(db)).toBe(1);
+      resetStaleCards(db);
+      expect(countActiveCards(db)).toBe(0);
+    });
   });
 });
