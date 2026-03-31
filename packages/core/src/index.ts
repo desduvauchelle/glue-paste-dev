@@ -43,3 +43,4 @@ export { detectRateLimit } from "./executor/rate-limit.js";
 export type { RateLimitInfo } from "./executor/rate-limit.js";
 export { runChat, killChatProcess, hasChatProcess, killAllChatProcesses } from "./executor/chat.js";
 export type { ChatCallbacks, ChatOptions } from "./executor/chat.js";
+export { generateTitle } from "./executor/generate-title.js";

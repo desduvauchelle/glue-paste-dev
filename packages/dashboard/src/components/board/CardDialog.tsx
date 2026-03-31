@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import type { CardWithTags, CreateCard, UpdateCard, Board, CliProvider, BranchMode } from "@/lib/api"
-import { config as configApi, boards as boardsApi, cards as cardsApi, attachments as attachmentsApi } from "@/lib/api"
+import { config as configApi, boards as boardsApi, cards as cardsApi, attachments as attachmentsApi, ai as aiApi } from "@/lib/api"
 import { useComments } from "@/hooks/use-comments"
 import {
 	Dialog,
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2, GitCommit, ExternalLink, Upload, GitBranch } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2, GitCommit, ExternalLink, Upload, GitBranch, Sparkles } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
@@ -86,6 +86,9 @@ export function CardDialog({
 	const activityEndRef = useRef<HTMLDivElement>(null)
 	const [isDragging, setIsDragging] = useState(false)
 	const [isUploading, setIsUploading] = useState(false)
+	const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
+	const titleGeneratedRef = useRef(false)
+	const generateTitleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const dragCounterRef = useRef(0)
 
 	const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -190,6 +193,8 @@ export function CardDialog({
 		}
 		setShowFileBrowser(false)
 		setConfirmDelete(false)
+		titleGeneratedRef.current = false
+		setIsGeneratingTitle(false)
 	}, [card, open, defaultDescription])
 
 	useEffect(() => {
@@ -234,6 +239,37 @@ export function CardDialog({
 			dragCounterRef.current = 0
 		}
 	}, [open])
+
+	// Debounced auto-generate title when description changes (create mode, empty title only)
+	useEffect(() => {
+		if (isEditing || title.trim() || titleGeneratedRef.current) return
+		if (!description.trim() || description.trim().length < 10) return
+
+		if (generateTitleTimerRef.current) clearTimeout(generateTitleTimerRef.current)
+		generateTitleTimerRef.current = setTimeout(() => {
+			void handleGenerateTitle()
+		}, 1500)
+
+		return () => {
+			if (generateTitleTimerRef.current) clearTimeout(generateTitleTimerRef.current)
+		}
+	}, [description, isEditing, title])
+
+	const handleGenerateTitle = async () => {
+		if (!description.trim()) return
+		setIsGeneratingTitle(true)
+		try {
+			const { title: generated } = await aiApi.generateTitle(description)
+			if (generated && !title.trim()) {
+				setTitle(generated)
+				titleGeneratedRef.current = true
+			}
+		} catch {
+			// silently fail — title is optional
+		} finally {
+			setIsGeneratingTitle(false)
+		}
+	}
 
 	const handleSave = async () => {
 		if (!title.trim() && !description.trim()) return
@@ -340,7 +376,32 @@ export function CardDialog({
 						<div className="flex flex-col md:flex-row gap-6">
 							{/* Left Column — Main Content */}
 							<div className="flex-1 min-w-0 space-y-4">
-								{/* Title field hidden — state kept for data model compatibility */}
+								{/* Title */}
+								<div>
+									<label className="text-sm font-medium mb-1 block">Title</label>
+									<div className="flex gap-1.5">
+										<Input
+											placeholder={isGeneratingTitle ? "Generating title..." : "Card title (auto-generated from description)"}
+											value={title}
+											onChange={(e) => {
+												setTitle(e.target.value)
+												titleGeneratedRef.current = false
+											}}
+											className={cn("flex-1", isGeneratingTitle && "animate-pulse")}
+										/>
+										<Button
+											type="button"
+											variant="outline"
+											size="icon"
+											className="h-9 w-9 shrink-0"
+											onClick={() => void handleGenerateTitle()}
+											disabled={isGeneratingTitle || !description.trim()}
+											title="Generate title with AI"
+										>
+											<Sparkles className={cn("w-3.5 h-3.5", isGeneratingTitle && "animate-spin")} />
+										</Button>
+									</div>
+								</div>
 
 								{/* Column selector (create mode only) */}
 								{!isEditing && (

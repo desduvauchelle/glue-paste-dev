@@ -18,6 +18,7 @@ import { statsRoutes } from "./routes/stats.js";
 import { tagRoutes } from "./routes/tags.js";
 import { systemRoutes } from "./routes/system.js";
 import { startUpdateChecker, updateRoutes } from "./routes/update.js";
+import { aiRoutes } from "./routes/ai.js";
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -127,6 +128,7 @@ app.route("/api/tags", tagRoutes(db));
 app.route("/api/stats", statsRoutes(db));
 app.route("/api/files", fileRoutes(db));
 app.route("/api/cards", chatRoutes(db, broadcast));
+app.route("/api/ai", aiRoutes());
 app.route("/api/update", updateRoutes(broadcast));
 app.route("/api/caffeinate", caffeinateRoutes());
 app.route("/api/auth", authRoutes());

@@ -168,6 +168,15 @@ export const attachments = {
     request<{ ok: boolean }>(`/files/board/${boardId}/attachments/${cardId}/${encodeURIComponent(filename)}`, { method: "DELETE" }),
 };
 
+// AI
+export const ai = {
+  generateTitle: (description: string) =>
+    request<{ title: string }>("/ai/generate-title", {
+      method: "POST",
+      body: JSON.stringify({ description }),
+    }),
+};
+
 // Chat
 export const chat = {
   send: (cardId: string, data: { message: string; mode: "plan" | "execute"; thinking: "smart" | "basic" }) =>
