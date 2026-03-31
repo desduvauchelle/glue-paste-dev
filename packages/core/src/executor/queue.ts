@@ -57,6 +57,19 @@ export function applyCardOverrides(
 const queues = new Map<string, QueueState>();
 const activeProcesses = new Map<string, AbortController>();
 
+/** Track cards that were explicitly stopped — prevents processCard from retrying or overriding status */
+const stoppedCardIds = new Set<string>();
+
+/** Check if a card was explicitly stopped (and consume the flag) */
+export function consumeStoppedFlag(cardId: string): boolean {
+  return stoppedCardIds.delete(cardId);
+}
+
+/** Check if a card is marked as stopped (without consuming) */
+export function isCardStopped(cardId: string): boolean {
+  return stoppedCardIds.has(cardId);
+}
+
 /** Helper: sync the deprecated `current` field from `active` */
 function syncCurrent(state: QueueState): void {
   state.current = state.active[0] ?? null;
@@ -156,6 +169,14 @@ export async function executeSingleCard(
     const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
     const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
 
+    // If stopped while running, don't retry or override status
+    if (consumeStoppedFlag(cardId)) {
+      log.info("queue", `Single card ${cardId} was stopped — skipping post-execution handling`);
+      const updated = cardsDb.getCard(db, cardId);
+      if (updated) callbacks.onCardUpdated(updated);
+      return;
+    }
+
     if (result.success) {
       cardsDb.updateCardStatus(db, cardId, "done");
       enforceAttachmentCap(db, card.board_id as BoardId);
@@ -164,6 +185,15 @@ export async function executeSingleCard(
     } else {
       log.warn("queue", `Card ${cardId} failed, retrying once`);
       const retryResult = await runCard(db, card, board, comments, config, callbacks);
+
+      // Check again after retry
+      if (consumeStoppedFlag(cardId)) {
+        log.info("queue", `Single card ${cardId} was stopped during retry — skipping post-execution handling`);
+        const updated = cardsDb.getCard(db, cardId);
+        if (updated) callbacks.onCardUpdated(updated);
+        return;
+      }
+
       if (retryResult.rateLimitInfo?.isRateLimit) {
         notifyRateLimitOrOverload(db, card, retryResult.rateLimitInfo, callbacks);
       } else {
@@ -173,7 +203,9 @@ export async function executeSingleCard(
     }
   } catch (err) {
     log.error("queue", `Unexpected error executing card ${cardId}:`, err);
-    cardsDb.updateCardStatus(db, cardId, "failed");
+    if (!consumeStoppedFlag(cardId)) {
+      cardsDb.updateCardStatus(db, cardId, "failed");
+    }
   }
 
   const updated = cardsDb.getCard(db, cardId);
@@ -186,11 +218,24 @@ export function stopCard(
   cardId: CardId,
   callbacks: QueueCallbacks
 ): void {
+  // Mark as stopped BEFORE killing — processCard checks this flag to avoid retrying
+  stoppedCardIds.add(cardId);
+
   const killed = killCardProcess(cardId);
   if (killed) {
     log.info("queue", `Stopped card ${cardId}`);
   }
   cardsDb.updateCardStatus(db, cardId, "todo");
+
+  // Remove from queue active list so fillSlots doesn't wait for it
+  for (const [boardId, state] of queues) {
+    if (state.active.includes(cardId)) {
+      removeFromActive(boardId, cardId);
+      broadcastQueueState(state, callbacks);
+      break;
+    }
+  }
+
   const updated = cardsDb.getCard(db, cardId);
   if (updated) callbacks.onCardUpdated(updated);
 }
@@ -287,6 +332,14 @@ async function processCard(
     const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
     const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
 
+    // If the card was explicitly stopped while running, don't retry or override status
+    if (consumeStoppedFlag(cardId)) {
+      log.info("queue", `Card ${cardId} was stopped — skipping post-execution handling`);
+      removeFromActive(boardId, cardId);
+      fillSlots(db, boardId, callbacks);
+      return;
+    }
+
     if (result.success) {
       cardsDb.updateCardStatus(db, cardId, "done");
       enforceAttachmentCap(db, card.board_id as BoardId);
@@ -302,6 +355,14 @@ async function processCard(
       // Retry once
       const retryComments = commentsDb.listComments(db, cardId);
       const retryResult = await runCard(db, card, board, retryComments, config, callbacks);
+
+      // Check again after retry — card may have been stopped during retry
+      if (consumeStoppedFlag(cardId)) {
+        log.info("queue", `Card ${cardId} was stopped during retry — skipping post-execution handling`);
+        removeFromActive(boardId, cardId);
+        fillSlots(db, boardId, callbacks);
+        return;
+      }
 
       if (retryResult.success) {
         cardsDb.updateCardStatus(db, cardId, "done");
@@ -348,9 +409,12 @@ async function processCard(
     }
   } catch (err) {
     log.error("queue", `Unexpected error processing card ${cardId}:`, err);
-    cardsDb.updateCardStatus(db, cardId, "failed");
-    const updated = cardsDb.getCard(db, cardId);
-    if (updated) callbacks.onCardUpdated(updated);
+    // Don't override status if card was explicitly stopped
+    if (!consumeStoppedFlag(cardId)) {
+      cardsDb.updateCardStatus(db, cardId, "failed");
+      const updated = cardsDb.getCard(db, cardId);
+      if (updated) callbacks.onCardUpdated(updated);
+    }
     removeFromActive(boardId, cardId);
     fillSlots(db, boardId, callbacks);
   }
