@@ -193,6 +193,7 @@ export function BoardSettingsDialog({
           </Button>
         </DialogHeader>
 
+        <div className="flex-1 overflow-y-auto">
         {/* Tabs */}
         <div className="flex gap-1 border-b pb-2">
           <button className={tabClass("general")} onClick={() => setActiveTab("general")}>
@@ -456,6 +457,7 @@ export function BoardSettingsDialog({
               radioPrefix="board"
             />
           )}
+        </div>
         </div>
 
         <DialogFooter>

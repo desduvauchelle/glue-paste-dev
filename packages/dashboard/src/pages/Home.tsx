@@ -222,6 +222,7 @@ export function Home() {
             <DialogHeader>
               <DialogTitle>Create New Board</DialogTitle>
             </DialogHeader>
+            <div className="flex-1 overflow-y-auto">
             <div className="space-y-4 py-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">Name</label>
@@ -274,6 +275,7 @@ export function Home() {
                   ))}
                 </div>
               </div>
+            </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>

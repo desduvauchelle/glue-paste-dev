@@ -345,7 +345,7 @@ export function CardDialog({
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent
-					className="max-w-5xl max-h-[90vh] flex flex-col relative"
+					className="max-w-5xl relative"
 					onDragEnter={handleDragEnter}
 					onDragLeave={handleDragLeave}
 					onDragOver={handleDragOver}
