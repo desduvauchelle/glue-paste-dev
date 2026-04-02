@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { exec } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 
 export function systemRoutes() {
@@ -15,7 +14,7 @@ export function systemRoutes() {
       return c.json({ error: "Directory not found" }, 404);
     }
 
-    exec(`open ${JSON.stringify(path)}`);
+    Bun.spawn(["open", path], { stdout: "ignore", stderr: "ignore" });
     return c.json({ ok: true });
   });
 

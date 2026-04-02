@@ -70,7 +70,7 @@ app.use(
   "/api/*",
   cors({
     origin: origin => {
-      if (!origin) return "*";
+      if (!origin) return null as unknown as string;
       try {
         const url = new URL(origin);
         if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
@@ -84,17 +84,18 @@ app.use(
   })
 );
 
-// Security headers for HTML responses
+// Security headers
 app.use("*", async (c, next) => {
   await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-Frame-Options", "DENY");
+  c.res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   const ct = c.res.headers.get("content-type") || "";
   if (ct.includes("text/html")) {
     c.res.headers.set(
       "Content-Security-Policy",
       "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* wss://localhost:*; img-src 'self' data:; font-src 'self'"
     );
-    c.res.headers.set("X-Content-Type-Options", "nosniff");
-    c.res.headers.set("X-Frame-Options", "DENY");
   }
 });
 

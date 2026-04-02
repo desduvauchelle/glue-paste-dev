@@ -23,6 +23,10 @@ function sanitizeFilename(name: string): string {
   return basename(name).replace(/[/\\]/g, "_").replace(/\0/g, "_");
 }
 
+function isValidCardId(id: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(id) && id.length <= 64;
+}
+
 interface FileEntry {
   name: string;
   type: "file" | "directory";
@@ -45,7 +49,7 @@ export function fileRoutes(db: Database) {
     const targetDir = resolve(rootDir, subPath);
 
     // Prevent directory traversal
-    if (!targetDir.startsWith(rootDir)) {
+    if (targetDir !== rootDir && !targetDir.startsWith(rootDir + "/")) {
       return c.json({ error: "Invalid path" }, 400);
     }
 
@@ -131,6 +135,9 @@ export function fileRoutes(db: Database) {
   app.post("/board/:boardId/upload/:cardId", async (c) => {
     const boardId = c.req.param("boardId") as BoardId;
     const cardId = c.req.param("cardId");
+    if (!isValidCardId(cardId)) {
+      return c.json({ error: "Invalid card ID" }, 400);
+    }
     const board = boardsDb.getBoard(db, boardId);
     if (!board) {
       return c.json({ error: "Board not found" }, 404);
@@ -172,6 +179,9 @@ export function fileRoutes(db: Database) {
   app.get("/board/:boardId/attachments/:cardId", (c) => {
     const boardId = c.req.param("boardId") as BoardId;
     const cardId = c.req.param("cardId");
+    if (!isValidCardId(cardId)) {
+      return c.json({ error: "Invalid card ID" }, 400);
+    }
     const board = boardsDb.getBoard(db, boardId);
     if (!board) {
       return c.json({ error: "Board not found" }, 404);
@@ -193,6 +203,9 @@ export function fileRoutes(db: Database) {
   app.delete("/board/:boardId/attachments/:cardId/:filename", (c) => {
     const boardId = c.req.param("boardId") as BoardId;
     const cardId = c.req.param("cardId");
+    if (!isValidCardId(cardId)) {
+      return c.json({ error: "Invalid card ID" }, 400);
+    }
     const filename = c.req.param("filename");
     const board = boardsDb.getBoard(db, boardId);
     if (!board) {
@@ -220,6 +233,9 @@ export function fileRoutes(db: Database) {
   app.delete("/board/:boardId/attachments/:cardId", (c) => {
     const boardId = c.req.param("boardId") as BoardId;
     const cardId = c.req.param("cardId");
+    if (!isValidCardId(cardId)) {
+      return c.json({ error: "Invalid card ID" }, 400);
+    }
     const board = boardsDb.getBoard(db, boardId);
     if (!board) {
       return c.json({ error: "Board not found" }, 404);
