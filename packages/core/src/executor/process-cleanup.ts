@@ -5,6 +5,7 @@ import { log } from "../logger.js";
  * Uses pkill to find and kill child processes before killing the parent.
  */
 export function killProcessTreeSync(pid: number): void {
+  if (pid <= 0) return;
   try {
     // Kill all child processes first
     try {
