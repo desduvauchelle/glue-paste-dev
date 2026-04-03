@@ -198,8 +198,9 @@ export function CardDialog({
 	}, [card, open, defaultDescription])
 
 	useEffect(() => {
+		if (!open) return
 		void configApi.getForBoard(boardId).then((c) => setConfigDefaults({ planThinking: c.planThinking, executeThinking: c.executeThinking, autoCommit: c.autoCommit, autoPush: c.autoPush, cliProvider: c.cliProvider, branchMode: c.branchMode, branchName: c.branchName }))
-	}, [boardId])
+	}, [boardId, open])
 
 	useEffect(() => {
 		void boardsApi.get(boardId).then(setCurrentBoard)

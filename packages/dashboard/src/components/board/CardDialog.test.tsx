@@ -239,6 +239,77 @@ describe("CardDialog — config defaults", () => {
     });
   });
 
+  it("refreshes config defaults when dialog is reopened after config change", async () => {
+    // Initial open: planThinking = "smart"
+    vi.mocked(configApi.getForBoard).mockResolvedValueOnce({
+      cliProvider: "claude",
+      cliCustomCommand: "",
+      model: "claude-opus-4-6",
+      planModel: "",
+      executeModel: "",
+      maxBudgetUsd: 10,
+      autoCommit: false,
+      autoPush: false,
+      planThinking: "smart",
+      executeThinking: "smart",
+      customTags: [],
+      customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
+      maxConcurrentCards: 1,
+    });
+
+    const { rerender } = render(<CardDialog {...defaultProps} open={true} card={null} />);
+
+    await waitFor(() => {
+      expect(configApi.getForBoard).toHaveBeenCalledTimes(1);
+    });
+
+    // Close the dialog
+    rerender(<CardDialog {...defaultProps} open={false} card={null} />);
+
+    // Config was updated to planThinking = "basic" (Normal)
+    vi.mocked(configApi.getForBoard).mockResolvedValueOnce({
+      cliProvider: "claude",
+      cliCustomCommand: "",
+      model: "claude-opus-4-6",
+      planModel: "",
+      executeModel: "",
+      maxBudgetUsd: 10,
+      autoCommit: false,
+      autoPush: false,
+      planThinking: "basic",
+      executeThinking: "smart",
+      customTags: [],
+      customInstructions: "",
+      branchMode: "current" as const,
+      branchName: "",
+      maxConcurrentCards: 1,
+    });
+
+    // Reopen the dialog
+    rerender(<CardDialog {...defaultProps} open={true} card={null} />);
+
+    await waitFor(() => {
+      // Should have fetched twice — once on first open, once on reopen
+      expect(configApi.getForBoard).toHaveBeenCalledTimes(2);
+    });
+
+    // The "Normal" (basic) Plan checkbox must now be checked
+    await waitFor(() => {
+      const checkboxes = screen.getAllByRole("checkbox");
+      const normalPlanCheckbox = checkboxes.find((cb) => {
+        const label = cb.closest("label");
+        return (
+          label?.textContent?.includes("Normal") &&
+          cb.closest(".flex.items-center.gap-2")?.querySelector(".w-11")?.textContent === "Plan"
+        );
+      });
+      expect(normalPlanCheckbox).toBeDefined();
+      expect(normalPlanCheckbox!).toBeChecked();
+    });
+  });
+
   it("shows card-level autoCommit=true override instead of config default false", async () => {
     vi.mocked(configApi.getForBoard).mockResolvedValue({
       cliProvider: "claude",
