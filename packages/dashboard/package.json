@@ -17,6 +17,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@glue-paste-dev/core": "workspace:*",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.38.0",
     "lucide-react": "^0.487.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
