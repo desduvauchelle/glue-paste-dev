@@ -8,6 +8,7 @@ import {
   isCaffeinateActive,
   checkAndToggleCaffeinate,
   isSleepPreventionSupported,
+  getActiveBoardDetails,
 } from "../caffeinate.js";
 
 let db: Database;
@@ -132,6 +133,59 @@ describe("caffeinate", () => {
 
       checkAndToggleCaffeinate(db);
       expect(isCaffeinateActive()).toBe(true);
+    });
+  });
+
+  describe("getActiveBoardDetails", () => {
+    it("returns empty array when no active cards", () => {
+      const result = getActiveBoardDetails(db);
+      expect(result).toEqual([]);
+    });
+
+    it("returns boards with queued cards", () => {
+      const boardId = createBoard(db);
+      createCard(db, boardId, "queued");
+      const result = getActiveBoardDetails(db);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ id: boardId, name: "Test Board" });
+    });
+
+    it("returns boards with in-progress cards", () => {
+      const boardId = createBoard(db);
+      createCard(db, boardId, "in-progress");
+      const result = getActiveBoardDetails(db);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ id: boardId });
+    });
+
+    it("does not return boards with only done/failed/todo cards", () => {
+      const boardId = createBoard(db);
+      createCard(db, boardId, "done");
+      createCard(db, boardId, "failed");
+      createCard(db, boardId, "todo");
+      const result = getActiveBoardDetails(db);
+      expect(result).toHaveLength(0);
+    });
+
+    it("deduplicates — a board with multiple active cards appears once", () => {
+      const boardId = createBoard(db);
+      createCard(db, boardId, "queued");
+      createCard(db, boardId, "in-progress");
+      const result = getActiveBoardDetails(db);
+      expect(result).toHaveLength(1);
+    });
+
+    it("returns multiple boards when each has active cards", () => {
+      const boardId1 = createBoard(db);
+      createCard(db, boardId1, "queued");
+      const boardId2 = boardsDb.createBoard(db, {
+        name: "Board Two",
+        description: "test",
+        directory: "/tmp/test-caffeinate-2",
+      }).id;
+      createCard(db, boardId2, "in-progress");
+      const result = getActiveBoardDetails(db);
+      expect(result).toHaveLength(2);
     });
   });
 });

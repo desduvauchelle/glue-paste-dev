@@ -64,3 +64,15 @@ export function checkAndToggleCaffeinate(db: Database): void {
     stopCaffeinate();
   }
 }
+
+export function getActiveBoardDetails(db: Database): { id: string; name: string }[] {
+  const rows = db
+    .query(
+      `SELECT DISTINCT b.id, b.name FROM boards b
+       JOIN cards c ON c.board_id = b.id
+       WHERE c.status IN ('queued', 'in-progress')
+       ORDER BY b.name`
+    )
+    .all() as Array<{ id: string; name: string }>;
+  return rows;
+}
