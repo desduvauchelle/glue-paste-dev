@@ -6,13 +6,18 @@ import {
   isSleepPreventionSupported,
   stopCaffeinate,
 } from "../caffeinate.js";
+import { getTestDb, boardsDb, cardsDb } from "@glue-paste-dev/core";
+import type { Database } from "bun:sqlite";
+import type { BoardId } from "@glue-paste-dev/core";
 
 let app: Hono;
+let db: Database;
 
 beforeEach(() => {
   stopCaffeinate();
+  db = getTestDb();
   app = new Hono();
-  app.route("/api/caffeinate", caffeinateRoutes());
+  app.route("/api/caffeinate", caffeinateRoutes(db));
 });
 
 afterEach(() => {
@@ -24,7 +29,43 @@ describe("caffeinate routes", () => {
     const res = await app.request("/api/caffeinate");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ active: false });
+    expect(body).toMatchObject({ active: false, activeBoards: [] });
+  });
+
+  it("GET /api/caffeinate returns activeBoards when queued cards exist", async () => {
+    const board = boardsDb.createBoard(db, {
+      name: "Active Board",
+      description: "",
+      directory: "/tmp/test-route-board",
+    });
+    const card = cardsDb.createCard(db, board.id as BoardId, {
+      title: "Task",
+      description: "",
+    });
+    cardsDb.updateCardStatus(db, card.id as any, "queued");
+
+    const res = await app.request("/api/caffeinate");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.activeBoards).toHaveLength(1);
+    expect(body.activeBoards[0]).toMatchObject({ id: board.id, name: "Active Board" });
+  });
+
+  it("GET /api/caffeinate returns empty activeBoards when only done cards", async () => {
+    const board = boardsDb.createBoard(db, {
+      name: "Done Board",
+      description: "",
+      directory: "/tmp/test-route-board-done",
+    });
+    const card = cardsDb.createCard(db, board.id as BoardId, {
+      title: "Done Task",
+      description: "",
+    });
+    cardsDb.updateCardStatus(db, card.id as any, "done");
+
+    const res = await app.request("/api/caffeinate");
+    const body = await res.json();
+    expect(body.activeBoards).toHaveLength(0);
   });
 
   it("POST /api/caffeinate starts caffeinate", async () => {

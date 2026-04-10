@@ -131,7 +131,7 @@ app.route("/api/files", fileRoutes(db));
 app.route("/api/cards", chatRoutes(db, broadcast));
 app.route("/api/ai", aiRoutes());
 app.route("/api/update", updateRoutes(broadcast));
-app.route("/api/caffeinate", caffeinateRoutes());
+app.route("/api/caffeinate", caffeinateRoutes(db));
 app.route("/api/auth", authRoutes());
 app.route("/api/system", systemRoutes());
 

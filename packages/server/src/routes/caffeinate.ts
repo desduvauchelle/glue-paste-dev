@@ -1,12 +1,21 @@
 import { Hono } from "hono";
-import { isCaffeinateActive, startCaffeinate, stopCaffeinate } from "../caffeinate.js";
+import type { Database } from "bun:sqlite";
+import {
+  isCaffeinateActive,
+  startCaffeinate,
+  stopCaffeinate,
+  getActiveBoardDetails,
+} from "../caffeinate.js";
 
-export function caffeinateRoutes() {
+export function caffeinateRoutes(db: Database) {
   const app = new Hono();
 
   // GET /api/caffeinate
   app.get("/", (c) => {
-    return c.json({ active: isCaffeinateActive() });
+    return c.json({
+      active: isCaffeinateActive(),
+      activeBoards: getActiveBoardDetails(db),
+    });
   });
 
   // POST /api/caffeinate — manually start
