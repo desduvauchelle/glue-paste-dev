@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { Hono } from "hono";
-import { buildExtractArgs, updateRoutes } from "../../routes/update.js";
+import { buildExtractArgs, buildCliUpdateArgs, updateRoutes } from "../../routes/update.js";
 
 describe("buildExtractArgs", () => {
   it("returns array-based args with correct paths", () => {
@@ -17,6 +17,24 @@ describe("buildExtractArgs", () => {
     const joined = args.join(" ");
     expect(joined).not.toContain("bash");
     expect(joined).not.toContain("-c");
+  });
+});
+
+describe("buildCliUpdateArgs", () => {
+  it("returns a 4-element bun run command pointing to cli/src/index.ts", () => {
+    const args = buildCliUpdateArgs("/tmp/test-data");
+    expect(args).toHaveLength(4);
+    expect(args[0]).toBe("bun");
+    expect(args[1]).toBe("run");
+    expect(args[2]).toBe("/tmp/test-data/cli/src/index.ts");
+    expect(args[3]).toBe("update");
+  });
+
+  it("does not use shell execution", () => {
+    const joined = buildCliUpdateArgs("/tmp/test-data").join(" ");
+    expect(joined).not.toContain("bash");
+    expect(joined).not.toContain(" -c ");
+    expect(joined).not.toContain("sh ");
   });
 });
 

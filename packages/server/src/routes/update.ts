@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getDataDir, log } from "@glue-paste-dev/core";
-import { readFileSync, existsSync, rmSync, mkdirSync, symlinkSync, unlinkSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const REPO = "desduvauchelle/glue-paste-dev";
@@ -84,24 +84,14 @@ function setCachedResult(result: NonNullable<typeof cachedResult>) {
   cachedAt = Date.now();
 }
 
-/** Download a file using native fetch instead of shelling out to curl. */
-async function downloadFile(url: string, destPath: string): Promise<void> {
-  if (!url.startsWith("https://")) {
-    throw new Error("Download URL must use HTTPS");
-  }
-  if (/[;|&$`(){}]/.test(url)) {
-    throw new Error("Download URL contains invalid characters");
-  }
-  const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) {
-    throw new Error(`Download failed: ${res.status} ${res.statusText}`);
-  }
-  await Bun.write(destPath, res);
-}
-
 /** Build safe extract args without shell interpolation. */
 export function buildExtractArgs(dataDir: string): string[] {
   return ["tar", "-xzf", join(dataDir, "release.tar.gz"), "-C", dataDir];
+}
+
+/** Build CLI update command args. Exported for testing. */
+export function buildCliUpdateArgs(dataDir: string): string[] {
+  return ["bun", "run", join(dataDir, "cli", "src", "index.ts"), "update"];
 }
 
 export function updateRoutes(broadcast: (event: unknown) => void) {
@@ -138,7 +128,7 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     return c.json(result);
   });
 
-  // POST /api/update/apply — download and apply update, then restart
+  // POST /api/update/apply — spawn CLI update command to stop, download, install, and restart
   app.post("/apply", async (c) => {
     log.always("update", "POST /api/update/apply: update apply requested");
 
@@ -151,96 +141,29 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     }
 
     const dataDir = getDataDir();
-    log.always("update", `apply: starting v${result.currentVersion} → v${result.latestVersion}`);
-    log.always("update", `apply: dataDir=${dataDir}`);
-    log.always("update", `apply: downloadUrl=${result.downloadUrl}`);
+    const cliArgs = buildCliUpdateArgs(dataDir);
+    const cliPath = cliArgs[2]!; // ~/.glue-paste-dev/cli/src/index.ts
 
-    // Download first, only delete old files after successful download
-    const tarPath = join(dataDir, "release.tar.gz");
-    try {
-      log.always("update", `apply: downloading to ${tarPath}`);
-      await downloadFile(result.downloadUrl, tarPath);
-      log.always("update", "apply: download complete");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log.alwaysError("update", `apply: download FAILED — ${msg}`, err);
-      return c.json({ ok: false, error: `Download failed: ${msg}` }, 500);
+    if (!existsSync(cliPath)) {
+      log.alwaysError("update", `apply: CLI not found at ${cliPath}`);
+      return c.json({ ok: false, error: "CLI not found, cannot apply update" }, 500);
     }
 
-    // Download succeeded — now safe to delete old files and extract
-    try {
-      log.always("update", "apply: removing old server/ and cli/ directories");
-      rmSync(join(dataDir, "server"), { recursive: true, force: true });
-      rmSync(join(dataDir, "cli"), { recursive: true, force: true });
-      log.always("update", "apply: old directories removed");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log.alwaysError("update", `apply: failed to remove old files — ${msg}`, err);
-      try { rmSync(tarPath, { force: true }); } catch { /* cleanup */ }
-      return c.json({ ok: false, error: `Failed to remove old version: ${msg}` }, 500);
-    }
+    log.always("update", `apply: scheduling CLI update via ${cliPath} in 500ms`);
 
-    const extractArgs = buildExtractArgs(dataDir);
-    log.always("update", `apply: extracting with ${extractArgs.join(" ")}`);
-    let extractFailed = false;
-    let extractError = "";
-    try {
-      const extractProc = Bun.spawnSync(extractArgs);
-      if (extractProc.exitCode !== 0) {
-        extractFailed = true;
-        extractError = extractProc.stderr.toString().trim() || `exit code ${extractProc.exitCode}`;
-        log.alwaysError("update", `apply: tar exited with code ${extractProc.exitCode}, stderr: ${extractError}`);
-      } else {
-        log.always("update", "apply: extraction complete");
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log.alwaysError("update", `apply: tar threw exception — ${msg}`, err);
-      extractFailed = true;
-      extractError = msg;
-    }
-
-    try { rmSync(tarPath, { force: true }); } catch { /* non-critical */ }
-
-    if (extractFailed) {
-      return c.json({ ok: false, error: `Extract failed: ${extractError}` }, 500);
-    }
-
-    // Make CLI executable and ensure symlinks
-    const cliEntry = join(dataDir, "cli", "src", "index.ts");
-    log.always("update", `apply: setting permissions on ${cliEntry}`);
-    try {
-      Bun.spawnSync(["chmod", "+x", cliEntry]);
-    } catch (err) {
-      log.alwaysError("update", "apply: chmod failed (non-critical)", err);
-    }
-
-    // Re-create bin symlink (cli/ was deleted and re-extracted)
-    const binDir = join(dataDir, "bin");
-    const binLink = join(binDir, "glue-paste-dev");
-    try {
-      mkdirSync(binDir, { recursive: true });
-      try { unlinkSync(binLink); } catch { /* may not exist */ }
-      symlinkSync(cliEntry, binLink);
-      log.always("update", `apply: symlink created ${binLink} → ${cliEntry}`);
-    } catch (err) {
-      log.alwaysError("update", "apply: bin symlink failed (non-critical)", err);
-    }
-
-    // Try /usr/local/bin symlink for convenience
-    try {
-      const sysLink = "/usr/local/bin/glue-paste-dev";
-      try { unlinkSync(sysLink); } catch { /* may not exist */ }
-      symlinkSync(cliEntry, sysLink);
-      log.always("update", `apply: system symlink created ${sysLink}`);
-    } catch (err) {
-      log.alwaysError("update", "apply: /usr/local/bin symlink failed (non-critical)", err);
-    }
-
-    log.always("update", `apply: SUCCESS v${result.currentVersion} → v${result.latestVersion}, restarting in 2s`);
-
-    // Exit with non-zero code so daemon wrapper restarts with new code
-    setTimeout(() => process.exit(1), 2000);
+    // Return response first so the client gets confirmation,
+    // then spawn the CLI update command which stops/downloads/extracts/restarts the daemon.
+    setTimeout(() => {
+      log.always("update", "apply: spawning CLI update command (will stop + restart daemon)");
+      const proc = Bun.spawn(cliArgs, {
+        cwd: dataDir,
+        env: process.env,
+        stdout: "ignore",
+        stderr: "ignore",
+        stdin: "ignore",
+      });
+      proc.unref();
+    }, 500);
 
     return c.json({ ok: true });
   });
