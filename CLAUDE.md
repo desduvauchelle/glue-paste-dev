@@ -63,3 +63,13 @@ When in plan mode, always write plans to the designated plan file path provided 
 - Do not add error handling, comments, or abstractions beyond what the task requires.
 - Prefer editing existing files over creating new ones.
 - Do not commit unless explicitly asked.
+
+## Workflow Automation
+
+When superpowers skills present execution choices, auto-select and proceed instead of asking:
+
+- **writing-plans "Execution Handoff"**: Always choose **Subagent-Driven Development**. Invoke `superpowers:subagent-driven-development` immediately after saving the plan. Do not ask which approach.
+- **finishing-a-development-branch "Present Options"**: Always choose **Option 2: Push and create a Pull Request**. Do not present the 4 options — just push the branch and create the PR. Do not ask which option.
+- **executing-plans completion**: When all tasks are done, proceed directly to `superpowers:finishing-a-development-branch` without asking.
+
+These directives override the corresponding skill sections. If a specific conversation requires a different choice, the user will say so explicitly.
