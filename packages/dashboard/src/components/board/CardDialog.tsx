@@ -705,7 +705,7 @@ export function CardDialog({
 														void handleAddComment()
 													}
 												}}
-												className="min-h-0 resize-none"
+												className="min-h-[36px]"
 											/>
 											<Button
 												size="icon"
