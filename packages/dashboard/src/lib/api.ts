@@ -202,7 +202,7 @@ export const update = {
 
 // Caffeinate
 export const caffeinate = {
-  status: () => request<{ active: boolean }>("/caffeinate"),
+  status: () => request<{ active: boolean; activeBoards: Array<{ id: string; name: string }> }>("/caffeinate"),
   start: () => request<{ active: boolean }>("/caffeinate", { method: "POST" }),
   stop: () => request<{ active: boolean }>("/caffeinate", { method: "DELETE" }),
 };

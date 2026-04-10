@@ -1,14 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { caffeinate } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Coffee } from "lucide-react";
 
 export function CaffeineToggle() {
   const [active, setActive] = useState(false);
+  const [activeBoards, setActiveBoards] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchStatus = useCallback(() => {
-    caffeinate.status().then((s) => setActive(s.active)).catch(() => {});
+    caffeinate.status().then((s) => {
+      setActive(s.active);
+      setActiveBoards(s.activeBoards ?? []);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -23,6 +28,7 @@ export function CaffeineToggle() {
       if (active) {
         const res = await caffeinate.stop();
         setActive(res.active);
+        if (!res.active) setActiveBoards([]);
       } else {
         const res = await caffeinate.start();
         setActive(res.active);
@@ -34,19 +40,29 @@ export function CaffeineToggle() {
     }
   };
 
+  const tooltipText = active && activeBoards.length > 0
+    ? `Keeping awake: ${activeBoards.map((b) => b.name).join(", ")}`
+    : active
+    ? "Caffeinate: ON (click to stop)"
+    : "Caffeinate: OFF (click to start)";
+
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      onClick={() => void toggle()}
-      disabled={loading}
-      title={active ? "Caffeinate: ON (click to stop)" : "Caffeinate: OFF (click to start)"}
-    >
-      <Coffee
-        className={`w-4 h-4 transition-colors ${
-          active ? "text-green-500" : "text-zinc-400 opacity-50"
-        }`}
-      />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => void toggle()}
+          disabled={loading}
+        >
+          <Coffee
+            className={`w-4 h-4 transition-colors ${
+              active ? "text-green-500" : "text-zinc-400 opacity-50"
+            }`}
+          />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{tooltipText}</TooltipContent>
+    </Tooltip>
   );
 }

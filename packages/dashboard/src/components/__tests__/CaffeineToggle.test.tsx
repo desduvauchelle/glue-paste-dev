@@ -18,7 +18,7 @@ const mockStop = caffeinate.stop as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockStatus.mockResolvedValue({ active: false });
+  mockStatus.mockResolvedValue({ active: false, activeBoards: [] });
 });
 
 describe("CaffeineToggle", () => {
@@ -28,20 +28,32 @@ describe("CaffeineToggle", () => {
       expect(mockStatus).toHaveBeenCalled();
     });
     const button = screen.getByRole("button");
-    expect(button).toHaveAttribute("title", expect.stringContaining("OFF"));
+    expect(button).toBeDefined();
+    // Tooltip content shows OFF state
+    expect(screen.getByText(/Caffeinate: OFF/)).toBeDefined();
   });
 
   it("renders with active state when API returns active", async () => {
-    mockStatus.mockResolvedValue({ active: true });
+    mockStatus.mockResolvedValue({ active: true, activeBoards: [] });
     render(<CaffeineToggle />);
     await waitFor(() => {
-      const button = screen.getByRole("button");
-      expect(button).toHaveAttribute("title", expect.stringContaining("ON"));
+      expect(screen.getByText(/Caffeinate: ON/)).toBeDefined();
+    });
+  });
+
+  it("shows active board names in tooltip when active with boards", async () => {
+    mockStatus.mockResolvedValue({
+      active: true,
+      activeBoards: [{ id: "1", name: "My Project" }],
+    });
+    render(<CaffeineToggle />);
+    await waitFor(() => {
+      expect(screen.getByText(/Keeping awake: My Project/)).toBeDefined();
     });
   });
 
   it("calls start when clicking while inactive", async () => {
-    mockStatus.mockResolvedValue({ active: false });
+    mockStatus.mockResolvedValue({ active: false, activeBoards: [] });
     mockStart.mockResolvedValue({ active: true });
 
     render(<CaffeineToggle />);
@@ -54,13 +66,12 @@ describe("CaffeineToggle", () => {
   });
 
   it("calls stop when clicking while active", async () => {
-    mockStatus.mockResolvedValue({ active: true });
+    mockStatus.mockResolvedValue({ active: true, activeBoards: [] });
     mockStop.mockResolvedValue({ active: false });
 
     render(<CaffeineToggle />);
     await waitFor(() => {
-      const button = screen.getByRole("button");
-      expect(button).toHaveAttribute("title", expect.stringContaining("ON"));
+      expect(screen.getByText(/Caffeinate: ON/)).toBeDefined();
     });
 
     const button = screen.getByRole("button");
@@ -70,7 +81,7 @@ describe("CaffeineToggle", () => {
   });
 
   it("handles API error gracefully by re-fetching status", async () => {
-    mockStatus.mockResolvedValue({ active: false });
+    mockStatus.mockResolvedValue({ active: false, activeBoards: [] });
     mockStart.mockRejectedValue(new Error("Network error"));
 
     render(<CaffeineToggle />);
