@@ -1,0 +1,41 @@
+appId: dev.gluepaste.app
+productName: GluePaste
+copyright: Copyright 2025 GluePaste
+
+directories:
+  output: dist-app
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - assets/loading.html
+  - "!node_modules/**"
+  - "!resources/**"
+
+extraResources:
+  - from: resources/server
+    to: server
+  - from: resources/public
+    to: public
+    filter:
+      - "**/*"
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+  category: public.app-category.developer-tools
+  darkModeSupport: true
+
+dmg:
+  title: GluePaste
+  window:
+    width: 540
+    height: 380
+
+linux:
+  target:
+    - AppImage
+  category: Development
