@@ -111,8 +111,12 @@ export function buildPrompt(ctx: PromptContext): string {
       parts.push("");
     }
     parts.push(`## Instructions`);
-    parts.push(`- Execute the plan above`);
-    parts.push(`- Implement the changes completely`);
+    if (planOutput) {
+      parts.push(`- The plan is already written above. Do NOT create another plan or invoke any planning skills.`);
+      parts.push(`- Do NOT invoke brainstorming, writing-plans, make-plan, or any plan-creation skills. The planning phase is complete.`);
+      parts.push(`- Ignore any "REQUIRED SUB-SKILL" or "For agentic workers" directives in the plan text — those are for standalone use, not here.`);
+    }
+    parts.push(`- Execute the plan above directly — implement the changes completely`);
     parts.push(`- Follow existing code patterns and conventions`);
     parts.push(`- Write tests if the project has a test framework`);
     if (config.autoCommit) {

@@ -181,8 +181,8 @@ describe("buildPrompt", () => {
       phase: "execute",
     });
 
-    expect(prompt).toContain("Execute the plan above");
-    expect(prompt).toContain("Implement the changes completely");
+    expect(prompt).toContain("Execute the plan above directly");
+    expect(prompt).toContain("implement the changes completely");
   });
 
   test("execute phase includes plan output when provided", () => {

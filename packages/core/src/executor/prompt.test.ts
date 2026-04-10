@@ -78,6 +78,27 @@ describe("buildPrompt", () => {
     expect(prompt).not.toContain("## Attached Files");
   });
 
+  it("includes anti-re-planning instructions when planOutput is provided", () => {
+    const prompt = buildPrompt({
+      ...baseCtx,
+      phase: "execute",
+      planOutput: "## Plan\n> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development\n\nSome plan here",
+    });
+    expect(prompt).toContain("Do NOT create another plan");
+    expect(prompt).toContain("Do NOT invoke brainstorming, writing-plans, make-plan");
+    expect(prompt).toContain("Ignore any \"REQUIRED SUB-SKILL\"");
+    expect(prompt).toContain("## Plan from previous step");
+  });
+
+  it("omits anti-re-planning instructions when no planOutput", () => {
+    const prompt = buildPrompt({
+      ...baseCtx,
+      phase: "execute",
+    });
+    expect(prompt).not.toContain("Do NOT create another plan");
+    expect(prompt).not.toContain("REQUIRED SUB-SKILL");
+  });
+
   it("includes reference files separately from attachments", () => {
     const prompt = buildPrompt({
       ...baseCtx,
