@@ -30,6 +30,74 @@ curl -fsSL https://raw.githubusercontent.com/desduvauchelle/glue-paste-dev/main/
 
 Requires [Bun](https://bun.sh) (installed automatically if missing) and [Claude CLI](https://docs.anthropic.com/en/docs/claude-code).
 
+## Desktop App
+
+A standalone macOS/Linux desktop app built with [Electrobun](https://blackboard.sh/electrobun/) (native WebKit window + Bun). No terminal needed — click to open, close the window to stop everything.
+
+### Install (end users)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/desduvauchelle/glue-paste-dev/main/scripts/install-electrobun.sh | bash
+```
+
+This downloads the latest release, installs `GluePaste.app` to `/Applications/`, and removes the macOS quarantine flag so the app opens without a security warning.
+
+**Requirements:** macOS 12+ or Linux. No other dependencies — the server is bundled inside the app.
+
+> **Note:** The app is unsigned. The install script runs `xattr -cr /Applications/GluePaste.app` automatically to clear the macOS quarantine flag. If you move the app manually, run that command yourself.
+
+### Open the app
+
+On **macOS**: open Spotlight (`Cmd+Space`), type `GluePaste`, press Enter.
+
+On **Linux**: run `GluePaste` in a terminal, or find it in your application launcher.
+
+When you close the window, the background server stops automatically.
+
+### Build the desktop app (developers)
+
+Prerequisites: [Bun](https://bun.sh) installed.
+
+```bash
+# One-time: install Electrobun dependencies
+cd packages/electrobun && bun install
+
+# Build dashboard + compile server binary + package the app
+bun run build:electrobun
+```
+
+Artifacts are written to `packages/electrobun/artifacts/`. The first build takes a few minutes to compile the server binary.
+
+### Dev mode (live reload)
+
+```bash
+bun run dev:electrobun
+```
+
+Starts the Electrobun shell pointing at the running Hono server in `packages/server/src/index.ts`. You still need the server and dashboard running separately:
+
+```bash
+# Terminal 1 — API server
+bun run dev:server
+
+# Terminal 2 — Dashboard (Vite)
+bun run dev:dashboard
+
+# Terminal 3 — Electrobun window
+bun run dev:electrobun
+```
+
+The Electrobun window loads `http://localhost:4242`. Hot-reload works for the dashboard via Vite; restart `dev:electrobun` if you change the main process (`packages/electrobun/src/bun/index.ts`).
+
+### How the desktop app works
+
+1. The Electrobun main process (Bun) spawns the Hono server as a subprocess
+2. It polls `http://localhost:4242/api/boards` until the server responds (up to 20 s)
+3. Once ready, it opens a native WebKit window at `http://localhost:4242`
+4. When you close the window, `onBeforeQuit` kills the server subprocess
+
+In dev mode (`GLUE_PASTE_DEV=1`), the server is run from source with `bun run`. In production, a pre-compiled binary and built dashboard are bundled inside the app package.
+
 ## Usage
 
 ```bash
@@ -96,5 +164,6 @@ Bun monorepo with 4 packages:
 | `packages/server` | Hono HTTP + WebSocket API |
 | `packages/dashboard` | React + Tailwind + shadcn-style UI |
 | `packages/cli` | `glue-paste-dev` daemon commands |
+| `packages/electrobun` | Electrobun desktop app — WebKit window + server lifecycle |
 
 Data lives in `~/.glue-paste-dev/` (SQLite database, PID file, logs).
