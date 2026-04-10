@@ -83,11 +83,14 @@ if [ "$OS" = "macos" ]; then
   cp -r packages/server/public/. "$RESOURCES_DIR/public/"
 
   info "Packaging with electron-builder ($HOST_ARCH)..."
-  cd "$ELECTRON_DIR"
+  ELECTRON_ISOLATED=$(mktemp -d /tmp/electron-pkg-XXXXXX)
+  cp -r "$ELECTRON_DIR/." "$ELECTRON_ISOLATED/"
+  cd "$ELECTRON_ISOLATED"
   npm install
+  npx tsc
   npx electron-builder --mac dmg $EB_ARCH --publish never
 
-  DMG=$(ls "$ELECTRON_DIR/dist-app/"*.dmg 2>/dev/null | head -1)
+  DMG=$(ls "$ELECTRON_ISOLATED/dist-app/"*.dmg 2>/dev/null | head -1)
   [ -z "$DMG" ] && fail "No DMG found after build. Check electron-builder output above."
 
   info "Mounting DMG..."
@@ -117,11 +120,14 @@ elif [ "$OS" = "linux" ]; then
   cp -r packages/server/public/. "$RESOURCES_DIR/public/"
 
   info "Packaging with electron-builder..."
-  cd "$ELECTRON_DIR"
+  ELECTRON_ISOLATED=$(mktemp -d /tmp/electron-pkg-XXXXXX)
+  cp -r "$ELECTRON_DIR/." "$ELECTRON_ISOLATED/"
+  cd "$ELECTRON_ISOLATED"
   npm install
+  npx tsc
   npx electron-builder --linux AppImage --publish never
 
-  APPIMAGE=$(ls "$ELECTRON_DIR/dist-app/"*.AppImage 2>/dev/null | head -1)
+  APPIMAGE=$(ls "$ELECTRON_ISOLATED/dist-app/"*.AppImage 2>/dev/null | head -1)
   [ -z "$APPIMAGE" ] && fail "No AppImage found after build. Check electron-builder output above."
 
   INSTALL_DIR="$HOME/.local/bin"
