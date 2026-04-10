@@ -692,8 +692,10 @@ export function CardDialog({
 									)
 
 									const renderCommentInput = () => (
-										<div className="flex gap-2">
-											<Input
+										<div className="flex items-end gap-2">
+											<Textarea
+												autoResize
+												rows={1}
 												placeholder="Add a comment..."
 												value={commentText}
 												onChange={(e) => setCommentText(e.target.value)}
@@ -703,6 +705,7 @@ export function CardDialog({
 														void handleAddComment()
 													}
 												}}
+												className="min-h-0 resize-none"
 											/>
 											<Button
 												size="icon"
