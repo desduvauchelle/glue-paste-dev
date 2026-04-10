@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { update as updateApi } from "@/lib/api";
 import { useWSEvent, useWebSocket } from "@/lib/ws";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ export function UpdateButton() {
   const [showLogs, setShowLogs] = useState(false);
   const [logLines, setLogLines] = useState<string[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useWSEvent("update:available", (payload) => {
     const data = payload as { latestVersion: string };
@@ -27,6 +28,26 @@ export function UpdateButton() {
       window.location.reload();
     }
   }, [state]));
+
+  useEffect(() => {
+    if (state === "updating") {
+      updateTimeoutRef.current = setTimeout(() => {
+        setErrorMsg("Update timed out — daemon did not restart. Check update logs.");
+        setState("error");
+      }, 90_000);
+    } else {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+    }
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+        updateTimeoutRef.current = null;
+      }
+    };
+  }, [state]);
 
   const fetchLogs = async () => {
     setLogsLoading(true);

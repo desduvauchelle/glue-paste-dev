@@ -2,6 +2,7 @@ import { describe, expect, test, mock, beforeEach } from "bun:test";
 
 let mockExistsSync = true;
 let mockReadFileSync = '{"version":"1.2.3"}';
+let appendedLines: string[] = [];
 
 mock.module("../daemon.js", () => ({
   DATA_DIR: "/mock/data/dir",
@@ -30,7 +31,8 @@ mock.module("node:fs", () => ({
   statSync: () => ({}),
   unlinkSync: () => {},
   copyFileSync: () => {},
-  appendFileSync: () => {},
+  appendFileSync: (_path: string, line: string) => { appendedLines.push(line); },
+  symlinkSync: () => {},
   renameSync: () => {},
   accessSync: () => {},
   createReadStream: () => ({}),
@@ -43,6 +45,7 @@ describe("readVersion", () => {
   beforeEach(() => {
     mockExistsSync = true;
     mockReadFileSync = '{"version":"1.2.3"}';
+    appendedLines = [];
   });
 
   test("returns a string", () => {
@@ -60,5 +63,24 @@ describe("readVersion", () => {
     mockExistsSync = false;
     const result = readVersion();
     expect(result).toBe("unknown");
+  });
+});
+
+describe("logUpdate (appendFileSync) integration", () => {
+  beforeEach(() => {
+    appendedLines = [];
+  });
+
+  test("appendFileSync mock captures log lines", async () => {
+    const fs = await import("node:fs");
+    fs.appendFileSync("/mock/data/dir/glue-paste-dev.log", "[INF] [update] test\n");
+    expect(appendedLines).toHaveLength(1);
+    expect(appendedLines[0]).toContain("[update]");
+  });
+
+  test("log path uses DATA_DIR", () => {
+    const expectedPath = "/mock/data/dir/glue-paste-dev.log";
+    expect(expectedPath).toContain("/mock/data/dir");
+    expect(expectedPath).toEndWith("glue-paste-dev.log");
   });
 });

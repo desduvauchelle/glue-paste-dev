@@ -107,8 +107,8 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
       const content = readFileSync(logPath, "utf-8");
       const allLines = content.split("\n");
       const updateLines = allLines.filter((line) => line.includes("[update]"));
-      const last20 = updateLines.slice(-20);
-      return c.json({ lines: last20 });
+      const last50 = updateLines.slice(-50);
+      return c.json({ lines: last50 });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return c.json({ lines: [], message: `Failed to read logs: ${msg}` });
@@ -155,11 +155,13 @@ export function updateRoutes(broadcast: (event: unknown) => void) {
     // then spawn the CLI update command which stops/downloads/extracts/restarts the daemon.
     setTimeout(() => {
       log.always("update", "apply: spawning CLI update command (will stop + restart daemon)");
+      const logPath = join(dataDir, "glue-paste-dev.log");
+      const logFile = Bun.file(logPath);
       const proc = Bun.spawn(cliArgs, {
         cwd: dataDir,
         env: process.env,
-        stdout: "ignore",
-        stderr: "ignore",
+        stdout: logFile,
+        stderr: logFile,
         stdin: "ignore",
       });
       proc.unref();

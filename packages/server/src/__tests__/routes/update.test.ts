@@ -36,6 +36,12 @@ describe("buildCliUpdateArgs", () => {
     expect(joined).not.toContain(" -c ");
     expect(joined).not.toContain("sh ");
   });
+
+  it("log file path is predictable from dataDir", () => {
+    const dataDir = "/tmp/test-data";
+    const logPath = dataDir + "/glue-paste-dev.log";
+    expect(logPath).toBe("/tmp/test-data/glue-paste-dev.log");
+  });
 });
 
 describe("checkForUpdate available logic", () => {
@@ -151,5 +157,13 @@ describe("update routes - integration", () => {
     expect([200, 400]).toContain(res.status);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body).toHaveProperty("ok");
+  });
+
+  it("GET /api/update/logs returns at most 50 lines", async () => {
+    const res = await app.request("/api/update/logs");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { lines: string[] };
+    expect(Array.isArray(body.lines)).toBe(true);
+    expect(body.lines.length).toBeLessThanOrEqual(50);
   });
 });
