@@ -32,12 +32,12 @@ Requires [Bun](https://bun.sh) (installed automatically if missing) and [Claude 
 
 ## Desktop App
 
-A standalone macOS/Linux desktop app built with [Electrobun](https://blackboard.sh/electrobun/) (native WebKit window + Bun). No terminal needed — click to open, close the window to stop everything.
+A standalone macOS/Linux desktop app built with [Electron](https://www.electronjs.org/) (Chromium window + Node.js). No terminal needed — double-click to open. The app lives in the system tray; on macOS closing the window hides it rather than stopping the server.
 
 ### Install (end users)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/desduvauchelle/glue-paste-dev/main/scripts/install-electrobun.sh | bash
+curl -fsSL https://raw.githubusercontent.com/desduvauchelle/glue-paste-dev/main/scripts/install-electron.sh | bash
 ```
 
 This downloads the latest release, installs `GluePaste.app` to `/Applications/`, and removes the macOS quarantine flag so the app opens without a security warning.
@@ -52,51 +52,52 @@ On **macOS**: open Spotlight (`Cmd+Space`), type `GluePaste`, press Enter.
 
 On **Linux**: run `GluePaste` in a terminal, or find it in your application launcher.
 
-When you close the window, the background server stops automatically.
+**On macOS**, closing the window hides the app — the server keeps running in the background. Right-click the tray icon and choose **Quit** to fully stop everything. **On Linux**, closing the window stops the server and quits.
 
 ### Build the desktop app (developers)
 
-Prerequisites: [Bun](https://bun.sh) installed.
+Prerequisites: [Bun](https://bun.sh) and Node.js installed.
 
 ```bash
-# One-time: install Electrobun dependencies
-cd packages/electrobun && bun install
+# One-time: install Electron dependencies
+cd packages/electron && npm install
 
 # Build dashboard + compile server binary + package the app
-bun run build:electrobun
+bun run build:electron
 ```
 
-Artifacts are written to `packages/electrobun/artifacts/`. The first build takes a few minutes to compile the server binary.
+Artifacts are written to `packages/electron/dist-app/`. The first build takes a few minutes to compile the server binary.
 
-### Dev mode (live reload)
+### Dev mode
 
-```bash
-bun run dev:electrobun
-```
-
-Starts the Electrobun shell pointing at the running Hono server in `packages/server/src/index.ts`. You still need the server and dashboard running separately:
+First compile the Electron main process, then start the services in separate terminals:
 
 ```bash
+# One-time per session — compile Electron TypeScript
+cd packages/electron && npx tsc
+
 # Terminal 1 — API server
 bun run dev:server
 
 # Terminal 2 — Dashboard (Vite)
 bun run dev:dashboard
 
-# Terminal 3 — Electrobun window
-bun run dev:electrobun
+# Terminal 3 — Electron window
+bun run dev:electron
 ```
 
-The Electrobun window loads `http://localhost:4242`. Hot-reload works for the dashboard via Vite; restart `dev:electrobun` if you change the main process (`packages/electrobun/src/bun/index.ts`).
+The Electron window loads `http://localhost:4242`. Hot-reload works for the dashboard via Vite; re-run `npx tsc` and restart `dev:electron` if you change the main process (`packages/electron/src/main.ts`).
 
 ### How the desktop app works
 
-1. The Electrobun main process (Bun) spawns the Hono server as a subprocess
-2. It polls `http://localhost:4242/api/boards` until the server responds (up to 20 s)
-3. Once ready, it opens a native WebKit window at `http://localhost:4242`
-4. When you close the window, `onBeforeQuit` kills the server subprocess
+1. The Electron main process spawns the compiled Hono server binary as a subprocess
+2. A loading window is shown while it polls `http://localhost:4242/api/boards` (up to 20 s)
+3. Once the server responds, the loading window closes and the main browser window opens
+4. A system tray icon provides "Open GluePaste" and "Quit" menu options
+5. On macOS: closing the main window hides it — the server keeps running. Use **Quit** from the tray to stop everything.
+6. On Linux: closing all windows stops the server and quits the app.
 
-In dev mode (`GLUE_PASTE_DEV=1`), the server is run from source with `bun run`. In production, a pre-compiled binary and built dashboard are bundled inside the app package.
+In production, the pre-compiled server binary and built dashboard are bundled inside the app package under `packages/electron/resources/`.
 
 ## Usage
 
@@ -164,6 +165,6 @@ Bun monorepo with 4 packages:
 | `packages/server` | Hono HTTP + WebSocket API |
 | `packages/dashboard` | React + Tailwind + shadcn-style UI |
 | `packages/cli` | `glue-paste-dev` daemon commands |
-| `packages/electrobun` | Electrobun desktop app — WebKit window + server lifecycle |
+| `packages/electron` | Electron desktop app — browser window, tray icon, server lifecycle |
 
 Data lives in `~/.glue-paste-dev/` (SQLite database, PID file, logs).
