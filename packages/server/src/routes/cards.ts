@@ -14,6 +14,7 @@ import {
 } from "@glue-paste-dev/core";
 import type { BoardId, CardId, CardWithTags } from "@glue-paste-dev/core";
 import { makeCallbacks } from "../callbacks.js";
+import { checkAndToggleCaffeinate } from "../caffeinate.js";
 
 export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
   const callbacks = makeCallbacks(db, broadcast);
@@ -110,6 +111,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
       parsed.data
     );
     if (!card) return c.json({ error: "Card not found" }, 404);
+    checkAndToggleCaffeinate(db);
     broadcast({ type: "card:updated", payload: card });
     maybeAutoExecute(card);
     maybeNotifyQueue(card);
@@ -128,6 +130,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
     }
     const card = cardsDb.moveCardToBoard(db, cardId, parsed.data.board_id);
     if (!card) return c.json({ error: "Card not found" }, 404);
+    checkAndToggleCaffeinate(db);
     broadcast({ type: "card:deleted", payload: { cardId: oldCard.id, boardId: oldCard.board_id } });
     broadcast({ type: "card:created", payload: card });
     return c.json(card);
@@ -141,6 +144,7 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
     cleanupCardAttachments(db, cardId);
     const deleted = cardsDb.deleteCard(db, cardId);
     if (!deleted) return c.json({ error: "Card not found" }, 404);
+    checkAndToggleCaffeinate(db);
     broadcast({ type: "card:deleted", payload: { cardId: card.id, boardId: card.board_id } });
     return c.json({ ok: true });
   });
