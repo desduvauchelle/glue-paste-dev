@@ -21,43 +21,77 @@ json_value() {
   echo "$2" | sed -n 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
 }
 
-download_url_for() {
-  local pattern="$1" json="$2"
-  echo "$json" | grep '"browser_download_url"' | grep "$pattern" \
-    | sed 's/.*"browser_download_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1
-}
-
 OS=$(detect_os)
 
 echo ""
 echo "  GluePaste Desktop App Installer"
 echo "  ================================"
+echo "  Builds locally for your architecture — no Apple signing needed."
 echo ""
 
-info "Fetching latest release..."
+command -v bun >/dev/null 2>&1 || fail "bun is required. Install from https://bun.sh"
+command -v npm >/dev/null 2>&1 || fail "npm is required (for electron-builder). Install Node.js from https://nodejs.org"
+
+info "Fetching latest release info..."
 RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest") \
   || fail "Could not reach GitHub API"
 VERSION=$(json_value "tag_name" "$RELEASE_JSON")
 [ -z "$VERSION" ] && fail "Could not parse release version"
 info "Latest version: $VERSION"
 
+TMP_DIR=$(mktemp -d /tmp/GluePaste-build-XXXXXX)
+cleanup() { rm -rf "$TMP_DIR"; }
+trap cleanup EXIT
+
+SOURCE_URL="https://github.com/$REPO/archive/refs/tags/${VERSION}.tar.gz"
+info "Downloading source ($VERSION)..."
+curl -fsSL -o "$TMP_DIR/source.tar.gz" "$SOURCE_URL"
+
+info "Extracting source..."
+tar -xzf "$TMP_DIR/source.tar.gz" -C "$TMP_DIR" --strip-components=1
+
+BUILD_DIR="$TMP_DIR"
+
+info "Installing dependencies..."
+cd "$BUILD_DIR"
+bun install --ignore-scripts
+
+info "Building dashboard..."
+bun run build:dashboard
+
+ELECTRON_DIR="$BUILD_DIR/packages/electron"
+RESOURCES_DIR="$ELECTRON_DIR/resources"
+mkdir -p "$RESOURCES_DIR"
+
 if [ "$OS" = "macos" ]; then
-  ARCH=$(uname -m)
-  if [ "$ARCH" = "arm64" ]; then
-    PATTERN="stable-mac-arm64"
+  HOST_ARCH=$(uname -m)
+  if [ "$HOST_ARCH" = "arm64" ]; then
+    EB_ARCH="--arm64"
   else
-    PATTERN="stable-mac-x64"
+    EB_ARCH="--x64"
   fi
 
-  DOWNLOAD_URL=$(download_url_for "$PATTERN" "$RELEASE_JSON")
-  [ -z "$DOWNLOAD_URL" ] && fail "No DMG found for arch $ARCH in release $VERSION"
+  info "Compiling server binary ($HOST_ARCH)..."
+  bun build packages/server/src/index.ts \
+    --compile \
+    --outfile "$RESOURCES_DIR/server" \
+    --target bun
+  chmod +x "$RESOURCES_DIR/server"
 
-  TMP_DMG=$(mktemp /tmp/GluePaste-XXXXXX.dmg)
-  info "Downloading DMG ($ARCH)..."
-  curl -fL -o "$TMP_DMG" "$DOWNLOAD_URL"
+  info "Copying dashboard to resources..."
+  mkdir -p "$RESOURCES_DIR/public"
+  cp -r packages/server/public/. "$RESOURCES_DIR/public/"
+
+  info "Packaging with electron-builder ($HOST_ARCH)..."
+  cd "$ELECTRON_DIR"
+  npm install
+  npx electron-builder --mac dmg $EB_ARCH --publish never
+
+  DMG=$(ls "$ELECTRON_DIR/dist-app/"*.dmg 2>/dev/null | head -1)
+  [ -z "$DMG" ] && fail "No DMG found after build. Check electron-builder output above."
 
   info "Mounting DMG..."
-  MOUNT_OUT=$(hdiutil attach "$TMP_DMG" -nobrowse -quiet)
+  MOUNT_OUT=$(hdiutil attach "$DMG" -nobrowse -quiet)
   MOUNT_POINT=$(echo "$MOUNT_OUT" | grep "/Volumes/" | awk '{print $NF}')
   [ -z "$MOUNT_POINT" ] && fail "Could not mount DMG"
 
@@ -66,28 +100,36 @@ if [ "$OS" = "macos" ]; then
   cp -r "$MOUNT_POINT/GluePaste.app" /Applications/
 
   hdiutil detach "$MOUNT_POINT" -quiet
-  rm -f "$TMP_DMG"
-
-  # Required for unsigned apps — removes macOS quarantine flag set on download
-  info "Removing macOS quarantine (app is unsigned)..."
-  xattr -cr /Applications/GluePaste.app
 
   ok "GluePaste.app installed to /Applications/"
   info "Open from Spotlight (Cmd+Space -> GluePaste) or the Applications folder."
 
 elif [ "$OS" = "linux" ]; then
-  DOWNLOAD_URL=$(download_url_for "stable-linux" "$RELEASE_JSON")
-  [ -z "$DOWNLOAD_URL" ] && fail "No Linux artifact found in release $VERSION"
+  info "Compiling server binary..."
+  bun build packages/server/src/index.ts \
+    --compile \
+    --outfile "$RESOURCES_DIR/server" \
+    --target bun
+  chmod +x "$RESOURCES_DIR/server"
+
+  info "Copying dashboard to resources..."
+  mkdir -p "$RESOURCES_DIR/public"
+  cp -r packages/server/public/. "$RESOURCES_DIR/public/"
+
+  info "Packaging with electron-builder..."
+  cd "$ELECTRON_DIR"
+  npm install
+  npx electron-builder --linux AppImage --publish never
+
+  APPIMAGE=$(ls "$ELECTRON_DIR/dist-app/"*.AppImage 2>/dev/null | head -1)
+  [ -z "$APPIMAGE" ] && fail "No AppImage found after build. Check electron-builder output above."
 
   INSTALL_DIR="$HOME/.local/bin"
   mkdir -p "$INSTALL_DIR"
   INSTALL_PATH="$INSTALL_DIR/GluePaste"
 
-  info "Downloading Linux build..."
-  curl -fL -o "$INSTALL_PATH.tar.gz" "$DOWNLOAD_URL"
-  tar -xzf "$INSTALL_PATH.tar.gz" -C "$INSTALL_DIR"
+  cp "$APPIMAGE" "$INSTALL_PATH"
   chmod +x "$INSTALL_PATH"
-  rm -f "$INSTALL_PATH.tar.gz"
 
   ok "GluePaste installed to $INSTALL_PATH"
 
