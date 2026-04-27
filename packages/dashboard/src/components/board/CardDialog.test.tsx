@@ -29,13 +29,16 @@ vi.mock("@/lib/api", () => ({
     deleteFile: vi.fn(() => Promise.resolve({ ok: true })),
   },
   parseFilesChanged: vi.fn(() => []),
+  ai: {
+    generateTitle: vi.fn(() => Promise.resolve({ title: "Generated Title" })),
+  },
 }));
 
 vi.mock("@/lib/ws", () => ({
   useWSEvent: vi.fn(),
 }));
 
-const { config: configApi } = await import("@/lib/api");
+const { config: configApi, ai: aiApi } = await import("@/lib/api");
 
 const defaultProps = {
   open: true,
@@ -442,5 +445,80 @@ describe("CardDialog — Cmd/Ctrl+Enter shortcut", () => {
     // Give it a tick to ensure nothing fires
     await new Promise((r) => setTimeout(r, 50));
     expect(onCreate).not.toHaveBeenCalled();
+  });
+});
+
+const mockConfigDefaults = {
+  cliProvider: "claude" as const,
+  cliCustomCommand: "",
+  model: "claude-opus-4-6",
+  planModel: "",
+  executeModel: "",
+  maxBudgetUsd: 10,
+  autoCommit: false,
+  autoPush: false,
+  planThinking: "smart" as const,
+  executeThinking: "smart" as const,
+  customTags: [],
+  customInstructions: "",
+  branchMode: "current" as const,
+  branchName: "",
+  maxConcurrentCards: 1,
+};
+
+describe("CardDialog — title auto-generation on save", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(configApi.getForBoard).mockResolvedValue(mockConfigDefaults);
+    vi.mocked(aiApi.generateTitle).mockResolvedValue({ title: "Auto Title" });
+  });
+
+  it("calls generateTitle on save when title is empty and description has 5+ words", async () => {
+    const onCreate = vi.fn(() => Promise.resolve());
+    render(<CardDialog {...defaultProps} onCreate={onCreate} />);
+
+    const textarea = screen.getByPlaceholderText("Describe what needs to be done...");
+    fireEvent.change(textarea, { target: { value: "fix the broken login button now please" } });
+
+    const createButton = screen.getByRole("button", { name: /create/i });
+    fireEvent.click(createButton);
+
+    await waitFor(() => expect(aiApi.generateTitle).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(onCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Auto Title" })
+      )
+    );
+  });
+
+  it("does not call generateTitle when description has fewer than 5 words", async () => {
+    const onCreate = vi.fn(() => Promise.resolve());
+    render(<CardDialog {...defaultProps} onCreate={onCreate} />);
+
+    const textarea = screen.getByPlaceholderText("Describe what needs to be done...");
+    fireEvent.change(textarea, { target: { value: "fix button" } });
+
+    const createButton = screen.getByRole("button", { name: /create/i });
+    fireEvent.click(createButton);
+
+    await waitFor(() => expect(onCreate).toHaveBeenCalled());
+    expect(aiApi.generateTitle).not.toHaveBeenCalled();
+  });
+
+  it("does not call generateTitle when title is already filled", async () => {
+    const onCreate = vi.fn(() => Promise.resolve());
+    render(<CardDialog {...defaultProps} onCreate={onCreate} />);
+
+    const titleInput = screen.getByPlaceholderText(/Card title/i);
+    fireEvent.change(titleInput, { target: { value: "My manual title" } });
+
+    const textarea = screen.getByPlaceholderText("Describe what needs to be done...");
+    fireEvent.change(textarea, { target: { value: "fix the broken login button now please" } });
+
+    const createButton = screen.getByRole("button", { name: /create/i });
+    fireEvent.click(createButton);
+
+    await waitFor(() => expect(onCreate).toHaveBeenCalled());
+    expect(aiApi.generateTitle).not.toHaveBeenCalled();
   });
 });
