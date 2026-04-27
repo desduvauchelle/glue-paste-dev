@@ -9,7 +9,7 @@ export async function generateTitle(description: string): Promise<string> {
   const trimmed = description.trim();
   if (!trimmed) return "";
 
-  const prompt = `Generate a concise title (max 10 words) for this task. Reply with ONLY the title text, no quotes, no explanation, no punctuation at the end.\n\n${trimmed.slice(0, 1000)}`;
+  const prompt = `Generate a very short title (2-5 words) for this task. Reply with ONLY the title text, no quotes, no explanation, no punctuation at the end.\n\n${trimmed.slice(0, 1000)}`;
 
   try {
     const proc = Bun.spawn(
