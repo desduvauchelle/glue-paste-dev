@@ -88,7 +88,6 @@ export function CardDialog({
 	const [isUploading, setIsUploading] = useState(false)
 	const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
 	const titleGeneratedRef = useRef(false)
-	const generateTitleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const dragCounterRef = useRef(0)
 
 	const handleDragEnter = useCallback((e: React.DragEvent) => {
@@ -241,20 +240,8 @@ export function CardDialog({
 		}
 	}, [open])
 
-	// Debounced auto-generate title when description changes (create mode, empty title only)
-	useEffect(() => {
-		if (isEditing || title.trim() || titleGeneratedRef.current) return
-		if (!description.trim() || description.trim().length < 10) return
-
-		if (generateTitleTimerRef.current) clearTimeout(generateTitleTimerRef.current)
-		generateTitleTimerRef.current = setTimeout(() => {
-			void handleGenerateTitle()
-		}, 1500)
-
-		return () => {
-			if (generateTitleTimerRef.current) clearTimeout(generateTitleTimerRef.current)
-		}
-	}, [description, isEditing, title])
+	const countWords = (text: string) =>
+		text.trim().split(/\s+/).filter(Boolean).length
 
 	const handleGenerateTitle = async () => {
 		if (!description.trim()) return
@@ -274,9 +261,29 @@ export function CardDialog({
 
 	const handleSave = async () => {
 		if (!title.trim() && !description.trim()) return
+
+		let effectiveTitle = title.trim()
+
+		// Auto-generate title on save when empty and description is substantial
+		if (!isEditing && !effectiveTitle && countWords(description) >= 5) {
+			setIsGeneratingTitle(true)
+			try {
+				const { title: generated } = await aiApi.generateTitle(description)
+				if (generated) {
+					effectiveTitle = generated
+					setTitle(generated)
+					titleGeneratedRef.current = true
+				}
+			} catch {
+				// silently fail — title is optional
+			} finally {
+				setIsGeneratingTitle(false)
+			}
+		}
+
 		if (isEditing) {
 			await onUpdate(card.id, {
-				title: title.trim(),
+				title: effectiveTitle || title.trim(),
 				description: description.trim(),
 				tags: selectedTags,
 				files,
@@ -294,7 +301,7 @@ export function CardDialog({
 		} else {
 			try { localStorage.setItem(LAST_STATUS_KEY, selectedStatus) } catch {}
 			const input: CreateCard = {
-				title: title.trim(),
+				title: effectiveTitle,
 				description: description.trim(),
 				tags: selectedTags,
 				files,
