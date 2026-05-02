@@ -262,29 +262,14 @@ export function CardDialog({
 	const handleSave = async () => {
 		if (!title.trim() && !description.trim()) return
 
-		let effectiveTitle = title.trim()
-
-		// Auto-generate title on save when empty and description is substantial
-		if (!isEditing && !effectiveTitle && countWords(description) >= 5) {
-			setIsGeneratingTitle(true)
-			try {
-				const { title: generated } = await aiApi.generateTitle(description)
-				if (generated) {
-					effectiveTitle = generated
-					setTitle(generated)
-					titleGeneratedRef.current = true
-				}
-			} catch {
-				// silently fail — title is optional
-			} finally {
-				setIsGeneratingTitle(false)
-			}
-		}
+		const effectiveTitle = title.trim()
+		const descriptionTrimmed = description.trim()
+		const needsBackgroundTitle = !isEditing && !effectiveTitle && countWords(description) >= 5
 
 		if (isEditing) {
 			await onUpdate(card.id, {
 				title: effectiveTitle || title.trim(),
-				description: description.trim(),
+				description: descriptionTrimmed,
 				tags: selectedTags,
 				files,
 				blocking,
@@ -302,7 +287,7 @@ export function CardDialog({
 			try { localStorage.setItem(LAST_STATUS_KEY, selectedStatus) } catch {}
 			const input: CreateCard = {
 				title: effectiveTitle,
-				description: description.trim(),
+				description: descriptionTrimmed,
 				tags: selectedTags,
 				files,
 				blocking,
@@ -317,10 +302,29 @@ export function CardDialog({
 				assignee,
 				status: selectedStatus,
 			}
+
+			let createdId: string | null = null
 			if (targetBoardId && targetBoardId !== boardId) {
-				await cardsApi.create(targetBoardId, input)
+				const created = await cardsApi.create(targetBoardId, input)
+				createdId = created.id
 			} else {
-				await onCreate(input)
+				const created = await onCreate(input)
+				const maybeCard = created as { id?: string } | null | undefined
+				if (maybeCard?.id) createdId = maybeCard.id
+			}
+
+			if (needsBackgroundTitle && createdId) {
+				const cardId = createdId
+				void (async () => {
+					try {
+						const { title: generated } = await aiApi.generateTitle(descriptionTrimmed)
+						if (generated) {
+							await cardsApi.update(cardId, { ...input, title: generated })
+						}
+					} catch {
+						// silently fail — title is optional
+					}
+				})()
 			}
 		}
 		onOpenChange(false)

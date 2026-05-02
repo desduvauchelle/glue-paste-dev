@@ -1,6 +1,6 @@
 {
   "name": "glue-paste-dev",
-  "version": "0.1.231",
+  "version": "0.1.232",
   "private": true,
   "workspaces": [
     "packages/*"

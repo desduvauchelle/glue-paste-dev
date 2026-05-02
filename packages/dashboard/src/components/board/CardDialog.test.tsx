@@ -21,6 +21,7 @@ vi.mock("@/lib/api", () => ({
   },
   cards: {
     moveToBoard: vi.fn(() => Promise.resolve()),
+    update: vi.fn(() => Promise.resolve({ id: "card-1", title: "Auto Title" })),
   },
   attachments: {
     list: vi.fn(() => Promise.resolve([])),
@@ -38,7 +39,7 @@ vi.mock("@/lib/ws", () => ({
   useWSEvent: vi.fn(),
 }));
 
-const { config: configApi, ai: aiApi } = await import("@/lib/api");
+const { config: configApi, ai: aiApi, cards: cardsApi } = await import("@/lib/api");
 
 const defaultProps = {
   open: true,
@@ -474,7 +475,7 @@ describe("CardDialog — title auto-generation on save", () => {
   });
 
   it("calls generateTitle on save when title is empty and description has 5+ words", async () => {
-    const onCreate = vi.fn(() => Promise.resolve());
+    const onCreate = vi.fn(() => Promise.resolve({ id: "card-1", title: "", board_id: "board-1" }));
     render(<CardDialog {...defaultProps} onCreate={onCreate} />);
 
     const textarea = screen.getByPlaceholderText("Describe what needs to be done...");
@@ -483,9 +484,18 @@ describe("CardDialog — title auto-generation on save", () => {
     const createButton = screen.getByRole("button", { name: /create/i });
     fireEvent.click(createButton);
 
-    await waitFor(() => expect(aiApi.generateTitle).toHaveBeenCalledOnce());
+    // Card is created immediately with empty title — dialog does not wait for AI
     await waitFor(() =>
       expect(onCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "" })
+      )
+    );
+
+    // Title is generated and patched onto the card in the background
+    await waitFor(() => expect(aiApi.generateTitle).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(cardsApi.update).toHaveBeenCalledWith(
+        "card-1",
         expect.objectContaining({ title: "Auto Title" })
       )
     );
