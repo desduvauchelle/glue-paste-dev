@@ -13,7 +13,7 @@ export async function generateTitle(description: string): Promise<string> {
 
   try {
     const proc = Bun.spawn(
-      ["claude", "-p", prompt, "--output-format", "text", "--max-turns", "1", "--model", "claude-haiku-4-5-20251001"],
+      ["claude", "-p", prompt, "--output-format", "text", "--max-turns", "2", "--model", "claude-haiku-4-5-20251001"],
       {
         stdout: "pipe",
         stderr: "pipe",
@@ -22,9 +22,20 @@ export async function generateTitle(description: string): Promise<string> {
     );
 
     const output = await new Response(proc.stdout).text();
-    await proc.exited;
+    const exitCode = await proc.exited;
+
+    if (exitCode !== 0) {
+      log.warn("generate-title", `CLI exited with code ${exitCode}`);
+      return "";
+    }
 
     const title = output.trim().replace(/^["']|["']$/g, "").slice(0, 200);
+
+    if (/reached max turns|error:/i.test(title)) {
+      log.warn("generate-title", `Rejected suspicious output: "${title}"`);
+      return "";
+    }
+
     log.debug("generate-title", `Generated: "${title}"`);
     return title;
   } catch (err) {
