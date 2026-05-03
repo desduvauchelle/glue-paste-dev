@@ -364,6 +364,11 @@ export function countCardsByStatusAllBoards(
   return result;
 }
 
+/**
+ * @param tzOffsetMinutes - Same sign as `new Date().getTimezoneOffset()`:
+ *   positive for UTC-behind zones (e.g. 420 for UTC-7), negative for UTC-ahead (e.g. -60 for UTC+1).
+ *   Defaults to 0 (UTC).
+ */
 export function countDonePerDay(
   db: Database,
   days: number = 14,
