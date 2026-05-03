@@ -307,3 +307,51 @@ describe("cards", () => {
     });
   });
 });
+
+describe("countDonePerDay", () => {
+  it("uses UTC dates by default (tzOffsetMinutes = 0)", () => {
+    const card = createCard(db, boardId, { title: "Done card", description: "", tags: [] });
+    db.run(
+      `UPDATE cards SET status = 'done', updated_at = datetime('now') WHERE id = ?`,
+      [card.id]
+    );
+    const result = countDonePerDay(db, 14);
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(14);
+    // Today's entry should have count >= 1
+    const today = new Date().toISOString().slice(0, 10);
+    const todayEntry = result.find((r) => r.date === today);
+    expect(todayEntry?.count).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shifts dates by positive tzOffset (e.g. UTC-7 => offset=420)", () => {
+    // Insert a card with updated_at = 'YYYY-MM-DD 01:00:00' UTC
+    // which is still the previous day for UTC-7 (01:00 UTC = 18:00 previous day PDT)
+    const card = createCard(db, boardId, { title: "Timezone card", description: "", tags: [] });
+    // Set updated_at to 01:00 UTC today -- local date is yesterday for UTC-7
+    const now = new Date();
+    const utcToday = now.toISOString().slice(0, 10);
+    db.run(
+      `UPDATE cards SET status = 'done', updated_at = ? WHERE id = ?`,
+      [`${utcToday} 01:00:00`, card.id]
+    );
+
+    // Without offset: shows today
+    const utcResult = countDonePerDay(db, 14, 0);
+    const utcTodayEntry = utcResult.find((r) => r.date === utcToday);
+    expect(utcTodayEntry?.count).toBeGreaterThanOrEqual(1);
+
+    // With UTC-7 offset (420 minutes): same timestamp is yesterday locally
+    const localResult = countDonePerDay(db, 14, 420);
+    const utcTodayInLocal = localResult.find((r) => r.date === utcToday);
+    expect(utcTodayInLocal?.count ?? 0).toBe(0);
+
+    // Yesterday's local date key should have the count
+    // The card's updated_at is utcToday 01:00 UTC; UTC-7 local = utcToday-1 day
+    const utcTodayDate = new Date(`${utcToday}T00:00:00Z`);
+    utcTodayDate.setUTCDate(utcTodayDate.getUTCDate() - 1);
+    const yesterdayKey = utcTodayDate.toISOString().slice(0, 10);
+    const yesterdayEntry = localResult.find((r) => r.date === yesterdayKey);
+    expect(yesterdayEntry?.count).toBeGreaterThanOrEqual(1);
+  });
+});

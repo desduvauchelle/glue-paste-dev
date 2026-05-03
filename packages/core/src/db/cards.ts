@@ -366,25 +366,28 @@ export function countCardsByStatusAllBoards(
 
 export function countDonePerDay(
   db: Database,
-  days: number = 14
+  days: number = 14,
+  tzOffsetMinutes: number = 0
 ): Array<{ date: string; count: number }> {
+  const modifier = `${-tzOffsetMinutes} minutes`;
+
   const rows = db
     .query(
-      `SELECT date(updated_at) as day, COUNT(*) as count
+      `SELECT date(updated_at, ?) as day, COUNT(*) as count
        FROM cards
-       WHERE status = 'done' AND updated_at >= date('now', '-' || ? || ' days')
-       GROUP BY date(updated_at)
+       WHERE status = 'done'
+         AND date(updated_at, ?) >= date('now', ?, '-' || ? || ' days')
+       GROUP BY date(updated_at, ?)
        ORDER BY day ASC`
     )
-    .all(days) as Array<{ day: string; count: number }>;
+    .all(modifier, modifier, modifier, days, modifier) as Array<{ day: string; count: number }>;
 
-  // Zero-fill gaps
   const map = new Map(rows.map((r) => [r.day, r.count]));
   const result: Array<{ date: string; count: number }> = [];
-  const now = new Date();
+  const localNow = new Date(Date.now() - tzOffsetMinutes * 60 * 1000);
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
+    const d = new Date(localNow);
+    d.setUTCDate(d.getUTCDate() - i);
     const key = d.toISOString().slice(0, 10);
     result.push({ date: key, count: map.get(key) ?? 0 });
   }
