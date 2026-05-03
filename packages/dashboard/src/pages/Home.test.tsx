@@ -121,6 +121,15 @@ describe("Home — activity indicator", () => {
     }
   });
 
+  it("truncates long board descriptions to 3 lines", async () => {
+    render(<Home />);
+    await waitFor(() => {
+      expect(screen.getByText("Active Board")).toBeInTheDocument();
+    });
+    const descEl = screen.getByText("desc");
+    expect(descEl).toHaveClass("line-clamp-3");
+  });
+
   it("shows a pulsating indicator for active boards", async () => {
     render(<Home />);
 

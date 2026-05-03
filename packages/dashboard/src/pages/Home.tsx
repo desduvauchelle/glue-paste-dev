@@ -412,7 +412,7 @@ export function Home() {
                           </Button>
                         </div>
                         {board.description && (
-                          <p className="text-sm text-muted-foreground mt-1.5">{board.description}</p>
+                          <p className="text-sm text-muted-foreground mt-1.5 line-clamp-3">{board.description}</p>
                         )}
                         {boardCounts[board.id] && (
                           <div className="flex flex-wrap gap-1.5 mt-3">
