@@ -48,4 +48,19 @@ describe("stats routes", () => {
     const body = await res.json();
     expect(typeof body).toBe("object");
   });
+
+  it("GET /done-per-day accepts tzOffset param", async () => {
+    const res = await req("/done-per-day?tzOffset=420");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body).toHaveLength(14);
+  });
+
+  it("GET /done-per-day-by-board accepts tzOffset param", async () => {
+    const res = await req("/done-per-day-by-board?tzOffset=420");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(typeof body).toBe("object");
+  });
 });
