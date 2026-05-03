@@ -16,6 +16,7 @@ import {
   listCardsByStatus,
   countCardsByStatusAllBoards,
   countDonePerDay,
+  countDonePerDayByBoard,
   countActiveCards,
 } from "../../db/cards.js";
 import { createExecution, getCompletedPlanOutput, updateExecutionStatus } from "../../db/executions.js";
@@ -353,5 +354,29 @@ describe("countDonePerDay", () => {
     const yesterdayKey = utcTodayDate.toISOString().slice(0, 10);
     const yesterdayEntry = localResult.find((r) => r.date === yesterdayKey);
     expect(yesterdayEntry?.count).toBeGreaterThanOrEqual(1);
+  });
+
+  it("countDonePerDayByBoard shifts dates by tzOffset", () => {
+    const card = createCard(db, boardId, { title: "Board tz card", description: "", tags: [] });
+    const now = new Date();
+    const utcToday = now.toISOString().slice(0, 10);
+    // Set updated_at to 01:00 UTC today -- local date is yesterday for UTC-7
+    db.run(
+      `UPDATE cards SET status = 'done', updated_at = ? WHERE id = ?`,
+      [`${utcToday} 01:00:00`, card.id]
+    );
+
+    // Without offset: board appears with a count today
+    const utcResult = countDonePerDayByBoard(db, 14, 0);
+    expect(utcResult[boardId]).toBeDefined();
+    const utcTodayEntry = utcResult[boardId]!.find((r) => r.date === utcToday);
+    expect(utcTodayEntry?.count).toBeGreaterThanOrEqual(1);
+
+    // With UTC-7 offset: today's UTC date should have count 0 in local result
+    const localResult = countDonePerDayByBoard(db, 14, 420);
+    if (localResult[boardId]) {
+      const utcTodayInLocal = localResult[boardId]!.find((r) => r.date === utcToday);
+      expect(utcTodayInLocal?.count ?? 0).toBe(0);
+    }
   });
 });

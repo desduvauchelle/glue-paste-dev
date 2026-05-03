@@ -400,35 +400,42 @@ export function countDonePerDay(
   return result;
 }
 
+/**
+ * @param tzOffsetMinutes - Same sign as `new Date().getTimezoneOffset()`:
+ *   positive for UTC-behind zones (e.g. 420 for UTC-7), negative for UTC-ahead (e.g. -60 for UTC+1).
+ *   Defaults to 0 (UTC).
+ */
 export function countDonePerDayByBoard(
   db: Database,
-  days: number = 14
+  days: number = 14,
+  tzOffsetMinutes: number = 0
 ): Record<string, Array<{ date: string; count: number }>> {
+  const modifier = `${-tzOffsetMinutes} minutes`;
+
   const rows = db
     .query(
-      `SELECT board_id, date(updated_at) as day, COUNT(*) as count
+      `SELECT board_id, date(updated_at, ?) as day, COUNT(*) as count
        FROM cards
-       WHERE status = 'done' AND updated_at >= date('now', '-' || ? || ' days')
-       GROUP BY board_id, date(updated_at)
+       WHERE status = 'done'
+         AND date(updated_at, ?) >= date('now', ?, '-' || ? || ' days')
+       GROUP BY board_id, date(updated_at, ?)
        ORDER BY board_id, day ASC`
     )
-    .all(days) as Array<{ board_id: string; day: string; count: number }>;
+    .all(modifier, modifier, modifier, days, modifier) as Array<{ board_id: string; day: string; count: number }>;
 
-  // Group by board_id
   const byBoard = new Map<string, Map<string, number>>();
   for (const row of rows) {
     if (!byBoard.has(row.board_id)) byBoard.set(row.board_id, new Map());
     byBoard.get(row.board_id)!.set(row.day, row.count);
   }
 
-  // Zero-fill gaps for each board
   const result: Record<string, Array<{ date: string; count: number }>> = {};
-  const now = new Date();
+  const localNow = new Date(Date.now() - tzOffsetMinutes * 60 * 1000);
   for (const [boardId, map] of byBoard) {
     const series: Array<{ date: string; count: number }> = [];
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
+      const d = new Date(localNow);
+      d.setUTCDate(d.getUTCDate() - i);
       const key = d.toISOString().slice(0, 10);
       series.push({ date: key, count: map.get(key) ?? 0 });
     }
