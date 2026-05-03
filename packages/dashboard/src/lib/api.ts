@@ -210,10 +210,20 @@ export const caffeinate = {
 // Stats
 export const stats = {
   boardCounts: () => request<BoardStatusCounts>("/stats/boards"),
-  donePerDay: (days?: number) =>
-    request<DonePerDay[]>(`/stats/done-per-day${days ? `?days=${days}` : ""}`),
-  donePerDayByBoard: (days?: number) =>
-    request<DonePerDayByBoard>(`/stats/done-per-day-by-board${days ? `?days=${days}` : ""}`),
+  donePerDay: (days?: number, tzOffset?: number) => {
+    const params = new URLSearchParams();
+    if (days) params.set("days", String(days));
+    if (tzOffset !== undefined) params.set("tzOffset", String(tzOffset));
+    const qs = params.toString();
+    return request<DonePerDay[]>(`/stats/done-per-day${qs ? `?${qs}` : ""}`);
+  },
+  donePerDayByBoard: (days?: number, tzOffset?: number) => {
+    const params = new URLSearchParams();
+    if (days) params.set("days", String(days));
+    if (tzOffset !== undefined) params.set("tzOffset", String(tzOffset));
+    const qs = params.toString();
+    return request<DonePerDayByBoard>(`/stats/done-per-day-by-board${qs ? `?${qs}` : ""}`);
+  },
 };
 
 // Types (simplified for frontend use)

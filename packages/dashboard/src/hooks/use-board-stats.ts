@@ -9,10 +9,11 @@ export function useBoardStats() {
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
+    const tzOffset = new Date().getTimezoneOffset();
     const [counts, done, doneByBoard] = await Promise.all([
       stats.boardCounts().catch(() => ({}) as BoardStatusCounts),
-      stats.donePerDay().catch(() => [] as DonePerDay[]),
-      stats.donePerDayByBoard().catch(() => ({}) as DonePerDayByBoard),
+      stats.donePerDay(undefined, tzOffset).catch(() => [] as DonePerDay[]),
+      stats.donePerDayByBoard(undefined, tzOffset).catch(() => ({}) as DonePerDayByBoard),
     ]);
     setBoardCounts(counts);
     setDonePerDay(done);
