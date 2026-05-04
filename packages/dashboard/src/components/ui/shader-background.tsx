@@ -84,25 +84,31 @@ export function ShaderBackground({ className, pixelRatio }: ShaderBackgroundProp
     const gl = canvas.getContext("webgl2");
     if (!gl) return;
 
-    const compile = (type: number, src: string): WebGLShader => {
-      const shader = gl.createShader(type)!;
+    const compile = (type: number, src: string): WebGLShader | null => {
+      const shader = gl.createShader(type);
+      if (!shader) return null;
       gl.shaderSource(shader, src);
       gl.compileShader(shader);
       if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
         console.error(gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
       }
       return shader;
     };
 
     const vs = compile(gl.VERTEX_SHADER, VERTEX_SRC);
     const fs = compile(gl.FRAGMENT_SHADER, FRAGMENT_SRC);
+    if (!vs || !fs) return;
 
-    const program = gl.createProgram()!;
+    const program = gl.createProgram();
+    if (!program) return;
     gl.attachShader(program, vs);
     gl.attachShader(program, fs);
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       console.error(gl.getProgramInfoLog(program));
+      return;
     }
 
     const buffer = gl.createBuffer();
@@ -144,8 +150,8 @@ export function ShaderBackground({ className, pixelRatio }: ShaderBackgroundProp
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(rafId);
       gl.deleteProgram(program);
-      gl.deleteShader(vs);
-      gl.deleteShader(fs);
+      if (vs) gl.deleteShader(vs);
+      if (fs) gl.deleteShader(fs);
       gl.deleteBuffer(buffer);
     };
   }, [pixelRatio]);

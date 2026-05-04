@@ -184,7 +184,8 @@ export async function executeSingleCard(
       notifyRateLimitOrOverload(db, card, result.rateLimitInfo, callbacks);
     } else {
       log.warn("queue", `Card ${cardId} failed, retrying once`);
-      const retryResult = await runCard(db, card, board, comments, config, callbacks);
+      const retrySinglePlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
+      const retryResult = await runCard(db, card, board, comments, config, callbacks, retrySinglePlanOutput ? { existingPlanOutput: retrySinglePlanOutput } : undefined);
 
       // Check again after retry
       if (consumeStoppedFlag(cardId)) {
@@ -352,9 +353,10 @@ async function processCard(
       removeFromActive(boardId, cardId);
       handleRateLimited(db, boardId, card, result.rateLimitInfo, callbacks);
     } else {
-      // Retry once
+      // Retry once — reuse existing plan output so we don't re-plan
       const retryComments = commentsDb.listComments(db, cardId);
-      const retryResult = await runCard(db, card, board, retryComments, config, callbacks);
+      const retryPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
+      const retryResult = await runCard(db, card, board, retryComments, config, callbacks, retryPlanOutput ? { existingPlanOutput: retryPlanOutput } : undefined);
 
       // Check again after retry — card may have been stopped during retry
       if (consumeStoppedFlag(cardId)) {

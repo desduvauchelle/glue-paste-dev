@@ -118,7 +118,9 @@ async function startApp(): Promise<void> {
   console.log(`[electron] public dir: ${publicDir}`)
 
   const loadingWin = createLoadingWindow()
-  serverManager.start(serverBin)
+  const logDir = app.getPath('logs')
+  console.log(`[electron] log dir: ${logDir}`)
+  serverManager.start(serverBin, publicDir, logDir)
 
   const ready = await waitForReady(20000)
 
@@ -148,7 +150,23 @@ if (!gotLock) {
   })
 }
 
+process.on('uncaughtException', (err) => {
+  try {
+    const fs = require('fs') as typeof import('fs')
+    const p = path.join(app.getPath('logs'), 'main-crash.log')
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    fs.appendFileSync(p, `${new Date().toISOString()} uncaught: ${err.stack ?? String(err)}\n`)
+  } catch {}
+  console.error('[electron] uncaught:', err)
+})
+
 app.whenReady().then(startApp).catch(err => {
+  try {
+    const fs = require('fs') as typeof import('fs')
+    const p = path.join(app.getPath('logs'), 'main-crash.log')
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    fs.appendFileSync(p, `${new Date().toISOString()} startup: ${err.stack ?? String(err)}\n`)
+  } catch {}
   console.error('[electron] startup error:', err)
   app.quit()
 })

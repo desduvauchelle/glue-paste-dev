@@ -5,6 +5,13 @@ packages/dashboard/tsconfig.tsbuildinfo
 packages/server/public/
 coverage/
 
+# Electron build artifacts
+packages/electron/dist-app/
+packages/electron/resources/
+
+# Local runtime data
+.glue-paste/
+
 # Environment files
 .env
 .env.*

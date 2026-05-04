@@ -27,9 +27,13 @@ bun build "$REPO_ROOT/packages/server/src/index.ts" \
 chmod +x "$RESOURCES_DIR/server"
 ok "Server binary built ($(du -sh "$RESOURCES_DIR/server" | cut -f1))"
 
-info "Packaging with electron-builder..."
+info "Compiling electron main process..."
 cd "$ELECTRON_DIR"
-npx electron-builder --publish never
+npx tsc
+ok "Electron main compiled"
+
+info "Packaging with electron-builder..."
+CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --publish never
 
 ok "Built to packages/electron/dist-app/"
 ls "$ELECTRON_DIR/dist-app/"

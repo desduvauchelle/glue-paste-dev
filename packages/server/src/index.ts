@@ -154,11 +154,14 @@ app.get(
 );
 
 // Serve static dashboard files (production)
-const publicDir = existsSync(join(import.meta.dir, "public"))
-  ? join(import.meta.dir, "public")
-  : join(import.meta.dir, "..", "public");
+// GPD_PUBLIC_DIR is set by Electron with the correct absolute path.
+// In dev (bun run), fall back to import.meta.dir resolution.
+const publicDir = process.env.GPD_PUBLIC_DIR
+  ?? (existsSync(join(import.meta.dir, "public"))
+    ? join(import.meta.dir, "public")
+    : join(import.meta.dir, "..", "public"));
 app.use("*", serveStatic({ root: publicDir }));
-app.use("*", serveStatic({ path: publicDir + "/index.html" }));
+app.get("*", (c) => new Response(Bun.file(join(publicDir, "index.html"))));
 
 const PORT = Number(process.env.PORT) || 4242;
 

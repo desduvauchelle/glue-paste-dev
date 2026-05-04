@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process'
+import fs from 'fs'
 import path from 'path'
 
 const PORT = 4242
@@ -41,16 +42,56 @@ export async function waitForReady(timeoutMs = 20000): Promise<boolean> {
 
 export class ServerManager {
   private process: ChildProcess | null = null
+  private logStream: fs.WriteStream | null = null
 
-  start(serverBin: string): void {
-    this.process = spawn(serverBin, [], {
-      env: { ...process.env, PORT: String(PORT) },
-      stdio: 'pipe',
+  start(serverBin: string, publicDir: string, logDir?: string): void {
+    if (logDir) {
+      try {
+        fs.mkdirSync(logDir, { recursive: true })
+        const logPath = path.join(logDir, 'sidecar.log')
+        this.logStream = fs.createWriteStream(logPath, { flags: 'a' })
+        const stamp = new Date().toISOString()
+        this.logStream.write(
+          `\n=== ${stamp} starting sidecar ===\n` +
+          `bin: ${serverBin}\n` +
+          `publicDir: ${publicDir}\n` +
+          `binExists: ${fs.existsSync(serverBin)}\n`
+        )
+      } catch (e) {
+        console.error('[electron] failed to open sidecar log:', e)
+      }
+    }
+
+    const writeLog = (line: string): void => {
+      this.logStream?.write(line.endsWith('\n') ? line : line + '\n')
+      process.stdout.write(line.endsWith('\n') ? line : line + '\n')
+    }
+
+    try {
+      this.process = spawn(serverBin, [], {
+        env: { ...process.env, PORT: String(PORT), GPD_PUBLIC_DIR: publicDir },
+        stdio: 'pipe',
+      })
+    } catch (e) {
+      writeLog(`[electron] spawn threw synchronously: ${String(e)}`)
+      throw e
+    }
+
+    writeLog(`[electron] spawn pid=${String(this.process.pid)}`)
+
+    this.process.on('error', (err) => {
+      writeLog(`[electron] sidecar error event: ${err.stack ?? String(err)}`)
     })
-    this.process.stdout?.on('data', (d: Buffer) => process.stdout.write(d))
-    this.process.stderr?.on('data', (d: Buffer) => process.stderr.write(d))
+    this.process.stdout?.on('data', (d: Buffer) => {
+      this.logStream?.write(d)
+      process.stdout.write(d)
+    })
+    this.process.stderr?.on('data', (d: Buffer) => {
+      this.logStream?.write(d)
+      process.stderr.write(d)
+    })
     this.process.on('exit', (code, signal) => {
-      console.log(`[electron] Server exited (code=${String(code)} signal=${String(signal)})`)
+      writeLog(`[electron] sidecar exited (code=${String(code)} signal=${String(signal)})`)
       this.process = null
     })
   }
