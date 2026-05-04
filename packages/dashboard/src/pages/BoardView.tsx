@@ -120,8 +120,9 @@ export function BoardView({ params }: BoardViewProps) {
 		if (event.type === "queue:stopped") {
 			setQueueRunning(false)
 			setQueuePaused(false)
-			// Auto-restart if there are still queued cards
-			if (autoRunRef.current) {
+			// Auto-restart only if there are still queued cards — otherwise we'd
+			// loop forever firing "No queued cards to execute" notifications.
+			if (autoRunRef.current && (grouped.queued?.length ?? 0) > 0) {
 				setTimeout(() => void tryStartQueue(), 500)
 			}
 		}

@@ -39,6 +39,9 @@ export function makeCallbacks(db: Database, broadcast: (event: unknown) => void)
         type: "queue:stopped",
         payload: { boardId, reason },
       });
+      // Skip the toast for the no-op "nothing to run" case — it's not a real
+      // stop event and previously fed a dashboard auto-restart loop.
+      if (reason === "No queued cards to execute") return;
       const board = boardsDb.getBoard(db, boardId as BoardId);
       const boardName = board?.name ?? "Unknown Board";
       broadcast({

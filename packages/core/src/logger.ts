@@ -28,13 +28,14 @@ const LEVEL_LABEL: Record<LogLevel, string> = {
 
 function isEnabled(): boolean {
   const val = typeof process !== "undefined" ? process.env.GPD_DEBUG : undefined;
-  return val !== undefined && val !== "" && val !== "0" && val !== "false";
+  if (val === "0" || val === "false") return false;
+  return true;
 }
 
 function getMinLevel(): LogLevel {
   const val = typeof process !== "undefined" ? process.env.GPD_DEBUG_LEVEL : undefined;
   if (val && val in LEVEL_PRIORITY) return val as LogLevel;
-  return "debug";
+  return "info";
 }
 
 function write(level: LogLevel, scope: string, ...args: unknown[]) {
