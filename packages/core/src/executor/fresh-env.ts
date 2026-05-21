@@ -6,6 +6,31 @@ import { homedir } from "node:os";
 const TOKEN_FILE = join(homedir(), ".glue-paste-dev", "oauth-token");
 
 /**
+ * Resolves the user's full login-shell PATH.
+ * On macOS, GUI apps inherit a stripped system PATH that excludes Homebrew
+ * (/opt/homebrew/bin) and other user-installed tool directories. Running
+ * `zsh -l -c 'echo $PATH'` loads the user's shell profile and returns the
+ * real PATH, which is required to find binaries like `claude`.
+ */
+function resolveShellPath(): string {
+  for (const shell of ["zsh", "bash"]) {
+    try {
+      const r = spawnSync(shell, ["-l", "-c", "echo $PATH"], {
+        timeout: 3000,
+        encoding: "utf-8",
+        env: { HOME: homedir(), PATH: process.env.PATH ?? "" },
+      });
+      if (r.status === 0 && r.stdout.trim()) return r.stdout.trim();
+    } catch {
+      // try next shell
+    }
+  }
+  return process.env.PATH ?? "";
+}
+
+const SHELL_PATH = resolveShellPath();
+
+/**
  * Rejects obviously invalid tokens (test stubs, short strings).
  * Real OAuth tokens are typically 100+ characters.
  */
@@ -33,12 +58,14 @@ export function getFreshEnv(): Record<string, string | undefined> {
 
   let result: Record<string, string | undefined> | null = null;
 
+  const base = { ...process.env, PATH: SHELL_PATH };
+
   // 1. Token file (most likely to be fresh — updated by API)
   try {
     if (existsSync(TOKEN_FILE)) {
       const token = readFileSync(TOKEN_FILE, "utf-8").trim();
       if (token && looksLikeOAuthToken(token)) {
-        result = { ...process.env, CLAUDE_CODE_OAUTH_TOKEN: token };
+        result = { ...base, CLAUDE_CODE_OAUTH_TOKEN: token };
       }
     }
   } catch {
@@ -57,7 +84,7 @@ export function getFreshEnv(): Record<string, string | undefined> {
         const creds = JSON.parse(kcResult.stdout.trim());
         const oauth = creds?.claudeAiOauth;
         if (oauth?.accessToken && Date.now() < (oauth.expiresAt ?? 0) - 60_000) {
-          result = { ...process.env, CLAUDE_CODE_OAUTH_TOKEN: oauth.accessToken };
+          result = { ...base, CLAUDE_CODE_OAUTH_TOKEN: oauth.accessToken };
         }
       }
     } catch {
@@ -65,9 +92,9 @@ export function getFreshEnv(): Record<string, string | undefined> {
     }
   }
 
-  // 3. process.env as-is
+  // 3. base env with shell PATH
   if (!result) {
-    result = { ...process.env };
+    result = base;
   }
 
   cachedEnv = result;

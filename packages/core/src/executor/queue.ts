@@ -5,7 +5,7 @@ import * as cardsDb from "../db/cards.js";
 import * as commentsDb from "../db/comments.js";
 import * as executionsDb from "../db/executions.js";
 import { getMergedConfig } from "../config/manager.js";
-import { runCard, killCardProcess, type RunnerCallbacks } from "./runner.js";
+import { runCard, killCardProcess, getActiveCardProcess, type RunnerCallbacks } from "./runner.js";
 import type { RateLimitInfo } from "./rate-limit.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
@@ -157,6 +157,14 @@ export async function executeSingleCard(
   if (!card) throw new Error(`Card ${cardId} not found`);
   if (card.assignee === "human") throw new Error(`Card ${cardId} is assigned to a human and cannot be executed by AI`);
   if (card.status === "todo") throw new Error(`Card ${cardId} has status "todo" (backlog) and cannot be executed directly — move it to "queued" first`);
+  if (card.status === "done" || card.status === "failed") {
+    log.warn("queue", `Skipping execution of card ${cardId} — status is already "${card.status}"`);
+    return;
+  }
+  if (getActiveCardProcess(cardId)) {
+    log.warn("queue", `Skipping execution of card ${cardId} — already has an active process`);
+    return;
+  }
 
   const board = boardsDb.getBoard(db, card.board_id as BoardId);
   if (!board) throw new Error(`Board ${card.board_id} not found`);
@@ -569,7 +577,7 @@ function fillSlots(
     if (state.queue.length === 0) {
       // Re-check DB for newly queued or in-progress cards (added while queue was running)
       const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued").filter((c) => c.assignee !== "human");
-      const newInProgress = cardsDb.listCardsByStatus(db, boardId as BoardId, "in-progress").filter((c) => c.assignee !== "human" && !state.active.includes(c.id));
+      const newInProgress = cardsDb.listCardsByStatus(db, boardId as BoardId, "in-progress").filter((c) => c.assignee !== "human" && !state.active.includes(c.id) && !getActiveCardProcess(c.id));
       const allNew = [...newInProgress, ...newQueued];
       if (allNew.length > 0) {
         state.queue = allNew.map((c) => c.id);

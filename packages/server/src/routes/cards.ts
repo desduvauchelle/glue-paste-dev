@@ -23,7 +23,10 @@ export function cardRoutes(db: Database, broadcast: (event: unknown) => void) {
     if (card.status !== "in-progress") return;
     if (card.assignee === "human") return;
     const queueState = getQueueState(card.board_id);
-    if (queueState.current === card.id) return;
+    // Check all active slots, not just active[0] (which `current` aliases).
+    // Without this, cards at active[1]+ would spuriously trigger executeSingleCard
+    // while already being processed by the queue.
+    if (queueState.active.includes(card.id)) return;
     void executeSingleCard(db, card.id as CardId, callbacks);
   }
 

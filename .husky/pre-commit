@@ -1,3 +1,5 @@
+export PATH="$HOME/.bun/bin:$PATH"
+
 # 1. Auto-bump patch version and stage
 node -e "
 const fs = require('fs');
@@ -10,7 +12,7 @@ fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
 git add package.json
 
 # 2. Type check all packages
-bunx tsc -b
+~/.bun/bin/bun x tsc -b
 
 # 3. Run tests
-bun run test
+~/.bun/bin/bun run test

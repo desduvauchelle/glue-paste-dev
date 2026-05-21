@@ -81,6 +81,10 @@ export async function runCard(
   log.info("runner", `=== Running card "${cardLabel(card)}" (${card.id}) on board "${board.name}" ===`);
   log.info("runner", `Card: title="${card.title}" status=${card.status} assignee=${card.assignee} tags=[${card.tags.join(",")}]`);
   log.info("runner", `Board directory: ${board.directory}`);
+  if (activeCardProcesses.has(card.id)) {
+    log.warn("runner", `Card ${card.id} already has an active process — refusing concurrent execution`);
+    return { success: true, exitCode: 0, output: "" };
+  }
   cardsDb.updateCardStatus(db, card.id as CardId, "in-progress");
   const inProgressCard = cardsDb.getCard(db, card.id as CardId);
   if (inProgressCard) callbacks.onCardUpdated(inProgressCard);
@@ -154,6 +158,13 @@ export async function runCard(
       if (!result.success) {
         return result;
       }
+    }
+
+    // Guard: abort if the card was already completed by a concurrent invocation
+    const midCard = cardsDb.getCard(db, card.id as CardId);
+    if (!midCard || midCard.status !== "in-progress") {
+      log.warn("runner", `Card ${card.id} is ${midCard?.status ?? "gone"} after plan — skipping execute (completed by another invocation)`);
+      return { success: true, exitCode: 0, output: result!.output };
     }
 
     // Phase 2: Execute (with plan context) — resume the session from plan phase
