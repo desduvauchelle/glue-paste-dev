@@ -325,3 +325,169 @@ test("(b-gate) idle before submit does NOT fire onIdle; idle after submit does",
   fake.emit(IDLE_SAMPLE);
   expect(idleFires).toEqual(["c1"]);
 });
+
+// ── Task 3: onBusy + lastActivity + LRU eviction ─────────────────────────────
+
+type EvictionFake = SessionLike & {
+  emit: (s: string) => void;
+  _onData: (s: string) => void;
+  writes: string[];
+  killed: boolean;
+};
+
+/** Per-card fake factory for multi-session eviction tests. */
+function makeSessionFactory() {
+  const fakes = new Map<string, EvictionFake>();
+
+  function createSession(
+    cardId: string,
+    onData: (s: string) => void
+  ): SessionLike {
+    const writes: string[] = [];
+    let last = "";
+    let running = true;
+    const fake: EvictionFake = {
+      write: (d: string) => { writes.push(d); },
+      resize: () => {},
+      kill: () => { running = false; fake.killed = true; },
+      getScrollback: () => last,
+      isRunning: () => running,
+      killed: false,
+      writes,
+      _onData: onData,
+      emit(s: string) {
+        last = s;
+        this._onData(s);
+      },
+    };
+    fakes.set(cardId, fake);
+    return fake;
+  }
+
+  return { createSession, fakes };
+}
+
+test("(f) onBusy fires on idle→busy transition only, re-arms after next idle", () => {
+  const busyFires: string[] = [];
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    onBusy: (cardId) => busyFires.push(cardId),
+  });
+
+  // No initialInput → idleDetectionActive = true immediately
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+
+  // Emit idle → wasIdle becomes true
+  fake.emit(IDLE_SAMPLE);
+  expect(busyFires).toEqual([]); // no busy yet
+
+  // Emit non-idle → transition idle→busy → onBusy fires once
+  fake.emit("working...");
+  expect(busyFires).toEqual(["c1"]);
+
+  // Emit another non-idle → still busy, onBusy must NOT fire again
+  fake.emit("still working...");
+  expect(busyFires).toEqual(["c1"]);
+
+  // Emit idle → re-arm
+  fake.emit(IDLE_SAMPLE);
+  expect(busyFires).toEqual(["c1"]); // not changed
+
+  // Emit non-idle → second idle→busy transition → fires again
+  fake.emit("working again...");
+  expect(busyFires).toEqual(["c1", "c1"]);
+});
+
+test("(g) LRU eviction closes oldest idle session when at capacity", () => {
+  const { createSession, fakes } = makeSessionFactory();
+
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (cardId, onData) => createSession(cardId, onData),
+    onOutput: () => {},
+    onExit: () => {},
+    maxSessions: 2,
+  });
+
+  // Open c1 and make it idle
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  fakes.get("c1")!.emit(IDLE_SAMPLE);
+
+  // Small delay to ensure c2 has a newer lastActivity than c1
+  // (both go idle but c1 was opened/emitted first)
+  // Open c2 and make it idle
+  hub.open("c2", { cwd: "/tmp", cols: 80, rows: 24 });
+  fakes.get("c2")!.emit(IDLE_SAMPLE);
+
+  // c1 and c2 are both idle; opening c3 should evict c1 (oldest lastActivity)
+  hub.open("c3", { cwd: "/tmp", cols: 80, rows: 24 });
+
+  expect(fakes.get("c1")!.killed).toBe(true);  // c1 evicted
+  expect(hub.isRunning("c1")).toBe(false);       // gone from map
+  expect(hub.isRunning("c2")).toBe(true);        // still alive
+  expect(hub.isRunning("c3")).toBe(true);        // newly opened
+});
+
+test("(h) LRU eviction does NOT evict working (non-idle) sessions", () => {
+  const { createSession, fakes } = makeSessionFactory();
+
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (cardId, onData) => createSession(cardId, onData),
+    onOutput: () => {},
+    onExit: () => {},
+    maxSessions: 2,
+  });
+
+  // Open c1 and c2 but keep them busy (never emit idle)
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  fakes.get("c1")!.emit("busy output...");
+
+  hub.open("c2", { cwd: "/tmp", cols: 80, rows: 24 });
+  fakes.get("c2")!.emit("busy output...");
+
+  // At cap with all working sessions → open c3 must NOT evict anyone
+  hub.open("c3", { cwd: "/tmp", cols: 80, rows: 24 });
+
+  // c3 should not open (or if it opens, c1 and c2 are untouched)
+  expect(fakes.get("c1")!.killed).toBe(false);
+  expect(fakes.get("c2")!.killed).toBe(false);
+});
+
+test("(i) LRU eviction skips watched sessions and evicts next-oldest idle", () => {
+  const { createSession, fakes } = makeSessionFactory();
+
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (cardId, onData) => createSession(cardId, onData),
+    onOutput: () => {},
+    onExit: () => {},
+    maxSessions: 2,
+    watchWindowMs: 5000,
+  });
+
+  // Open c1 and make it idle
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  fakes.get("c1")!.emit(IDLE_SAMPLE);
+
+  // Open c2 and make it idle
+  hub.open("c2", { cwd: "/tmp", cols: 80, rows: 24 });
+  fakes.get("c2")!.emit(IDLE_SAMPLE);
+
+  // Put a heartbeat on c1 (oldest) → c1 is now watched, so c2 should be evicted instead
+  hub.heartbeat("client-A", "c1");
+
+  // Open c3 → should evict c2 (next-oldest idle, unwatched) not c1
+  hub.open("c3", { cwd: "/tmp", cols: 80, rows: 24 });
+
+  expect(fakes.get("c2")!.killed).toBe(true);   // c2 evicted
+  expect(fakes.get("c1")!.killed).toBe(false);  // c1 protected by heartbeat
+  expect(hub.isRunning("c3")).toBe(true);
+});

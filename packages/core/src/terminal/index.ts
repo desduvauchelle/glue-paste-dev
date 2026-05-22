@@ -17,12 +17,16 @@ export function createTerminalHub(args: {
   onOutput: (cardId: string, data: string) => void;
   onExit: (cardId: string, code: number) => void;
   onIdle?: (cardId: string) => void;
+  onBusy?: (cardId: string) => void;
+  maxSessions?: number;
 }): TerminalHub {
   return new TerminalHub({
     permissionMode: args.permissionMode,
     onOutput: args.onOutput,
     onExit: args.onExit,
     ...(args.onIdle ? { onIdle: args.onIdle } : {}),
+    ...(args.onBusy ? { onBusy: args.onBusy } : {}),
+    ...(args.maxSessions != null ? { maxSessions: args.maxSessions } : {}),
     createSession: (_cardId, onData, onExit, opts) =>
       new PtySession({
         command: opts.command ?? args.command,

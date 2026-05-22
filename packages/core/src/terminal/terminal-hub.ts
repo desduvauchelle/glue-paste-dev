@@ -38,8 +38,12 @@ export interface TerminalHubOptions {
   watchWindowMs?: number;
   /** Called when a session transitions to idle (turn complete). */
   onIdle?: (cardId: string) => void;
+  /** Called when a session transitions from idle to busy (working). */
+  onBusy?: (cardId: string) => void;
   /** Delay in ms before writing the submit \r after initial input. Default 300. */
   initialInputDelayMs?: number;
+  /** Maximum number of concurrent sessions before LRU eviction kicks in. Default 12. */
+  maxSessions?: number;
 }
 
 export type TurnEndResult = { reason: "idle" } | { reason: "exit"; code: number };
@@ -53,6 +57,7 @@ interface SessionEntry {
   wasIdle: boolean;
   idleDetectionActive: boolean;
   turnEndWaiters: Array<(r: TurnEndResult) => void>;
+  lastActivity: number;
 }
 
 const BUFFER_TAIL = 8000;
@@ -62,15 +67,31 @@ export class TerminalHub {
   private graceMs: number;
   private watchWindowMs: number;
   private initialInputDelayMs: number;
+  private maxSessions: number;
 
   constructor(private opts: TerminalHubOptions) {
     this.graceMs = opts.graceMs ?? 1500;
     this.watchWindowMs = opts.watchWindowMs ?? 6000;
     this.initialInputDelayMs = opts.initialInputDelayMs ?? 300;
+    this.maxSessions = opts.maxSessions ?? 12;
   }
 
   open(cardId: string, opts: OpenOptions): void {
     if (this.sessions.has(cardId)) return;
+
+    // LRU eviction: if at capacity, close the oldest idle+unwatched session
+    if (this.sessions.size >= this.maxSessions) {
+      let victim: string | null = null;
+      let oldest = Infinity;
+      for (const [id, entry] of this.sessions) {
+        if (!entry.wasIdle) continue;         // never evict a working session
+        if (this.isWatched(id)) continue;     // never evict a session someone is watching
+        if (entry.lastActivity < oldest) { oldest = entry.lastActivity; victim = id; }
+      }
+      if (victim) this.close(victim);
+      // If no evictable session exists, proceed without evicting
+    }
+
     const hasInitialInput = opts.initialInput != null;
     const entry: SessionEntry = {
       session: null as never,
@@ -82,6 +103,7 @@ export class TerminalHub {
       // Gate: if we have initialInput, hold off detection until after submit
       idleDetectionActive: !hasInitialInput,
       turnEndWaiters: [],
+      lastActivity: Date.now(),
     };
     entry.session = this.opts.createSession(
       cardId,
@@ -177,6 +199,7 @@ export class TerminalHub {
     this.opts.onOutput(cardId, chunk);
     const e = this.sessions.get(cardId);
     if (!e) return;
+    e.lastActivity = Date.now();
     e.buffer = (e.buffer + chunk).slice(-BUFFER_TAIL);
     this.maybeHandlePermission(cardId, e);
     if (e.idleDetectionActive) {
@@ -187,8 +210,9 @@ export class TerminalHub {
         const waiters = e.turnEndWaiters;
         e.turnEndWaiters = [];
         for (const w of waiters) w({ reason: "idle" });
-      } else if (!idle) {
+      } else if (!idle && e.wasIdle) {
         e.wasIdle = false;
+        this.opts.onBusy?.(cardId);
       }
     }
   }
