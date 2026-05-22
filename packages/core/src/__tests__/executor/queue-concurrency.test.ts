@@ -8,12 +8,14 @@ import type { BoardId, CardId, CardWithTags } from "../../types/index.js";
 import type { QueueCallbacks } from "../../executor/queue.js";
 import type { RunResult } from "../../executor/runner.js";
 
-// --- Mock runCard with controllable resolution ---
+// --- Mock runCard with controllable resolution (preserve real exports to avoid poisoning module cache) ---
+const realRunner = await import("../../executor/runner.js");
 type CardResolver = { card: CardWithTags; resolve: (result: RunResult) => void };
 let pendingCards: CardResolver[] = [];
 let autoResolve = true;
 
 mock.module("../../executor/runner.js", () => ({
+  ...realRunner,
   runCard: async (db: Database, card: CardWithTags, ..._rest: unknown[]) => {
     updateCardStatus(db, card.id as CardId, "in-progress");
     if (autoResolve) {
@@ -24,6 +26,7 @@ mock.module("../../executor/runner.js", () => ({
     });
   },
   killCardProcess: () => false,
+  getActiveCardProcess: () => undefined,
 }));
 
 const { startQueue, getQueueState, refreshConcurrency, notifyNewCard } = await import("../../executor/queue.js");

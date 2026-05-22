@@ -6,11 +6,13 @@ import * as commentsDb from "../db/comments.js";
 import * as executionsDb from "../db/executions.js";
 import { getMergedConfig } from "../config/manager.js";
 import { runCard, killCardProcess, getActiveCardProcess, type RunnerCallbacks } from "./runner.js";
+import { runCardInteractive } from "./pty-runner.js";
 import type { RateLimitInfo } from "./rate-limit.js";
 import { log } from "../logger.js";
 import { cardLabel } from "../utils/cardLabel.js";
 import { cleanupCardAttachments, cleanupStaleAttachments, enforceAttachmentCap } from "../utils/attachments.js";
 import { walCheckpoint } from "../db/connection.js";
+import type { TerminalHub } from "../terminal/index.js";
 
 export interface QueueState {
   boardId: string;
@@ -59,6 +61,22 @@ const activeProcesses = new Map<string, AbortController>();
 
 /** Track cards that were explicitly stopped — prevents processCard from retrying or overriding status */
 const stoppedCardIds = new Set<string>();
+
+/** Interactive cards that reached idle (awaiting human review) — stay in-progress but must NOT be re-picked by the queue. */
+const interactiveAwaitingReview = new Set<string>();
+
+/** The shared TerminalHub. Server wires this at startup (Task 5). When null, claude cards fall back to the headless runner. */
+let interactiveHub: TerminalHub | null = null;
+
+/** Server wires the shared hub here at startup (Task 5). When unset, claude cards fall back to the headless runner. */
+export function setInteractiveHub(hub: TerminalHub | null): void {
+  interactiveHub = hub;
+}
+
+/** Remove a card from the awaiting-review set (called by Phase 3 when a card is re-run after review). */
+export function clearAwaitingReview(cardId: string): void {
+  interactiveAwaitingReview.delete(cardId);
+}
 
 /** Check if a card was explicitly stopped (and consume the flag) */
 export function consumeStoppedFlag(cardId: string): boolean {
@@ -173,6 +191,32 @@ export async function executeSingleCard(
   const comments = commentsDb.listComments(db, cardId);
   const config = applyCardOverrides(getMergedConfig(db, card.board_id as BoardId), card);
 
+  // Clear any stale awaiting-review state so a re-run card is treated fresh
+  interactiveAwaitingReview.delete(cardId);
+
+  // Interactive routing: claude provider + hub wired → use live PTY session
+  if (config.cliProvider === "claude" && interactiveHub) {
+    try {
+      const result = await runCardInteractive(db, card, board, comments, config, interactiveHub, callbacks);
+      if (consumeStoppedFlag(cardId)) {
+        const updated = cardsDb.getCard(db, cardId);
+        if (updated) callbacks.onCardUpdated(updated);
+        return;
+      }
+      if (result.success) {
+        interactiveAwaitingReview.add(cardId); // awaiting review; stays in-progress
+      } else {
+        cardsDb.updateCardStatus(db, cardId, "failed");
+      }
+    } catch (err) {
+      log.error("queue", `Interactive run error for card ${cardId}:`, err);
+      if (!consumeStoppedFlag(cardId)) cardsDb.updateCardStatus(db, cardId, "failed");
+    }
+    const updated = cardsDb.getCard(db, cardId);
+    if (updated) callbacks.onCardUpdated(updated);
+    return;
+  }
+
   try {
     const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
     const result = await runCard(db, card, board, comments, config, callbacks, existingPlanOutput ? { existingPlanOutput } : undefined);
@@ -229,6 +273,8 @@ export function stopCard(
 ): void {
   // Mark as stopped BEFORE killing — processCard checks this flag to avoid retrying
   stoppedCardIds.add(cardId);
+  // If this card was awaiting interactive review, clear that state so it can be re-processed later
+  interactiveAwaitingReview.delete(cardId);
 
   const killed = killCardProcess(cardId);
   if (killed) {
@@ -336,6 +382,67 @@ async function processCard(
 
   const comments = commentsDb.listComments(db, cardId);
   const config = applyCardOverrides(getMergedConfig(db, boardId as BoardId), card);
+
+  // Clear any stale awaiting-review state so a re-queued card is treated fresh
+  interactiveAwaitingReview.delete(cardId);
+
+  // Interactive routing: claude provider + hub wired → use live PTY session
+  if (config.cliProvider === "claude" && interactiveHub) {
+    try {
+      const result = await runCardInteractive(db, card, board, comments, config, interactiveHub, callbacks);
+      if (consumeStoppedFlag(cardId)) {
+        removeFromActive(boardId, cardId);
+        fillSlots(db, boardId, callbacks);
+        return;
+      }
+      if (result.success) {
+        // Interactive success = reached idle (awaiting human review).
+        // Do NOT set "done" — the card STAYS "in-progress" (pty-runner already set it).
+        // Mark it awaiting-review so fillSlots won't re-pick it, then free the slot.
+        interactiveAwaitingReview.add(cardId);
+        walCheckpoint(db);
+        const updated = cardsDb.getCard(db, cardId);
+        if (updated) callbacks.onCardUpdated(updated);
+        removeFromActive(boardId, cardId);
+        fillSlots(db, boardId, callbacks);
+      } else {
+        // Interactive failure = session exited before completing a turn. No retry for interactive.
+        cardsDb.updateCardStatus(db, cardId, "failed");
+        walCheckpoint(db);
+        const updated = cardsDb.getCard(db, cardId);
+        if (updated) callbacks.onCardUpdated(updated);
+        removeFromActive(boardId, cardId);
+        if (card.blocking) {
+          // Mirror the existing blocking-card behavior: reset queued cards to todo and stop the queue.
+          const queueState = queues.get(boardId);
+          if (queueState) {
+            for (const queuedId of queueState.queue) {
+              cardsDb.updateCardStatus(db, queuedId as CardId, "todo");
+              const resetCard = cardsDb.getCard(db, queuedId as CardId);
+              if (resetCard) callbacks.onCardUpdated(resetCard);
+            }
+            queueState.isRunning = false;
+            queueState.queue = [];
+            queueState.active = [];
+            queueState.current = null;
+          }
+          callbacks.onQueueStopped(boardId, `Card "${cardLabel(card)}" failed (blocking)`);
+        } else {
+          fillSlots(db, boardId, callbacks);
+        }
+      }
+    } catch (err) {
+      log.error("queue", `Interactive run error for card ${cardId}:`, err);
+      if (!consumeStoppedFlag(cardId)) {
+        cardsDb.updateCardStatus(db, cardId, "failed");
+        const updated = cardsDb.getCard(db, cardId);
+        if (updated) callbacks.onCardUpdated(updated);
+      }
+      removeFromActive(boardId, cardId);
+      fillSlots(db, boardId, callbacks);
+    }
+    return;
+  }
 
   try {
     const existingPlanOutput = executionsDb.getCompletedPlanOutput(db, cardId) ?? undefined;
@@ -577,7 +684,7 @@ function fillSlots(
     if (state.queue.length === 0) {
       // Re-check DB for newly queued or in-progress cards (added while queue was running)
       const newQueued = cardsDb.listCardsByStatus(db, boardId as BoardId, "queued").filter((c) => c.assignee !== "human");
-      const newInProgress = cardsDb.listCardsByStatus(db, boardId as BoardId, "in-progress").filter((c) => c.assignee !== "human" && !state.active.includes(c.id) && !getActiveCardProcess(c.id));
+      const newInProgress = cardsDb.listCardsByStatus(db, boardId as BoardId, "in-progress").filter((c) => c.assignee !== "human" && !state.active.includes(c.id) && !getActiveCardProcess(c.id) && !interactiveAwaitingReview.has(c.id));
       const allNew = [...newInProgress, ...newQueued];
       if (allNew.length > 0) {
         state.queue = allNew.map((c) => c.id);
