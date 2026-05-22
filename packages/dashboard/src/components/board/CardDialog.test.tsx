@@ -39,6 +39,12 @@ vi.mock("@/lib/ws", () => ({
   useWSEvent: vi.fn(),
 }));
 
+vi.mock("./InteractiveTerminal", () => ({
+  InteractiveTerminal: ({ active }: { cardId: string; active: boolean }) => (
+    <div data-testid="live-term" data-active={String(active)} />
+  ),
+}));
+
 const { config: configApi, ai: aiApi, cards: cardsApi } = await import("@/lib/api");
 
 const defaultProps = {
@@ -530,5 +536,55 @@ describe("CardDialog — title auto-generation on save", () => {
 
     await waitFor(() => expect(onCreate).toHaveBeenCalled());
     expect(aiApi.generateTitle).not.toHaveBeenCalled();
+  });
+});
+
+describe("CardDialog — Live terminal sub-tab", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(configApi.getForBoard).mockResolvedValue(mockConfigDefaults);
+  });
+
+  const editCard = {
+    id: "card-1",
+    board_id: "board-1",
+    title: "Test card",
+    description: "desc",
+    status: "todo" as const,
+    position: 0,
+    blocking: false,
+    plan_thinking: null,
+    execute_thinking: null,
+    auto_commit: null,
+    auto_push: null,
+    cli_provider: null,
+    cli_custom_command: null,
+    branch_mode: null,
+    branch_name: null,
+    assignee: "ai" as const,
+    files: [],
+    tags: [],
+    created_at: "",
+    updated_at: "",
+  };
+
+  it("shows the InteractiveTerminal when the Live sub-tab is clicked and hides it on Activity", async () => {
+    render(<CardDialog {...defaultProps} card={editCard} />);
+
+    // Activity tab is default — terminal not shown
+    expect(screen.queryByTestId("live-term")).toBeNull();
+
+    const liveButton = await screen.findByRole("button", { name: "Live" });
+    fireEvent.click(liveButton);
+
+    const term = await screen.findByTestId("live-term");
+    expect(term).toBeInTheDocument();
+    expect(term).toHaveAttribute("data-active", "true");
+
+    // Switch back to Activity — terminal removed
+    const activityButton = screen.getByRole("button", { name: /^Activity/ });
+    fireEvent.click(activityButton);
+
+    await waitFor(() => expect(screen.queryByTestId("live-term")).toBeNull());
   });
 });

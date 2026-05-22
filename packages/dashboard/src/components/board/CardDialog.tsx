@@ -19,6 +19,7 @@ import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, U
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
+import { InteractiveTerminal } from "./InteractiveTerminal"
 import { useExecutions } from "@/hooks/use-executions"
 import { useCommits } from "@/hooks/use-commits"
 import type { Execution, Board as BoardType } from "@/lib/api"
@@ -79,6 +80,7 @@ export function CardDialog({
 	const [isMoving, setIsMoving] = useState(false)
 	const [targetBoardId, setTargetBoardId] = useState(boardId)
 	const [activityMaximized, setActivityMaximized] = useState(false)
+	const [convSubTab, setConvSubTab] = useState<"activity" | "live">("activity")
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
 	const { commits } = useCommits(card?.id ?? null)
@@ -732,11 +734,34 @@ export function CardDialog({
 									return (
 										<div>
 											<div className="flex items-center justify-between mb-1">
-												<label className="text-sm font-medium">
-													Activity ({comments.length})
-												</label>
 												<div className="flex items-center gap-1">
-													{comments.length > 0 && (
+													<button
+														type="button"
+														onClick={() => setConvSubTab("activity")}
+														className={cn(
+															"text-sm font-medium px-2 py-1 rounded transition-colors",
+															convSubTab === "activity"
+																? "bg-accent text-accent-foreground"
+																: "text-muted-foreground hover:text-foreground"
+														)}
+													>
+														Activity ({comments.length})
+													</button>
+													<button
+														type="button"
+														onClick={() => setConvSubTab("live")}
+														className={cn(
+															"text-sm font-medium px-2 py-1 rounded transition-colors",
+															convSubTab === "live"
+																? "bg-accent text-accent-foreground"
+																: "text-muted-foreground hover:text-foreground"
+														)}
+													>
+														Live
+													</button>
+												</div>
+												<div className="flex items-center gap-1">
+													{convSubTab === "activity" && comments.length > 0 && (
 														<Button
 															variant="ghost"
 															size="icon"
@@ -747,20 +772,28 @@ export function CardDialog({
 															<Eraser className="w-3.5 h-3.5 text-muted-foreground" />
 														</Button>
 													)}
-													<Button
-														variant="ghost"
-														size="icon"
-														className="h-6 w-6"
-														onClick={() => setActivityMaximized(true)}
-														title="Maximize activity"
-													>
-														<Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
-													</Button>
+													{convSubTab === "activity" && (
+														<Button
+															variant="ghost"
+															size="icon"
+															className="h-6 w-6"
+															onClick={() => setActivityMaximized(true)}
+															title="Maximize activity"
+														>
+															<Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
+														</Button>
+													)}
 												</div>
 											</div>
-											<ScrollArea className="max-h-[400px] border rounded-md p-2">
-												{renderActivityList(false)}
-											</ScrollArea>
+											{convSubTab === "activity" ? (
+												<ScrollArea className="max-h-[400px] border rounded-md p-2">
+													{renderActivityList(false)}
+												</ScrollArea>
+											) : (
+												<div className="h-[420px] border rounded-md overflow-hidden">
+													<InteractiveTerminal cardId={card.id} active={convSubTab === "live"} />
+												</div>
+											)}
 											<div className="mt-2">
 												{renderCommentInput()}
 											</div>
