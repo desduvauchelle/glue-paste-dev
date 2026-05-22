@@ -80,6 +80,14 @@ function subscribe(listener: WSListener): () => void {
   };
 }
 
+export function sendWS(message: unknown): boolean {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
+    return true;
+  }
+  return false;
+}
+
 export function useWebSocket(onEvent: WSListener) {
   const callbackRef = useRef(onEvent);
   callbackRef.current = onEvent;

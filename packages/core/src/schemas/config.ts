@@ -28,6 +28,15 @@ export const BRANCH_MODES = ["current", "new", "specific"] as const;
 export const BranchModeSchema = z.enum(BRANCH_MODES);
 export type BranchMode = z.infer<typeof BranchModeSchema>;
 
+/** When to auto-answer interactive permission prompts in the live terminal. */
+export const TERMINAL_PERMISSION_MODES = [
+  "auto-unless-watching", // auto-answer only when nobody is watching (default)
+  "always-ask",           // never auto-answer; a human must respond
+  "always-auto",          // always auto-answer
+] as const;
+export const TerminalPermissionModeSchema = z.enum(TERMINAL_PERMISSION_MODES);
+export type TerminalPermissionMode = z.infer<typeof TerminalPermissionModeSchema>;
+
 export const ConfigSchema = z.object({
   key: z.string(),
   cli_provider: z.string().default("claude"),
@@ -45,6 +54,7 @@ export const ConfigSchema = z.object({
   branch_mode: z.string().default("current"),
   branch_name: z.string().default(""),
   max_concurrent_cards: z.number().int().min(1).max(3).default(1),
+  terminal_permission_mode: z.string().default("auto-unless-watching"),
 });
 
 /** User-facing config shape (custom_tags as array) */
@@ -64,6 +74,7 @@ export const ConfigInputSchema = z.object({
   branchMode: BranchModeSchema.optional(),
   branchName: z.string().max(200).optional(),
   maxConcurrentCards: z.number().int().min(1).max(3).optional(),
+  terminalPermissionMode: TerminalPermissionModeSchema.optional(),
 });
 
 export const DEFAULT_CONFIG = {
@@ -82,4 +93,5 @@ export const DEFAULT_CONFIG = {
   branchMode: "current" as BranchMode,
   branchName: "",
   maxConcurrentCards: 1,
+  terminalPermissionMode: "auto-unless-watching" as TerminalPermissionMode,
 } as const;

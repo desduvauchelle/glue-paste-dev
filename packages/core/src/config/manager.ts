@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { ConfigInput, BoardId } from "../types/index.js";
-import { DEFAULT_CONFIG, type CliProvider, type BranchMode } from "../schemas/config.js";
+import { DEFAULT_CONFIG, type CliProvider, type BranchMode, type TerminalPermissionMode } from "../schemas/config.js";
 
 interface ConfigRow {
   key: string;
@@ -19,6 +19,7 @@ interface ConfigRow {
   branch_mode: string | null;
   branch_name: string | null;
   max_concurrent_cards: number | null;
+  terminal_permission_mode: string | null;
 }
 
 /** Fully resolved config — used for global config and merged results */
@@ -39,6 +40,7 @@ function rowToConfigInput(row: ConfigRow): Required<ConfigInput> {
     branchMode: (row.branch_mode || "current") as BranchMode,
     branchName: row.branch_name || "",
     maxConcurrentCards: row.max_concurrent_cards ?? DEFAULT_CONFIG.maxConcurrentCards,
+    terminalPermissionMode: (row.terminal_permission_mode || "auto-unless-watching") as TerminalPermissionMode,
   };
 }
 
@@ -60,6 +62,7 @@ function rowToPartialConfig(row: ConfigRow): ConfigInput {
     branchMode: row.branch_mode !== null ? (row.branch_mode as BranchMode) : undefined,
     branchName: row.branch_name !== null ? row.branch_name : undefined,
     maxConcurrentCards: row.max_concurrent_cards !== null ? row.max_concurrent_cards : undefined,
+    terminalPermissionMode: row.terminal_permission_mode !== null ? (row.terminal_permission_mode as TerminalPermissionMode) : undefined,
   };
 }
 
@@ -123,6 +126,7 @@ export function getMergedConfig(
     branchMode: project.branchMode ?? global.branchMode,
     branchName: project.branchName ?? global.branchName,
     maxConcurrentCards: project.maxConcurrentCards ?? global.maxConcurrentCards,
+    terminalPermissionMode: project.terminalPermissionMode ?? global.terminalPermissionMode,
   };
 }
 
@@ -169,11 +173,12 @@ function upsertGlobalConfig(
     branchMode: input.branchMode ?? current.branchMode,
     branchName: input.branchName ?? current.branchName,
     maxConcurrentCards: input.maxConcurrentCards ?? current.maxConcurrentCards,
+    terminalPermissionMode: input.terminalPermissionMode ?? current.terminalPermissionMode,
   };
 
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions, branch_mode, branch_name, max_concurrent_cards)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions, branch_mode, branch_name, max_concurrent_cards, terminal_permission_mode)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
        cli_custom_command = excluded.cli_custom_command,
@@ -189,7 +194,8 @@ function upsertGlobalConfig(
        custom_instructions = excluded.custom_instructions,
        branch_mode = excluded.branch_mode,
        branch_name = excluded.branch_name,
-       max_concurrent_cards = excluded.max_concurrent_cards`
+       max_concurrent_cards = excluded.max_concurrent_cards,
+       terminal_permission_mode = excluded.terminal_permission_mode`
   ).run(
     "global",
     merged.cliProvider ?? "claude",
@@ -206,7 +212,8 @@ function upsertGlobalConfig(
     merged.customInstructions ?? "",
     merged.branchMode ?? "current",
     merged.branchName ?? "",
-    merged.maxConcurrentCards ?? 1
+    merged.maxConcurrentCards ?? 1,
+    merged.terminalPermissionMode ?? "auto-unless-watching"
   );
 
   return merged;
@@ -219,8 +226,8 @@ function upsertProjectConfig(
   input: ConfigInput
 ): Required<ConfigInput> {
   db.query(
-    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions, branch_mode, branch_name, max_concurrent_cards)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO config (key, cli_provider, cli_custom_command, model, plan_model, execute_model, max_budget_usd, auto_commit, auto_push, plan_thinking, execute_thinking, custom_tags, custom_instructions, branch_mode, branch_name, max_concurrent_cards, terminal_permission_mode)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET
        cli_provider = excluded.cli_provider,
        cli_custom_command = excluded.cli_custom_command,
@@ -236,7 +243,8 @@ function upsertProjectConfig(
        custom_instructions = excluded.custom_instructions,
        branch_mode = excluded.branch_mode,
        branch_name = excluded.branch_name,
-       max_concurrent_cards = excluded.max_concurrent_cards`
+       max_concurrent_cards = excluded.max_concurrent_cards,
+       terminal_permission_mode = excluded.terminal_permission_mode`
   ).run(
     key,
     input.cliProvider ?? null,
@@ -253,7 +261,8 @@ function upsertProjectConfig(
     input.customInstructions ?? null,
     input.branchMode ?? null,
     input.branchName ?? null,
-    input.maxConcurrentCards ?? null
+    input.maxConcurrentCards ?? null,
+    input.terminalPermissionMode ?? null
   );
 
   // Return the merged config for API response

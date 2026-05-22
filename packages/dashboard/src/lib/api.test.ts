@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { boards, cards, comments, queue, chat, parseFilesChanged } from "./api";
+import { boards, cards, comments, queue, chat, terminal, parseFilesChanged } from "./api";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -118,6 +118,35 @@ describe("chat", () => {
     await chat.stop("c1");
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/cards/c1/chat",
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+});
+
+describe("terminal", () => {
+  it("open calls POST /api/cards/:id/terminal", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ ok: true, running: true }));
+    await terminal.open("c1", { cols: 80, rows: 24 });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/cards/c1/terminal",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("status calls GET /api/cards/:id/terminal", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ running: true, scrollback: "" }));
+    await terminal.status("c1");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/cards/c1/terminal",
+      expect.any(Object)
+    );
+  });
+
+  it("close calls DELETE /api/cards/:id/terminal", async () => {
+    mockFetch.mockResolvedValue(mockJsonResponse({ ok: true }));
+    await terminal.close("c1");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/cards/c1/terminal",
       expect.objectContaining({ method: "DELETE" })
     );
   });

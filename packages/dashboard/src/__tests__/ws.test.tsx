@@ -13,6 +13,7 @@ class MockWebSocket {
   onclose: ((e: { code: number; reason: string }) => void) | null = null;
   onerror: ((e: unknown) => void) | null = null;
   close = vi.fn();
+  send = vi.fn();
 
   constructor(public url: string) {
     MockWebSocket.instances.push(this);
@@ -86,5 +87,45 @@ describe("useWSEvent", () => {
 
     ws.simulateMessage({ type: "card:updated", payload: { id: "c1" } });
     expect(handler).toHaveBeenCalledWith({ id: "c1" });
+  });
+});
+
+describe("sendWS", () => {
+  it("returns false when there is no open socket", async () => {
+    const { sendWS } = await import("../lib/ws.js");
+    // No connection has been established — ws is null
+    expect(sendWS({ type: "terminal:input", cardId: "c1", data: "x" })).toBe(false);
+  });
+
+  it("returns true and calls socket.send with JSON string when socket is open", async () => {
+    const { useWebSocket, sendWS } = await import("../lib/ws.js");
+
+    // Establish a connection via the hook
+    renderHook(() => useWebSocket(vi.fn()));
+
+    const mockWs = MockWebSocket.instances[0]!;
+    expect(mockWs).toBeDefined();
+
+    // Simulate the socket becoming open
+    mockWs.simulateOpen();
+
+    const msg = { type: "terminal:input", cardId: "c1", data: "x" };
+    const result = sendWS(msg);
+
+    expect(result).toBe(true);
+    expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify(msg));
+  });
+
+  it("returns false when socket exists but is not OPEN (e.g. CONNECTING)", async () => {
+    const { useWebSocket, sendWS } = await import("../lib/ws.js");
+
+    renderHook(() => useWebSocket(vi.fn()));
+
+    const mockWs = MockWebSocket.instances[0]!;
+    // readyState is 0 (CONNECTING) by default — never called simulateOpen
+    expect(mockWs.readyState).toBe(0);
+
+    expect(sendWS({ type: "terminal:input", cardId: "c1", data: "x" })).toBe(false);
+    expect(mockWs.send).not.toHaveBeenCalled();
   });
 });
