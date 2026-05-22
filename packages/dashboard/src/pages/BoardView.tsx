@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useLocation } from "wouter"
-import { boards as boardsApi, queue as queueApi, type Board, type CardWithTags } from "@/lib/api"
+import { boards as boardsApi, queue as queueApi, terminal, type Board, type CardWithTags } from "@/lib/api"
 import { useCards } from "@/hooks/use-cards"
 import { useWebSocket } from "@/lib/ws"
 import { KanbanBoard } from "@/components/board/KanbanBoard"
@@ -20,6 +20,19 @@ import type { DefaultSuggestion } from "@/components/board/DefaultSuggestionCard
 
 interface BoardViewProps {
 	params: { boardId: string }
+}
+
+const KILL_SESSION_STATUSES = new Set(["done", "todo", "queued"])
+
+export function sessionsToKillOnReorder(
+  updates: Array<{ id: string; status: string; position: number }>,
+  cards: ReadonlyArray<{ id: string; session_state: "working" | "idle" | null }>
+): string[] {
+  return updates
+    .filter((u) => KILL_SESSION_STATUSES.has(u.status))
+    .map((u) => cards.find((c) => c.id === u.id))
+    .filter((c): c is { id: string; session_state: "working" | "idle" | null } => c != null && c.session_state != null)
+    .map((c) => c.id)
 }
 
 export function BoardView({ params }: BoardViewProps) {
@@ -172,7 +185,14 @@ export function BoardView({ params }: BoardViewProps) {
 	}
 
 	const handleReorderCards = async (updates: Array<{ id: string; status: string; position: number }>) => {
+		// Compute which cards have live sessions BEFORE the reorder changes state
+		const allCards = Object.values(grouped).flat()
+		const toKill = sessionsToKillOnReorder(updates, allCards)
+
 		await reorder(updates)
+
+		// Tear down live sessions for cards moved to done/todo/queued
+		for (const id of toKill) void terminal.killSession(id)
 
 		// If a card was moved to "in-progress", execute it
 		const movedToInProgress = updates.find((u) => u.status === "in-progress")

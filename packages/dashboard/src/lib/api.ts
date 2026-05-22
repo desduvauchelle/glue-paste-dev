@@ -221,6 +221,8 @@ export const terminal = {
     request<{ ok: boolean }>(`/cards/${cardId}/terminal`, { method: "DELETE" }),
   stop: (cardId: string) =>
     request<{ ok: boolean }>(`/cards/${cardId}/terminal/stop`, { method: "POST" }),
+  killSession: (cardId: string) =>
+    request<{ ok: boolean }>(`/cards/${cardId}/session/kill`, { method: "POST" }),
 };
 
 // Update
