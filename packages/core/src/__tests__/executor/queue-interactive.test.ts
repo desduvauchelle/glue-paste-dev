@@ -34,6 +34,7 @@ mock.module("../../executor/runner.js", () => ({
 const {
   startQueue,
   executeSingleCard,
+  stopCard,
   setInteractiveHub,
   clearAwaitingReview,
 } = await import("../../executor/queue.js");
@@ -96,7 +97,7 @@ function makeCallbacksWithCompletion() {
     onCardUpdated: (card) => {
       events.push({
         type: "card:updated",
-        payload: { id: card.id, status: card.status },
+        payload: { id: card.id, status: card.status, session_state: card.session_state },
       });
     },
     onCommentAdded: () => {},
@@ -349,5 +350,141 @@ describe("interactive routing — executeSingleCard path", () => {
     await executeSingleCard(db, card.id as CardId, callbacks);
 
     expect(getCard(db, card.id as CardId)!.status).toBe("failed");
+  });
+});
+
+describe("session_state lifecycle", () => {
+  test("queue path success: card session_state is 'idle' after interactive run reaches idle", async () => {
+    const hub = makeAutoHub("idle");
+    setInteractiveHub(hub);
+
+    const card = createCard(db, boardId, {
+      title: "Session Idle Queue",
+      description: "",
+      tags: [],
+      status: "queued",
+      cli_provider: "claude",
+    });
+
+    const { callbacks, completed } = makeCallbacksWithCompletion();
+    await startQueue(db, boardId, callbacks);
+    await completed;
+
+    expect(getCard(db, card.id as CardId)!.session_state).toBe("idle");
+  });
+
+  test("queue path failure: card session_state is null after session exits early", async () => {
+    const hub = makeAutoHub({ exit: 1 });
+    setInteractiveHub(hub);
+
+    const card = createCard(db, boardId, {
+      title: "Session Exit Queue",
+      description: "",
+      tags: [],
+      status: "queued",
+      cli_provider: "claude",
+    });
+
+    const { callbacks, completed } = makeCallbacksWithCompletion();
+    await startQueue(db, boardId, callbacks);
+    await completed;
+
+    const final = getCard(db, card.id as CardId)!;
+    expect(final.status).toBe("failed");
+    expect(final.session_state).toBeNull();
+  });
+
+  test("executeSingleCard success: card session_state is 'idle' after reaching idle", async () => {
+    const hub = makeAutoHub("idle");
+    setInteractiveHub(hub);
+
+    const card = createCard(db, boardId, {
+      title: "Single Session Idle",
+      description: "",
+      tags: [],
+      status: "queued",
+      cli_provider: "claude",
+    });
+
+    const { callbacks } = makeCallbacksWithCompletion();
+    await executeSingleCard(db, card.id as CardId, callbacks);
+
+    expect(getCard(db, card.id as CardId)!.session_state).toBe("idle");
+  });
+
+  test("executeSingleCard failure: card session_state is null after session exits early", async () => {
+    const hub = makeAutoHub({ exit: 1 });
+    setInteractiveHub(hub);
+
+    const card = createCard(db, boardId, {
+      title: "Single Session Exit",
+      description: "",
+      tags: [],
+      status: "queued",
+      cli_provider: "claude",
+    });
+
+    const { callbacks } = makeCallbacksWithCompletion();
+    await executeSingleCard(db, card.id as CardId, callbacks);
+
+    const final = getCard(db, card.id as CardId)!;
+    expect(final.status).toBe("failed");
+    expect(final.session_state).toBeNull();
+  });
+
+  test("card session_state is 'working' during run (onCardUpdated carries working state)", async () => {
+    const hub = makeAutoHub("idle");
+    setInteractiveHub(hub);
+
+    const card = createCard(db, boardId, {
+      title: "Session Working",
+      description: "",
+      tags: [],
+      status: "queued",
+      cli_provider: "claude",
+    });
+
+    const capturedUpdates: Array<{ status: string; session_state: string | null }> = [];
+    const { callbacks, completed } = makeCallbacksWithCompletion();
+    const originalOnCardUpdated = callbacks.onCardUpdated;
+    callbacks.onCardUpdated = (c) => {
+      capturedUpdates.push({ status: c.status, session_state: c.session_state });
+      originalOnCardUpdated(c);
+    };
+
+    await startQueue(db, boardId, callbacks);
+    await completed;
+
+    // The first broadcast after setSessionState("working") should carry session_state: "working"
+    const workingUpdate = capturedUpdates.find((u) => u.session_state === "working");
+    expect(workingUpdate).toBeDefined();
+    expect(workingUpdate!.status).toBe("in-progress");
+  });
+
+  test("stopCard: card session_state is null after stop", async () => {
+    // Create an in-progress card with session_state set to simulate an interrupted run
+    const card = createCard(db, boardId, {
+      title: "Stop Card Session",
+      description: "",
+      tags: [],
+      status: "queued",
+      cli_provider: "claude",
+    });
+
+    // Manually set the card to in-progress with working session_state (simulating mid-run)
+    const { setSessionState } = await import("../../db/cards.js");
+    const { updateCardStatus } = await import("../../db/cards.js");
+    updateCardStatus(db, card.id as CardId, "in-progress");
+    setSessionState(db, card.id as CardId, "working");
+
+    // Confirm it was set
+    expect(getCard(db, card.id as CardId)!.session_state).toBe("working");
+
+    const { callbacks } = makeCallbacksWithCompletion();
+    stopCard(db, card.id as CardId, callbacks);
+
+    const final = getCard(db, card.id as CardId)!;
+    expect(final.status).toBe("todo");
+    expect(final.session_state).toBeNull();
   });
 });

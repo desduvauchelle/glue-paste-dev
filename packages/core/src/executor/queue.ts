@@ -207,10 +207,14 @@ export async function executeSingleCard(
         interactiveAwaitingReview.add(cardId); // awaiting review; stays in-progress
       } else {
         cardsDb.updateCardStatus(db, cardId, "failed");
+        cardsDb.setSessionState(db, cardId, null);
       }
     } catch (err) {
       log.error("queue", `Interactive run error for card ${cardId}:`, err);
-      if (!consumeStoppedFlag(cardId)) cardsDb.updateCardStatus(db, cardId, "failed");
+      if (!consumeStoppedFlag(cardId)) {
+        cardsDb.updateCardStatus(db, cardId, "failed");
+        cardsDb.setSessionState(db, cardId, null);
+      }
     }
     const updated = cardsDb.getCard(db, cardId);
     if (updated) callbacks.onCardUpdated(updated);
@@ -281,6 +285,7 @@ export function stopCard(
     log.info("queue", `Stopped card ${cardId}`);
   }
   cardsDb.updateCardStatus(db, cardId, "todo");
+  cardsDb.setSessionState(db, cardId, null);
 
   // Remove from queue active list so fillSlots doesn't wait for it
   for (const [boardId, state] of queues) {
@@ -408,6 +413,7 @@ async function processCard(
       } else {
         // Interactive failure = session exited before completing a turn. No retry for interactive.
         cardsDb.updateCardStatus(db, cardId, "failed");
+        cardsDb.setSessionState(db, cardId, null);
         walCheckpoint(db);
         const updated = cardsDb.getCard(db, cardId);
         if (updated) callbacks.onCardUpdated(updated);
@@ -435,6 +441,7 @@ async function processCard(
       log.error("queue", `Interactive run error for card ${cardId}:`, err);
       if (!consumeStoppedFlag(cardId)) {
         cardsDb.updateCardStatus(db, cardId, "failed");
+        cardsDb.setSessionState(db, cardId, null);
         const updated = cardsDb.getCard(db, cardId);
         if (updated) callbacks.onCardUpdated(updated);
       }

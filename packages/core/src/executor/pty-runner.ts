@@ -28,8 +28,9 @@ export async function runCardInteractive(
   hub: TerminalHub,
   callbacks: RunnerCallbacks,
 ): Promise<RunResult> {
-  // 1. Set card to in-progress
+  // 1. Set card to in-progress and working
   cardsDb.updateCardStatus(db, card.id as CardId, "in-progress");
+  cardsDb.setSessionState(db, card.id as CardId, "working");
   const c = cardsDb.getCard(db, card.id as CardId);
   if (c) callbacks.onCardUpdated(c);
 
@@ -84,6 +85,7 @@ export async function runCardInteractive(
     executionsDb.updateExecutionStatus(db, execution.id as ExecutionId, "success", 0);
 
     // Proof-of-work (best-effort, never fails the card — mirror runner.ts convention)
+    cardsDb.setSessionState(db, card.id as CardId, "idle");
     try {
       if (criteria.length === 0) {
         const planReport = await extractPlanReport({ title: card.title, description: card.description, planOutput: transcript });
@@ -123,6 +125,7 @@ export async function runCardInteractive(
     // FAILURE — session already gone (exited before completing a turn)
     const code = turnEnd.code;
 
+    cardsDb.setSessionState(db, card.id as CardId, null);
     executionsDb.updateExecutionStatus(db, execution.id as ExecutionId, "failed", code);
 
     // Proof-of-work for blocker (best-effort)

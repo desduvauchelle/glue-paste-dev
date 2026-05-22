@@ -24,6 +24,7 @@ export type * from "./types/index.js";
 export { getDb, getTestDb, closeDb, getDataDir, walCheckpoint } from "./db/connection.js";
 export * as boardsDb from "./db/boards.js";
 export * as cardsDb from "./db/cards.js";
+export { setSessionState } from "./db/cards.js";
 export * as commentsDb from "./db/comments.js";
 export * as executionsDb from "./db/executions.js";
 export * as commitsDb from "./db/commits.js";
