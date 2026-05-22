@@ -1,4 +1,5 @@
 import { log } from "../logger.js";
+import { detectPermissionPrompt } from "./permission-detector.js";
 import type { TerminalPermissionMode } from "../schemas/config.js";
 
 /** Minimal surface the hub needs from a session — lets tests inject a fake. */
@@ -148,6 +149,35 @@ export class TerminalHub {
     this.sessions.delete(cardId);
   }
 
-  // Placeholder; real logic in Task 5.
-  private maybeHandlePermission(_cardId: string, _e: SessionEntry): void {}
+  private maybeHandlePermission(cardId: string, e: SessionEntry): void {
+    if (this.opts.permissionMode === "always-ask") return;
+    const match = detectPermissionPrompt(e.buffer);
+    if (!match) return;
+
+    const answer = () => {
+      // Re-check the prompt is still the latest thing on screen and unanswered.
+      if (!detectPermissionPrompt(e.session.getScrollback())) return;
+      e.session.write(match.acceptInput);
+      e.buffer = ""; // consumed; avoid double-answering the same prompt
+      log.info("terminal-hub", `auto-answered permission prompt card=${cardId}`);
+    };
+
+    if (this.opts.permissionMode === "always-auto") {
+      if (e.pendingPromptTimer) return;
+      e.pendingPromptTimer = setTimeout(() => {
+        e.pendingPromptTimer = null;
+        answer();
+      }, 0);
+      return;
+    }
+
+    // auto-unless-watching
+    if (this.isWatched(cardId)) return; // human is here — let them answer
+    if (e.pendingPromptTimer) return; // grace already running
+    e.pendingPromptTimer = setTimeout(() => {
+      e.pendingPromptTimer = null;
+      if (this.isWatched(cardId)) return; // someone showed up during grace
+      answer();
+    }, this.graceMs);
+  }
 }

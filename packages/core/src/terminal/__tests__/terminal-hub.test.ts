@@ -73,3 +73,100 @@ test("heartbeat within window marks card as watched", () => {
   hub.heartbeat("client-A", "card-1");
   expect(hub.isWatched("card-1")).toBe(true);
 });
+
+test("auto-unless-watching: auto-answers after grace when unwatched", async () => {
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "auto-unless-watching",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    graceMs: 30,
+    watchWindowMs: 1000,
+  });
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  fake.emit("Do you want to proceed?\n❯ 1. Yes\n  3. No");
+  expect(fake.writes).toEqual([]); // not yet
+  await Bun.sleep(60);
+  expect(fake.writes).toEqual(["1\r"]);
+});
+
+test("auto-unless-watching: does NOT auto-answer while watched", async () => {
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "auto-unless-watching",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    graceMs: 30,
+    watchWindowMs: 1000,
+  });
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  hub.heartbeat("A", "c1");
+  fake.emit("Do you want to proceed?\n❯ 1. Yes");
+  await Bun.sleep(60);
+  expect(fake.writes).toEqual([]);
+});
+
+test("always-ask: never auto-answers", async () => {
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    graceMs: 10,
+  });
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  fake.emit("Do you want to proceed?\n❯ 1. Yes");
+  await Bun.sleep(40);
+  expect(fake.writes).toEqual([]);
+});
+
+test("always-auto: answers even when watched", async () => {
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-auto",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    graceMs: 30,
+  });
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  hub.heartbeat("A", "c1");
+  fake.emit("Do you want to proceed?\n❯ 1. Yes");
+  await Bun.sleep(50);
+  expect(fake.writes).toEqual(["1\r"]);
+});
+
+test("auto-unless-watching: a watcher appearing during grace cancels the answer", async () => {
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "auto-unless-watching",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    graceMs: 50,
+    watchWindowMs: 1000,
+  });
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  fake.emit("Do you want to proceed?\n❯ 1. Yes"); // unwatched → grace timer scheduled
+  hub.heartbeat("A", "c1"); // watcher shows up before grace fires
+  await Bun.sleep(80);
+  expect(fake.writes).toEqual([]); // grace callback re-checks isWatched and skips
+});
