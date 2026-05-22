@@ -556,6 +556,8 @@ async function executePhase(
         writeReportFile(board.directory, execution.id, report);
       }
     } else if (phase === "execute") {
+      // Clear any stale blocker on a successful run, even if extraction yields no report.
+      if (success) cardsDb.setBlocker(db, card.id as CardId, null);
       const criteria = criteriaDb.getCriteria(db, card.id as CardId);
       const report = await extractExecuteReport({
         title: card.title,
@@ -570,7 +572,7 @@ async function executePhase(
           criteriaDb.setCriterionResult(db, r.id as CriterionId, r.status, r.evidence, execution.id as ExecutionId);
         }
         if (success) cardsDb.setCompletionSummary(db, card.id as CardId, report.completion_summary);
-        cardsDb.setBlocker(db, card.id as CardId, success ? null : report.blocker);
+        if (!success) cardsDb.setBlocker(db, card.id as CardId, report.blocker);
         writeReportFile(board.directory, execution.id, report);
         const passed = report.criteria.filter((r) => r.status === "pass").length;
         if (report.criteria.length > 0) {
