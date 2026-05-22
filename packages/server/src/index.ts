@@ -1,4 +1,4 @@
-import { cardsDb, executionsDb, getDb, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync, log } from "@glue-paste-dev/core";
+import { cardsDb, executionsDb, getDb, getGlobalConfig, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync, log } from "@glue-paste-dev/core";
 import { Hono } from "hono";
 import { createBunWebSocket, serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
@@ -19,6 +19,9 @@ import { tagRoutes } from "./routes/tags.js";
 import { systemRoutes } from "./routes/system.js";
 import { startUpdateChecker, updateRoutes } from "./routes/update.js";
 import { aiRoutes } from "./routes/ai.js";
+import { terminalRoutes } from "./routes/terminal.js";
+import { handleTerminalMessage } from "./terminal-ws.js";
+import { getTerminalHub } from "./terminal-hub-singleton.js";
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -129,6 +132,7 @@ app.route("/api/tags", tagRoutes(db));
 app.route("/api/stats", statsRoutes(db));
 app.route("/api/files", fileRoutes(db));
 app.route("/api/cards", chatRoutes(db, broadcast));
+app.route("/api/cards", terminalRoutes(db, broadcast));
 app.route("/api/ai", aiRoutes());
 app.route("/api/update", updateRoutes(broadcast));
 app.route("/api/caffeinate", caffeinateRoutes(db));
@@ -138,19 +142,28 @@ app.route("/api/system", systemRoutes());
 // WebSocket endpoint
 app.get(
   "/ws",
-  upgradeWebSocket(() => ({
-    onOpen(_event, ws) {
-      clients.add(ws.raw as ServerWebSocket<unknown>);
-      log.info("ws", `Client connected (${clients.size} total)`);
-    },
-    onClose(_event, ws) {
-      clients.delete(ws.raw as ServerWebSocket<unknown>);
-      log.info("ws", `Client disconnected (${clients.size} total)`);
-    },
-    onMessage(_event, _ws) {
-      // Client messages handled here if needed
-    }
-  }))
+  upgradeWebSocket(() => {
+    const clientId = crypto.randomUUID();
+    return {
+      onOpen(_event, ws) {
+        clients.add(ws.raw as ServerWebSocket<unknown>);
+        log.info("ws", `Client connected ${clientId} (${clients.size} total)`);
+      },
+      onMessage(event, _ws) {
+        const data = typeof event.data === "string" ? event.data : "";
+        if (data.includes("terminal:")) {
+          const mode = getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching";
+          handleTerminalMessage(getTerminalHub(broadcast, mode), clientId, data);
+        }
+      },
+      onClose(_event, ws) {
+        clients.delete(ws.raw as ServerWebSocket<unknown>);
+        const mode = getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching";
+        getTerminalHub(broadcast, mode).detachClientEverywhere(clientId);
+        log.info("ws", `Client disconnected ${clientId} (${clients.size} total)`);
+      }
+    };
+  })
 );
 
 // Serve static dashboard files (production)
@@ -185,6 +198,7 @@ function gracefulShutdown() {
   stopCaffeinate();
   killAllCardProcesses();
   killAllChatProcesses();
+  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching").closeAll();
   executionsDb.cancelRunningExecutions(db);
   process.exit(0);
 }
