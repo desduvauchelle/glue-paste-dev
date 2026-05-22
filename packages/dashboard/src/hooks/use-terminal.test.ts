@@ -114,46 +114,61 @@ describe("useTerminal", () => {
     expect(result.current.working).toBe(false);
   });
 
-  it("sets working=true on execution:started for this card", () => {
+  // card:updated is the authoritative source for working state
+  it("sets working=true on card:updated with session_state='working' for this card", () => {
     const { result } = renderHook(() =>
       useTerminal({ cardId: "card-1", active: false, onData: () => {} })
     );
     act(() => {
-      wsHandler?.({ type: "execution:started", payload: { cardId: "card-1", executionId: "e1", phase: "run" } });
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
     });
     expect(result.current.working).toBe(true);
   });
 
-  it("sets working=false on execution:idle for this card", () => {
+  it("sets working=false on card:updated with session_state='idle' for this card", () => {
     const { result } = renderHook(() =>
       useTerminal({ cardId: "card-1", active: false, onData: () => {} })
     );
     act(() => {
-      wsHandler?.({ type: "execution:started", payload: { cardId: "card-1", executionId: "e1", phase: "run" } });
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
     });
     expect(result.current.working).toBe(true);
     act(() => {
-      wsHandler?.({ type: "execution:idle", payload: { cardId: "card-1" } });
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "idle" } });
     });
     expect(result.current.working).toBe(false);
   });
 
-  it("ignores execution:started for a different card", () => {
+  it("sets working=false on card:updated with session_state=null for this card", () => {
     const { result } = renderHook(() =>
       useTerminal({ cardId: "card-1", active: false, onData: () => {} })
     );
     act(() => {
-      wsHandler?.({ type: "execution:started", payload: { cardId: "card-2", executionId: "e1", phase: "run" } });
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(true);
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: null } });
     });
     expect(result.current.working).toBe(false);
   });
 
-  it("sets working=false on terminal:exit for this card", () => {
+  it("ignores card:updated for a different card id", () => {
     const { result } = renderHook(() =>
       useTerminal({ cardId: "card-1", active: false, onData: () => {} })
     );
     act(() => {
-      wsHandler?.({ type: "execution:started", payload: { cardId: "card-1", executionId: "e1", phase: "run" } });
+      wsHandler?.({ type: "card:updated", payload: { id: "card-2", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(false);
+  });
+
+  it("sets working=false on terminal:exit for this card (safety)", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
     });
     expect(result.current.working).toBe(true);
     act(() => {

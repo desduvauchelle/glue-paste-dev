@@ -16,6 +16,11 @@ interface TerminalPayload {
   exitCode?: number;
 }
 
+interface CardUpdatedPayload {
+  id?: string;
+  session_state?: string | null;
+}
+
 export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs) {
   const onDataRef = useRef(onData);
   onDataRef.current = onData;
@@ -29,9 +34,17 @@ export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs)
     if (
       event.type !== "terminal:output" &&
       event.type !== "terminal:exit" &&
-      event.type !== "execution:started" &&
-      event.type !== "execution:idle"
+      event.type !== "card:updated"
     ) return;
+
+    if (event.type === "card:updated") {
+      const payload = event.payload as CardUpdatedPayload;
+      if (payload?.id === cardId) {
+        setWorking(payload.session_state === "working");
+      }
+      return;
+    }
+
     const payload = event.payload as TerminalPayload;
     if (payload?.cardId !== cardId) return;
     if (event.type === "terminal:output" && payload.data) onDataRef.current(payload.data);
@@ -39,8 +52,6 @@ export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs)
       setWorking(false);
       onExitRef.current?.(payload.exitCode ?? 0);
     }
-    if (event.type === "execution:started") setWorking(true);
-    if (event.type === "execution:idle") setWorking(false);
   });
 
   // Open + attach + replay scrollback when activated.

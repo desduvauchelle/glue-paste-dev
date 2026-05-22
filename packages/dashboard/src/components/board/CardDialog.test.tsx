@@ -173,6 +173,7 @@ describe("CardDialog — config defaults", () => {
       plan_summary: null,
       completion_summary: null,
       blocker: null,
+      session_state: null as null,
       created_at: "",
       updated_at: "",
     };
@@ -365,6 +366,7 @@ describe("CardDialog — config defaults", () => {
       plan_summary: null,
       completion_summary: null,
       blocker: null,
+      session_state: null as null,
       created_at: "",
       updated_at: "",
     };
@@ -569,6 +571,7 @@ describe("CardDialog — flattened tabs (Terminal / Activity)", () => {
     plan_summary: null,
     completion_summary: null,
     blocker: null,
+    session_state: null as null,
     created_at: "",
     updated_at: "",
   };
