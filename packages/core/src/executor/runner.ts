@@ -184,7 +184,7 @@ export async function runCard(
   return result;
 }
 
-async function captureGitSha(directory: string): Promise<string | null> {
+export async function captureGitSha(directory: string): Promise<string | null> {
   try {
     const proc = Bun.spawn(["git", "rev-parse", "HEAD"], {
       cwd: directory,
@@ -207,7 +207,7 @@ async function captureGitSha(directory: string): Promise<string | null> {
   }
 }
 
-async function captureFileChanges(directory: string, shaBefore: string): Promise<FileChange[]> {
+export async function captureFileChanges(directory: string, shaBefore: string): Promise<FileChange[]> {
   try {
     // Capture both committed and uncommitted changes relative to pre-execution state
     log.debug("runner", `captureFileChanges: git diff --numstat ${shaBefore} in ${directory}`);

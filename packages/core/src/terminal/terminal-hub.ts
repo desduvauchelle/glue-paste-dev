@@ -42,6 +42,8 @@ export interface TerminalHubOptions {
   initialInputDelayMs?: number;
 }
 
+export type TurnEndResult = { reason: "idle" } | { reason: "exit"; code: number };
+
 interface SessionEntry {
   session: SessionLike;
   subscribers: Set<string>;
@@ -50,6 +52,7 @@ interface SessionEntry {
   buffer: string;
   wasIdle: boolean;
   idleDetectionActive: boolean;
+  turnEndWaiters: Array<(r: TurnEndResult) => void>;
 }
 
 const BUFFER_TAIL = 8000;
@@ -78,6 +81,7 @@ export class TerminalHub {
       wasIdle: false,
       // Gate: if we have initialInput, hold off detection until after submit
       idleDetectionActive: !hasInitialInput,
+      turnEndWaiters: [],
     };
     entry.session = this.opts.createSession(
       cardId,
@@ -151,6 +155,12 @@ export class TerminalHub {
     return this.sessions.get(cardId)?.session.isRunning() ?? false;
   }
 
+  waitForTurnEnd(cardId: string): Promise<TurnEndResult> {
+    const e = this.sessions.get(cardId);
+    if (!e) return Promise.resolve({ reason: "exit", code: -1 });
+    return new Promise((resolve) => { e.turnEndWaiters.push(resolve); });
+  }
+
   close(cardId: string): void {
     const e = this.sessions.get(cardId);
     if (!e) return;
@@ -169,11 +179,14 @@ export class TerminalHub {
     if (!e) return;
     e.buffer = (e.buffer + chunk).slice(-BUFFER_TAIL);
     this.maybeHandlePermission(cardId, e);
-    if (e.idleDetectionActive && this.opts.onIdle) {
+    if (e.idleDetectionActive) {
       const idle = detectIdle(chunk);
       if (idle && !e.wasIdle) {
         e.wasIdle = true;
-        this.opts.onIdle(cardId);
+        this.opts.onIdle?.(cardId);
+        const waiters = e.turnEndWaiters;
+        e.turnEndWaiters = [];
+        for (const w of waiters) w({ reason: "idle" });
       } else if (!idle) {
         e.wasIdle = false;
       }
@@ -184,6 +197,11 @@ export class TerminalHub {
     const e = this.sessions.get(cardId);
     if (e?.pendingPromptTimer) clearTimeout(e.pendingPromptTimer);
     this.opts.onExit(cardId, code);
+    if (e) {
+      const waiters = e.turnEndWaiters;
+      e.turnEndWaiters = [];
+      for (const w of waiters) w({ reason: "exit", code });
+    }
     this.sessions.delete(cardId);
   }
 

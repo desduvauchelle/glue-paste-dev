@@ -254,6 +254,47 @@ test("(c) interrupt(cardId) writes \\x03 to the session", () => {
   expect(fake.writes).toContainEqual("\x03");
 });
 
+test("(d) waitForTurnEnd resolves {reason:'idle'} when session goes idle", async () => {
+  const { fake, setOnExit } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (_c, onData, onExit) => {
+      fake._onData = onData;
+      setOnExit(onExit);
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+  });
+
+  // No initialInput → idleDetectionActive = true immediately
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+
+  const p = hub.waitForTurnEnd("c1");
+  fake.emit(IDLE_SAMPLE);
+  expect(await p).toEqual({ reason: "idle" });
+});
+
+test("(e) waitForTurnEnd resolves {reason:'exit', code} when session exits", async () => {
+  const { fake, setOnExit } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (_c, onData, onExit) => {
+      fake._onData = onData;
+      setOnExit(onExit);
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+  });
+
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+
+  const p = hub.waitForTurnEnd("c1");
+  fake.fireExit(1);
+  expect(await p).toEqual({ reason: "exit", code: 1 });
+});
+
 test("(b-gate) idle before submit does NOT fire onIdle; idle after submit does", async () => {
   const idleFires: string[] = [];
   const { fake } = makeFakeSession();

@@ -5,7 +5,7 @@ import { TerminalHub } from "./terminal-hub.js";
 
 export { PtySession } from "./pty-session.js";
 export { TerminalHub } from "./terminal-hub.js";
-export type { SessionLike, OpenOptions, TerminalHubOptions } from "./terminal-hub.js";
+export type { SessionLike, OpenOptions, TerminalHubOptions, TurnEndResult } from "./terminal-hub.js";
 export { detectPermissionPrompt } from "./permission-detector.js";
 export type { PermissionPromptMatch } from "./permission-detector.js";
 export { detectIdle } from "./idle-detector.js";
