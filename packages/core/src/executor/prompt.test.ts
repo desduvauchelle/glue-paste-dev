@@ -55,6 +55,7 @@ const baseCtx = {
     customTags: [] as string[],
     maxBudgetUsd: 0,
     maxConcurrentCards: 1,
+    terminalPermissionMode: "auto-unless-watching" as const,
   },
   phase: "execute" as const,
 };

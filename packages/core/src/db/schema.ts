@@ -367,6 +367,13 @@ export function initSchema(db: Database): void {
     // Column already exists — ignore
   }
 
+  // Migration: add terminal_permission_mode to config
+  try {
+    db.exec(`ALTER TABLE config ADD COLUMN terminal_permission_mode TEXT DEFAULT 'auto-unless-watching'`);
+  } catch {
+    // Column already exists — ignore
+  }
+
   // Migration: add cli_provider, cli_custom_command, branch_mode, branch_name to cards
   try {
     db.exec(`ALTER TABLE cards ADD COLUMN cli_provider TEXT DEFAULT NULL`);

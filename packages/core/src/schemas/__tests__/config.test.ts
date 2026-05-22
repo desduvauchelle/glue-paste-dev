@@ -3,9 +3,11 @@ import {
   ConfigInputSchema,
   CliProviderSchema,
   BranchModeSchema,
+  TerminalPermissionModeSchema,
   DEFAULT_CONFIG,
   CLI_PROVIDERS,
   BRANCH_MODES,
+  TERMINAL_PERMISSION_MODES,
 } from "../config.js";
 
 describe("CliProviderSchema", () => {
@@ -94,9 +96,42 @@ describe("ConfigInputSchema", () => {
   });
 });
 
+describe("TerminalPermissionModeSchema", () => {
+  it("accepts all valid modes", () => {
+    for (const m of TERMINAL_PERMISSION_MODES) {
+      expect(TerminalPermissionModeSchema.safeParse(m).success).toBe(true);
+    }
+  });
+
+  it("rejects invalid mode", () => {
+    expect(TerminalPermissionModeSchema.safeParse("invalid").success).toBe(false);
+  });
+});
+
 describe("DEFAULT_CONFIG", () => {
   it("validates against ConfigInputSchema", () => {
     const result = ConfigInputSchema.safeParse(DEFAULT_CONFIG);
     expect(result.success).toBe(true);
+  });
+
+  it("has terminalPermissionMode defaulting to auto-unless-watching", () => {
+    expect(DEFAULT_CONFIG.terminalPermissionMode).toBe("auto-unless-watching");
+  });
+});
+
+describe("ConfigInputSchema terminalPermissionMode", () => {
+  it("accepts always-ask", () => {
+    const result = ConfigInputSchema.safeParse({ terminalPermissionMode: "always-ask" });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts always-auto", () => {
+    const result = ConfigInputSchema.safeParse({ terminalPermissionMode: "always-auto" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid terminalPermissionMode", () => {
+    const result = ConfigInputSchema.safeParse({ terminalPermissionMode: "sometimes" });
+    expect(result.success).toBe(false);
   });
 });

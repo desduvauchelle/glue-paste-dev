@@ -57,6 +57,7 @@ const makeConfig = (overrides?: Partial<Required<ConfigInput>>): Required<Config
   branchMode: "current",
   branchName: "",
   maxConcurrentCards: 1,
+  terminalPermissionMode: "auto-unless-watching",
   ...overrides,
 });
 
