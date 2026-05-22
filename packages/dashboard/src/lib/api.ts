@@ -287,6 +287,10 @@ interface CardWithTags {
   assignee: "ai" | "human";
   tags: string[];
   files: string[];
+  criteria: Criterion[];
+  plan_summary: PlanSummary | null;
+  completion_summary: string | null;
+  blocker: Blocker | null;
   created_at: string;
   updated_at: string;
 }
@@ -339,6 +343,18 @@ interface Criterion {
   position: number;
   created_at: string;
   updated_at: string;
+}
+
+interface PlanSummary {
+  key_files: string[];
+  risks: string[];
+  dependencies: string[];
+}
+
+interface Blocker {
+  type: string;
+  root_cause: string;
+  resolution_route: string;
 }
 
 interface Comment {
@@ -444,6 +460,8 @@ export type {
   CreateBoard,
   CardWithTags,
   Criterion,
+  PlanSummary,
+  Blocker,
   CreateCard,
   UpdateCard,
   Comment,
