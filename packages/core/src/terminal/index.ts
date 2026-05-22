@@ -16,14 +16,16 @@ export function createTerminalHub(args: {
   command: string[]; // e.g. ["claude"] or ["claude","--resume",id]
   onOutput: (cardId: string, data: string) => void;
   onExit: (cardId: string, code: number) => void;
+  onIdle?: (cardId: string) => void;
 }): TerminalHub {
   return new TerminalHub({
     permissionMode: args.permissionMode,
     onOutput: args.onOutput,
     onExit: args.onExit,
+    ...(args.onIdle ? { onIdle: args.onIdle } : {}),
     createSession: (_cardId, onData, onExit, opts) =>
       new PtySession({
-        command: args.command,
+        command: opts.command ?? args.command,
         cwd: opts.cwd,
         env: getFreshEnv(),
         cols: opts.cols,

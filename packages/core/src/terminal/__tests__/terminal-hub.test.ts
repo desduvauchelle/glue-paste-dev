@@ -170,3 +170,117 @@ test("auto-unless-watching: a watcher appearing during grace cancels the answer"
   await Bun.sleep(80);
   expect(fake.writes).toEqual([]); // grace callback re-checks isWatched and skips
 });
+
+// ── New tests for Task 2 ──────────────────────────────────────────────────────
+
+const IDLE_SAMPLE = '❯Try"createautillogging.pythat..."';
+
+test("(a) open with command + initialInput: session created with given command and hub writes bracketed-paste then \\r", async () => {
+  let capturedOpts: import("../terminal-hub.js").OpenOptions | undefined;
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (_c, onData, _onExit, opts) => {
+      capturedOpts = opts;
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    initialInputDelayMs: 0,
+  });
+
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24, command: ["mycommand", "--flag"], initialInput: "hello world" });
+
+  // The bracketed-paste write should happen immediately (synchronously)
+  expect(fake.writes).toContainEqual("\x1b[200~hello world\x1b[201~");
+
+  // The \r submit should happen after initialInputDelayMs (0 ms here)
+  await Bun.sleep(10);
+  expect(fake.writes).toContainEqual("\r");
+
+  // The opts passed to createSession must carry the command
+  expect(capturedOpts?.command).toEqual(["mycommand", "--flag"]);
+});
+
+test("(b) idle detection fires onIdle on false→true transition only, and re-arms after non-idle output", async () => {
+  const idleFires: string[] = [];
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    onIdle: (cardId) => idleFires.push(cardId),
+  });
+
+  // No initialInput → idleDetectionActive = true immediately
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+
+  // First idle sample → should fire onIdle once
+  fake.emit(IDLE_SAMPLE);
+  expect(idleFires).toEqual(["c1"]);
+
+  // Second consecutive idle sample → should NOT fire again (wasIdle is still true)
+  fake.emit(IDLE_SAMPLE);
+  expect(idleFires).toEqual(["c1"]);
+
+  // Non-idle output re-arms it
+  fake.emit("working...");
+  expect(idleFires).toEqual(["c1"]); // still just one
+
+  // Now next idle should fire again
+  fake.emit(IDLE_SAMPLE);
+  expect(idleFires).toEqual(["c1", "c1"]);
+});
+
+test("(c) interrupt(cardId) writes \\x03 to the session", () => {
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+  });
+
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  hub.interrupt("c1");
+  expect(fake.writes).toContainEqual("\x03");
+});
+
+test("(b-gate) idle before submit does NOT fire onIdle; idle after submit does", async () => {
+  const idleFires: string[] = [];
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask",
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    onIdle: (cardId) => idleFires.push(cardId),
+    initialInputDelayMs: 20,
+  });
+
+  // Open WITH initialInput → idleDetectionActive = false until \r is sent
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24, initialInput: "do something" });
+
+  // Emit idle BEFORE the delayed \r fires → must NOT trigger onIdle
+  fake.emit(IDLE_SAMPLE);
+  expect(idleFires).toEqual([]);
+
+  // Wait for the \r callback to fire (initialInputDelayMs = 20ms)
+  await Bun.sleep(40);
+
+  // Emit non-idle so wasIdle is false, then emit idle → should fire now
+  fake.emit("working...");
+  fake.emit(IDLE_SAMPLE);
+  expect(idleFires).toEqual(["c1"]);
+});
