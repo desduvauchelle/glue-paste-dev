@@ -12,7 +12,6 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-	DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -475,7 +474,8 @@ export function CardDialog({
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent
-					className="max-w-5xl relative"
+					variant="bottom-sheet"
+					className="relative flex flex-col"
 					onDragEnter={handleDragEnter}
 					onDragLeave={handleDragLeave}
 					onDragOver={handleDragOver}
@@ -498,8 +498,40 @@ export function CardDialog({
 							</div>
 						</div>
 					)}
-					<DialogHeader>
-						<DialogTitle>{isEditing ? "Edit Card" : "New Card"}{!isEditing ? ` — ${(targetBoardId && targetBoardId !== boardId ? allBoards.find((b) => b.id === targetBoardId)?.name : boardName) ?? ""}` : ""}</DialogTitle>
+					<DialogHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pr-8">
+						<DialogTitle className="truncate">{isEditing ? "Edit Card" : "New Card"}{!isEditing ? ` — ${(targetBoardId && targetBoardId !== boardId ? allBoards.find((b) => b.id === targetBoardId)?.name : boardName) ?? ""}` : ""}</DialogTitle>
+						<div className="flex items-center gap-2 shrink-0">
+							{isEditing && (
+								<Button
+									variant="ghost"
+									size="sm"
+									className="text-red-600 hover:text-red-700"
+									onClick={() => void handleDelete()}
+								>
+									<Trash2 className="w-4 h-4 mr-1" />
+									{confirmDelete ? "Confirm Delete" : "Delete"}
+								</Button>
+							)}
+							{isEditing && card.status === "todo" && card.assignee !== "human" && (
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => {
+										onPlay(card.id)
+										onOpenChange(false)
+									}}
+								>
+									<Play className="w-4 h-4 mr-2" />
+									Add to Queue
+								</Button>
+							)}
+							<Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+								Cancel
+							</Button>
+							<Button size="sm" onClick={() => void handleSave()} disabled={!title.trim() && !description.trim()}>
+								{isEditing ? "Save" : "Create"}
+							</Button>
+						</div>
 					</DialogHeader>
 
 					{/* Top-level tab navigation (edit mode only) */}
@@ -1227,37 +1259,6 @@ export function CardDialog({
 							</div>
 						)}
 					</div>
-
-					<DialogFooter>
-						{isEditing && (
-							<Button
-								variant="destructive"
-								onClick={() => void handleDelete()}
-								className="mr-auto"
-							>
-								<Trash2 className="w-4 h-4 mr-1" />
-								{confirmDelete ? "Confirm Delete" : "Delete"}
-							</Button>
-						)}
-						{isEditing && card.status === "todo" && card.assignee !== "human" && (
-							<Button
-								variant="outline"
-								onClick={() => {
-									onPlay(card.id)
-									onOpenChange(false)
-								}}
-							>
-								<Play className="w-4 h-4 mr-2" />
-								Add to Queue
-							</Button>
-						)}
-						<Button variant="outline" onClick={() => onOpenChange(false)}>
-							Cancel
-						</Button>
-						<Button onClick={() => void handleSave()} disabled={!title.trim() && !description.trim()}>
-							{isEditing ? "Save" : "Create"}
-						</Button>
-					</DialogFooter>
 				</DialogContent>
 		</Dialog>
 	)

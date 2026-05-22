@@ -29,6 +29,9 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+@keyframes gpd-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.gpd-sheet-enter { animation: gpd-slide-up 0.2s ease-out; }
+
 /* Custom scrollbar */
 * {
   scrollbar-width: thin;

@@ -109,7 +109,7 @@ const DialogContent = React.forwardRef<
 				ref={ref}
 				className={cn(
 					isBottomSheet
-						? "relative z-10 inset-x-0 bottom-0 w-full max-w-none flex flex-col rounded-t-2xl border border-b-0 border-border bg-card p-6 text-card-foreground shadow-lg max-h-[95vh]"
+						? "gpd-sheet-enter relative z-10 inset-x-0 bottom-0 w-full max-w-none flex flex-col rounded-t-2xl border border-b-0 border-border bg-card p-6 text-card-foreground shadow-lg max-h-[95vh]"
 						: "relative z-10 w-full max-w-lg max-h-[90vh] flex flex-col rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg",
 					className,
 				)}
