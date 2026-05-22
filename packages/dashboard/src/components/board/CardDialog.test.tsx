@@ -2,6 +2,10 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CardDialog } from "./CardDialog";
 
+vi.mock("./InteractiveTerminal", () => ({
+  InteractiveTerminal: () => <div data-testid="live-term" />,
+}));
+
 vi.mock("@/lib/api", () => ({
   config: {
     getForBoard: vi.fn(),
@@ -538,5 +542,78 @@ describe("CardDialog — title auto-generation on save", () => {
 
     await waitFor(() => expect(onCreate).toHaveBeenCalled());
     expect(aiApi.generateTitle).not.toHaveBeenCalled();
+  });
+});
+
+describe("CardDialog — flattened tabs (Terminal / Activity)", () => {
+  const editingCard = {
+    id: "card-1",
+    board_id: "board-1",
+    title: "Test card",
+    description: "desc",
+    status: "todo" as const,
+    position: 0,
+    blocking: false,
+    plan_thinking: null,
+    execute_thinking: null,
+    auto_commit: null,
+    auto_push: null,
+    cli_provider: null,
+    cli_custom_command: null,
+    branch_mode: null,
+    branch_name: null,
+    assignee: "ai" as const,
+    files: [],
+    tags: [],
+    criteria: [],
+    plan_summary: null,
+    completion_summary: null,
+    blocker: null,
+    created_at: "",
+    updated_at: "",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(configApi.getForBoard).mockResolvedValue(mockConfigDefaults);
+    try {
+      localStorage.clear();
+    } catch {}
+  });
+
+  it("renders General/Plan/Criteria/Terminal/Activity tab buttons in edit mode", async () => {
+    render(<CardDialog {...defaultProps} card={editingCard} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /general/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^plan$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /criteria/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^terminal$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^activity$/i })).toBeInTheDocument();
+    });
+  });
+
+  it("Terminal tab shows the interactive terminal and no comment box", async () => {
+    render(<CardDialog {...defaultProps} card={editingCard} />);
+
+    const terminalTab = await screen.findByRole("button", { name: /^terminal$/i });
+    fireEvent.click(terminalTab);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("live-term")).toBeInTheDocument();
+    });
+    expect(screen.queryByPlaceholderText(/add a comment/i)).not.toBeInTheDocument();
+  });
+
+  it("Activity tab shows the comment box and hides the interactive terminal", async () => {
+    render(<CardDialog {...defaultProps} card={editingCard} />);
+
+    const activityTab = await screen.findByRole("button", { name: /^activity$/i });
+    fireEvent.click(activityTab);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/add a comment/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("live-term")).not.toBeInTheDocument();
   });
 });
