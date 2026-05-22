@@ -18,6 +18,7 @@ export function createTerminalHub(args: {
   onExit: (cardId: string, code: number) => void;
   onIdle?: (cardId: string) => void;
   onBusy?: (cardId: string) => void;
+  onPermissionPending?: (cardId: string, pending: boolean) => void;
   maxSessions?: number;
 }): TerminalHub {
   return new TerminalHub({
@@ -26,6 +27,7 @@ export function createTerminalHub(args: {
     onExit: args.onExit,
     ...(args.onIdle ? { onIdle: args.onIdle } : {}),
     ...(args.onBusy ? { onBusy: args.onBusy } : {}),
+    ...(args.onPermissionPending ? { onPermissionPending: args.onPermissionPending } : {}),
     ...(args.maxSessions != null ? { maxSessions: args.maxSessions } : {}),
     createSession: (_cardId, onData, onExit, opts) =>
       new PtySession({

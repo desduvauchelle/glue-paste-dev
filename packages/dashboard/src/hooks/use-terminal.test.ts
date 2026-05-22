@@ -114,6 +114,37 @@ describe("useTerminal", () => {
     expect(result.current.working).toBe(false);
   });
 
+  // permission:pending unlocks input even while working
+  it("permission:pending overrides the input lock while working", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(true);
+    expect(result.current.inputLocked).toBe(true);
+    act(() => {
+      wsHandler?.({ type: "permission:pending", payload: { cardId: "card-1", pending: true } });
+    });
+    expect(result.current.awaitingPermission).toBe(true);
+    expect(result.current.inputLocked).toBe(false); // unlocked so the user can answer
+    act(() => {
+      wsHandler?.({ type: "permission:pending", payload: { cardId: "card-1", pending: false } });
+    });
+    expect(result.current.inputLocked).toBe(true); // re-locked once the prompt clears
+  });
+
+  it("ignores permission:pending for a different card id", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "permission:pending", payload: { cardId: "card-2", pending: true } });
+    });
+    expect(result.current.awaitingPermission).toBe(false);
+  });
+
   // card:updated is the authoritative source for working state
   it("sets working=true on card:updated with session_state='working' for this card", () => {
     const { result } = renderHook(() =>

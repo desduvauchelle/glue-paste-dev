@@ -35,6 +35,8 @@ export function getTerminalHub(
       const card = cardsDb.getCard(db, cardId as CardId);
       if (card) broadcast({ type: "card:updated", payload: card });
     },
+    onPermissionPending: (cardId, pending) =>
+      broadcast({ type: "permission:pending", payload: { cardId, pending } }),
     maxSessions: 12,
   });
   return hub;

@@ -22,7 +22,7 @@ export function InteractiveTerminal({
     sendResize: () => {},
   });
 
-  const { sendInput, sendResize, working, stop } = useTerminal({
+  const { sendInput, sendResize, working, awaitingPermission, inputLocked, stop } = useTerminal({
     cardId,
     active,
     onData: (data) => termRef.current?.write(data),
@@ -31,8 +31,9 @@ export function InteractiveTerminal({
   sendRef.current = { sendInput, sendResize };
 
   // Keep a ref so the onData handler (registered once) always sees the latest value.
-  const workingRef = useRef(working);
-  workingRef.current = working;
+  // Input is allowed when not locked — i.e. idle, OR a permission prompt is awaiting an answer.
+  const lockedRef = useRef(inputLocked);
+  lockedRef.current = inputLocked;
 
   useEffect(() => {
     if (!containerRef.current || termRef.current) return;
@@ -46,7 +47,7 @@ export function InteractiveTerminal({
     term.loadAddon(fit);
     term.open(containerRef.current);
     fit.fit();
-    term.onData((d) => { if (!workingRef.current) sendRef.current.sendInput(d); });
+    term.onData((d) => { if (!lockedRef.current) sendRef.current.sendInput(d); });
     term.onResize(({ cols, rows }) => sendRef.current.sendResize(cols, rows));
     termRef.current = term;
     fitRef.current = fit;
@@ -57,13 +58,13 @@ export function InteractiveTerminal({
     };
   }, []);
 
-  // Reflect working state on the xterm instance.
+  // Reflect input-lock state on the xterm instance (unlocked during a permission prompt).
   useEffect(() => {
     const t = termRef.current;
     if (!t) return;
-    t.options.disableStdin = working;
-    t.options.cursorBlink = !working;
-  }, [working]);
+    t.options.disableStdin = inputLocked;
+    t.options.cursorBlink = !inputLocked;
+  }, [inputLocked]);
 
   // Refit when the tab becomes active or the window resizes.
   useEffect(() => {
@@ -81,7 +82,13 @@ export function InteractiveTerminal({
   return (
     <div className="flex h-full w-full flex-col">
       <div className="flex items-center justify-between px-2 py-1 text-xs text-neutral-400">
-        <span>{working ? "Working…" : "Idle — you can type"}</span>
+        <span className={awaitingPermission ? "text-amber-300" : undefined}>
+          {awaitingPermission
+            ? "Claude is asking — answer in the terminal (↑/↓ + Enter)"
+            : working
+              ? "Working…"
+              : "Idle — you can type"}
+        </span>
         {working && (
           <button
             type="button"

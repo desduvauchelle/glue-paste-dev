@@ -28,13 +28,17 @@ export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs)
   onExitRef.current = onExit;
 
   const [working, setWorking] = useState(false);
+  // True while claude is showing a permission prompt (y/n) — the user must be able
+  // to answer even while "working", so this overrides the input lock.
+  const [awaitingPermission, setAwaitingPermission] = useState(false);
 
   // Receive output / exit / execution state for THIS card.
   useWebSocket((event) => {
     if (
       event.type !== "terminal:output" &&
       event.type !== "terminal:exit" &&
-      event.type !== "card:updated"
+      event.type !== "card:updated" &&
+      event.type !== "permission:pending"
     ) return;
 
     if (event.type === "card:updated") {
@@ -45,11 +49,18 @@ export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs)
       return;
     }
 
+    if (event.type === "permission:pending") {
+      const payload = event.payload as { cardId?: string; pending?: boolean };
+      if (payload?.cardId === cardId) setAwaitingPermission(payload.pending === true);
+      return;
+    }
+
     const payload = event.payload as TerminalPayload;
     if (payload?.cardId !== cardId) return;
     if (event.type === "terminal:output" && payload.data) onDataRef.current(payload.data);
     if (event.type === "terminal:exit") {
       setWorking(false);
+      setAwaitingPermission(false);
       onExitRef.current?.(payload.exitCode ?? 0);
     }
   });
@@ -94,5 +105,8 @@ export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs)
   );
   const stop = useCallback(() => { void terminalApi.stop(cardId); }, [cardId]);
 
-  return { sendInput, sendResize, working, stop };
+  // Input is locked while working, UNLESS a permission prompt needs answering.
+  const inputLocked = working && !awaitingPermission;
+
+  return { sendInput, sendResize, working, awaitingPermission, inputLocked, stop };
 }

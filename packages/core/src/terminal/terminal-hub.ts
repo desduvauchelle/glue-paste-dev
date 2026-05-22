@@ -40,6 +40,8 @@ export interface TerminalHubOptions {
   onIdle?: (cardId: string) => void;
   /** Called when a session transitions from idle to busy (working). */
   onBusy?: (cardId: string) => void;
+  /** Called when a permission prompt appears (pending=true) or clears (pending=false). */
+  onPermissionPending?: (cardId: string, pending: boolean) => void;
   /** Delay in ms before writing the submit \r after initial input. Default 300. */
   initialInputDelayMs?: number;
   /** Maximum number of concurrent sessions before LRU eviction kicks in. Default 12. */
@@ -58,6 +60,7 @@ interface SessionEntry {
   idleDetectionActive: boolean;
   turnEndWaiters: Array<(r: TurnEndResult) => void>;
   lastActivity: number;
+  permissionPending: boolean;
 }
 
 const BUFFER_TAIL = 8000;
@@ -104,6 +107,7 @@ export class TerminalHub {
       idleDetectionActive: !hasInitialInput,
       turnEndWaiters: [],
       lastActivity: Date.now(),
+      permissionPending: false,
     };
     entry.session = this.opts.createSession(
       cardId,
@@ -158,7 +162,16 @@ export class TerminalHub {
   }
 
   input(cardId: string, data: string): void {
-    this.sessions.get(cardId)?.session.write(data);
+    const e = this.sessions.get(cardId);
+    if (!e) return;
+    // If the user is answering a permission prompt, clear the pending state and
+    // drop the answered prompt from the buffer so it isn't re-detected (re-locks input).
+    if (e.permissionPending) {
+      e.permissionPending = false;
+      e.buffer = "";
+      this.opts.onPermissionPending?.(cardId, false);
+    }
+    e.session.write(data);
   }
 
   interrupt(cardId: string): void {
@@ -201,6 +214,13 @@ export class TerminalHub {
     if (!e) return;
     e.lastActivity = Date.now();
     e.buffer = (e.buffer + chunk).slice(-BUFFER_TAIL);
+    // Permission-pending signal (independent of auto-answer mode): a prompt on
+    // screen means the user may need to answer — the dashboard unlocks input on it.
+    const promptNow = detectPermissionPrompt(e.buffer) != null;
+    if (promptNow !== e.permissionPending) {
+      e.permissionPending = promptNow;
+      this.opts.onPermissionPending?.(cardId, promptNow);
+    }
     this.maybeHandlePermission(cardId, e);
     if (e.idleDetectionActive) {
       const idle = detectIdle(chunk);

@@ -254,6 +254,27 @@ test("(c) interrupt(cardId) writes \\x03 to the session", () => {
   expect(fake.writes).toContainEqual("\x03");
 });
 
+test("(j) onPermissionPending fires true on a prompt and false once the user answers via input", () => {
+  const events: boolean[] = [];
+  const { fake } = makeFakeSession();
+  const hub = new TerminalHub({
+    permissionMode: "always-ask", // no auto-answer to interfere
+    createSession: (_c, onData) => {
+      fake._onData = onData;
+      return fake;
+    },
+    onOutput: () => {},
+    onExit: () => {},
+    onPermissionPending: (_id, pending) => events.push(pending),
+  });
+
+  hub.open("c1", { cwd: "/tmp", cols: 80, rows: 24 });
+  fake.emit("Do you want to proceed?\n❯ 1. Yes\n  2. No");
+  expect(events).toEqual([true]);
+  hub.input("c1", "\r"); // user answers → pending clears
+  expect(events).toEqual([true, false]);
+});
+
 test("(d) waitForTurnEnd resolves {reason:'idle'} when session goes idle", async () => {
   const { fake, setOnExit } = makeFakeSession();
   const hub = new TerminalHub({

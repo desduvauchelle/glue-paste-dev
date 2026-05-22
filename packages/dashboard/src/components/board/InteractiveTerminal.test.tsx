@@ -9,6 +9,7 @@ let capturedOnData: ((data: string) => void) | undefined;
 
 // Controls what useTerminal returns so we can flip `working` per test.
 let mockWorking = false;
+let mockAwaitingPermission = false;
 
 vi.mock("xterm", () => ({
   Terminal: class {
@@ -30,7 +31,14 @@ vi.mock("xterm/css/xterm.css", () => ({}));
 vi.mock("../../hooks/use-terminal", () => ({
   useTerminal: (args: { onData: (d: string) => void }) => {
     capturedOnData = args.onData;
-    return { sendInput: sendInputSpy, sendResize: vi.fn(), working: mockWorking, stop: stopSpy };
+    return {
+      sendInput: sendInputSpy,
+      sendResize: vi.fn(),
+      working: mockWorking,
+      awaitingPermission: mockAwaitingPermission,
+      inputLocked: mockWorking && !mockAwaitingPermission,
+      stop: stopSpy,
+    };
   },
 }));
 
@@ -44,6 +52,7 @@ describe("InteractiveTerminal", () => {
     dataHandler = undefined;
     capturedOnData = undefined;
     mockWorking = false;
+    mockAwaitingPermission = false;
   });
 
   it("mounts and renders the xterm container", () => {
@@ -69,6 +78,15 @@ describe("InteractiveTerminal", () => {
     render(<InteractiveTerminal cardId="c1" active />);
     dataHandler?.("x");
     expect(sendInputSpy).not.toHaveBeenCalled();
+  });
+
+  it("allows xterm keystrokes during a permission prompt even while working", () => {
+    mockWorking = true;
+    mockAwaitingPermission = true;
+    render(<InteractiveTerminal cardId="c1" active />);
+    dataHandler?.("1");
+    expect(sendInputSpy).toHaveBeenCalledWith("1");
+    expect(screen.getByText(/Claude is asking/i)).toBeTruthy();
   });
 
   it("shows idle status text when not working", () => {
