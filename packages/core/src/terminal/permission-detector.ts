@@ -8,21 +8,27 @@ const ANSI = /\x1b\[[0-9;?]*[A-Za-z]/g;
 
 /**
  * Pattern that identifies the CLI's interactive permission prompt.
- * PLACEHOLDER — tune against the real captured prompt at E2E
- * (see docs/superpowers/spikes/2026-05-21-pty-prompt-sample.md when it exists).
- * Match against the tail only; the prompt is the most recent thing on screen.
+ *
+ * Real TUI output (from spike 2026-05-22): the cursor-repainted terminal strips
+ * down to space-less text like "Doyouwanttocreatehello.txt?❯1.Yes2.Yes,...3.No".
+ * We strip ALL whitespace before matching so the pattern is whitespace-insensitive.
+ *
+ * We require BOTH:
+ *   1. "doyouwantto" — the question preamble (covers create/edit/run/etc.)
+ *   2. "1.?yes" — the Yes option in the numbered menu (reduces false positives)
  */
-const PROMPT_PATTERN = /Do you want to proceed\?[\s\S]*1\.\s*Yes/i;
+const QUESTION_PATTERN = /doyouwantto/i;
+const YES_OPTION_PATTERN = /1\.?yes/i;
 
-/** Keystroke(s) that select the "Yes" (approve once) option. */
-const ACCEPT_INPUT = "1\r";
+/** Enter key — selects the highlighted (❯) Yes option. NOT "1\r". */
+const ACCEPT_INPUT = "\r";
 
 /** How many trailing characters of the buffer to inspect. */
 const TAIL = 4000;
 
 export function detectPermissionPrompt(buffer: string): PermissionPromptMatch | null {
-  const tail = buffer.slice(-TAIL).replace(ANSI, "");
-  if (PROMPT_PATTERN.test(tail)) {
+  const flat = buffer.slice(-TAIL).replace(ANSI, "").replace(/\s+/g, "");
+  if (QUESTION_PATTERN.test(flat) && YES_OPTION_PATTERN.test(flat)) {
     return { acceptInput: ACCEPT_INPUT };
   }
   return null;

@@ -8,6 +8,7 @@ export { TerminalHub } from "./terminal-hub.js";
 export type { SessionLike, OpenOptions, TerminalHubOptions } from "./terminal-hub.js";
 export { detectPermissionPrompt } from "./permission-detector.js";
 export type { PermissionPromptMatch } from "./permission-detector.js";
+export { detectIdle } from "./idle-detector.js";
 
 /** Builds a hub that spawns real interactive `claude` PTY sessions. */
 export function createTerminalHub(args: {
