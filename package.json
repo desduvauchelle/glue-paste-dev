@@ -1,6 +1,6 @@
 {
   "name": "glue-paste-dev",
-  "version": "0.1.248",
+  "version": "0.1.250",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -15,6 +15,7 @@
     "test:coverage": "cd packages/core && bun run test:coverage && cd ../server && bun run test:coverage && cd ../cli && bun run test:coverage && cd ../dashboard && bun run test:coverage",
     "test:watch": "bun test --watch",
     "build:electron": "bash scripts/build-electron.sh",
+    "install:local": "bash scripts/build-and-install.sh",
     "dev:electron": "cd packages/electron && npx electron dist/main.js",
     "format": "prettier --write \"packages/*/src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"packages/*/src/**/*.{ts,tsx}\"",
