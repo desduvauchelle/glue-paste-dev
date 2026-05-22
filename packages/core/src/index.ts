@@ -27,7 +27,6 @@ export * as cardsDb from "./db/cards.js";
 export * as commentsDb from "./db/comments.js";
 export * as executionsDb from "./db/executions.js";
 export * as commitsDb from "./db/commits.js";
-export * as criteriaDb from "./db/criteria.js";
 
 // Config
 export * from "./config/manager.js";
