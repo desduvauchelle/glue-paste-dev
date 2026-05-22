@@ -43,5 +43,14 @@ export function terminalRoutes(db: Database, broadcast: (e: unknown) => void) {
     return c.json({ ok: true });
   });
 
+  // Stop = interrupt the current turn (Ctrl-C). The session stays alive (unlike DELETE which kills).
+  app.post("/:id/terminal/stop", (c) => {
+    const cardId = c.req.param("id") as CardId;
+    const permissionMode = (getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching") as TerminalPermissionMode;
+    const hub = getTerminalHub(broadcast, permissionMode);
+    hub.interrupt(cardId);
+    return c.json({ ok: true });
+  });
+
   return app;
 }

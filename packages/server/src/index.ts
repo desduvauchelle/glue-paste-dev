@@ -1,4 +1,4 @@
-import { cardsDb, executionsDb, getDb, getGlobalConfig, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync, log } from "@glue-paste-dev/core";
+import { cardsDb, executionsDb, getDb, getGlobalConfig, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync, log, setInteractiveHub } from "@glue-paste-dev/core";
 import { Hono } from "hono";
 import { createBunWebSocket, serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
@@ -180,6 +180,11 @@ app.get("*", (c) => new Response(Bun.file(join(publicDir, "index.html"))));
 
 const PORT = Number(process.env.PORT) || 4242;
 
+// Share the singleton terminal hub with the run queue so claude cards run as live PTY sessions.
+setInteractiveHub(
+  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching")
+);
+
 // Caffeinate: keep machine awake while tasks are active
 checkAndToggleCaffeinate(db);
 const caffeinateInterval = setInterval(() => checkAndToggleCaffeinate(db), 120_000);
@@ -201,6 +206,7 @@ function gracefulShutdown() {
   killAllCardProcesses();
   killAllChatProcesses();
   getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching").closeAll();
+  setInteractiveHub(null);
   executionsDb.cancelRunningExecutions(db);
   process.exit(0);
 }

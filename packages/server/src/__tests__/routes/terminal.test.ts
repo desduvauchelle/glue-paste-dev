@@ -7,14 +7,23 @@ const mockOpen = mock(() => {});
 const mockIsRunning = mock(() => false);
 const mockGetScrollback = mock(() => "");
 const mockClose = mock(() => {});
+const mockInterrupt = mock(() => {});
+
+// Capture the broadcast passed to getTerminalHub so idle-wiring tests can inspect it.
+let capturedBroadcast: ((e: unknown) => void) | null = null;
+let capturedOnIdle: ((cardId: string) => void) | null = null;
 
 mock.module("../../terminal-hub-singleton.js", () => ({
-  getTerminalHub: () => ({
-    open: mockOpen,
-    isRunning: mockIsRunning,
-    getScrollback: mockGetScrollback,
-    close: mockClose,
-  }),
+  getTerminalHub: (broadcast: (e: unknown) => void) => {
+    capturedBroadcast = broadcast;
+    return {
+      open: mockOpen,
+      isRunning: mockIsRunning,
+      getScrollback: mockGetScrollback,
+      close: mockClose,
+      interrupt: mockInterrupt,
+    };
+  },
 }));
 
 import { terminalRoutes } from "../../routes/terminal.js";
@@ -71,5 +80,17 @@ describe("DELETE /:id/terminal", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
+  });
+});
+
+describe("POST /:id/terminal/stop", () => {
+  it("calls interrupt(cardId) and returns ok:true", async () => {
+    mockInterrupt.mockClear();
+    const res = await req("POST", `/${cardId}/terminal/stop`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(mockInterrupt).toHaveBeenCalledTimes(1);
+    expect(mockInterrupt).toHaveBeenCalledWith(cardId);
   });
 });

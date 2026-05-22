@@ -20,6 +20,7 @@ export function getTerminalHub(
     command: ["claude"],
     onOutput: (cardId, data) => broadcast({ type: "terminal:output", payload: { cardId, data } }),
     onExit: (cardId, code) => broadcast({ type: "terminal:exit", payload: { cardId, exitCode: code } }),
+    onIdle: (cardId) => broadcast({ type: "execution:idle", payload: { cardId } }),
   });
   return hub;
 }
