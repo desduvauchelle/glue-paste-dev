@@ -190,6 +190,19 @@ export const chat = {
     }),
 };
 
+// Terminal
+export const terminal = {
+  open: (cardId: string, size: { cols: number; rows: number }) =>
+    request<{ ok: boolean; running: boolean }>(`/cards/${cardId}/terminal`, {
+      method: "POST",
+      body: JSON.stringify(size),
+    }),
+  status: (cardId: string) =>
+    request<{ running: boolean; scrollback: string }>(`/cards/${cardId}/terminal`),
+  close: (cardId: string) =>
+    request<{ ok: boolean }>(`/cards/${cardId}/terminal`, { method: "DELETE" }),
+};
+
 // Update
 export const update = {
   check: () =>
