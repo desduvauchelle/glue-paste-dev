@@ -219,6 +219,8 @@ export const terminal = {
     request<{ running: boolean; scrollback: string }>(`/cards/${cardId}/terminal`),
   close: (cardId: string) =>
     request<{ ok: boolean }>(`/cards/${cardId}/terminal`, { method: "DELETE" }),
+  stop: (cardId: string) =>
+    request<{ ok: boolean }>(`/cards/${cardId}/terminal/stop`, { method: "POST" }),
 };
 
 // Update

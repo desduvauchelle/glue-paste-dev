@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { terminal as terminalApi } from "@/lib/api";
 import { sendWS, useWebSocket } from "@/lib/ws";
 
@@ -22,13 +22,25 @@ export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs)
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
 
-  // Receive output / exit for THIS card.
+  const [working, setWorking] = useState(false);
+
+  // Receive output / exit / execution state for THIS card.
   useWebSocket((event) => {
-    if (event.type !== "terminal:output" && event.type !== "terminal:exit") return;
+    if (
+      event.type !== "terminal:output" &&
+      event.type !== "terminal:exit" &&
+      event.type !== "execution:started" &&
+      event.type !== "execution:idle"
+    ) return;
     const payload = event.payload as TerminalPayload;
     if (payload?.cardId !== cardId) return;
     if (event.type === "terminal:output" && payload.data) onDataRef.current(payload.data);
-    if (event.type === "terminal:exit") onExitRef.current?.(payload.exitCode ?? 0);
+    if (event.type === "terminal:exit") {
+      setWorking(false);
+      onExitRef.current?.(payload.exitCode ?? 0);
+    }
+    if (event.type === "execution:started") setWorking(true);
+    if (event.type === "execution:idle") setWorking(false);
   });
 
   // Open + attach + replay scrollback when activated.
@@ -69,6 +81,7 @@ export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs)
     (cols: number, rows: number) => sendWS({ type: "terminal:resize", cardId, cols, rows }),
     [cardId]
   );
+  const stop = useCallback(() => { void terminalApi.stop(cardId); }, [cardId]);
 
-  return { sendInput, sendResize };
+  return { sendInput, sendResize, working, stop };
 }

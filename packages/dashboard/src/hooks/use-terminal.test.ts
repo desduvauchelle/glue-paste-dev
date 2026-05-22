@@ -1,17 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 
 vi.mock("@/lib/api", () => ({
   terminal: {
     open: vi.fn().mockResolvedValue({ ok: true, running: true }),
     status: vi.fn().mockResolvedValue({ running: true, scrollback: "" }),
     close: vi.fn(),
+    stop: vi.fn().mockResolvedValue({ ok: true }),
   },
 }));
 
+let wsHandler: ((event: { type: string; payload: unknown }) => void) | undefined;
+
 vi.mock("@/lib/ws", () => ({
   sendWS: vi.fn(),
-  useWebSocket: vi.fn(),
+  useWebSocket: vi.fn((cb: (event: { type: string; payload: unknown }) => void) => {
+    wsHandler = cb;
+  }),
 }));
 
 import { useTerminal } from "./use-terminal";
@@ -20,8 +25,10 @@ import { sendWS } from "@/lib/ws";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  wsHandler = undefined;
   vi.mocked(terminalApi.open).mockResolvedValue({ ok: true, running: true });
   vi.mocked(terminalApi.status).mockResolvedValue({ running: true, scrollback: "" });
+  vi.mocked(terminalApi.stop).mockResolvedValue({ ok: true });
 });
 
 describe("useTerminal", () => {
@@ -98,5 +105,70 @@ describe("useTerminal", () => {
       useTerminal({ cardId: "card-1", active: false, onData: () => {} })
     );
     expect(terminalApi.open).not.toHaveBeenCalled();
+  });
+
+  it("working starts as false", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    expect(result.current.working).toBe(false);
+  });
+
+  it("sets working=true on execution:started for this card", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "execution:started", payload: { cardId: "card-1", executionId: "e1", phase: "run" } });
+    });
+    expect(result.current.working).toBe(true);
+  });
+
+  it("sets working=false on execution:idle for this card", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "execution:started", payload: { cardId: "card-1", executionId: "e1", phase: "run" } });
+    });
+    expect(result.current.working).toBe(true);
+    act(() => {
+      wsHandler?.({ type: "execution:idle", payload: { cardId: "card-1" } });
+    });
+    expect(result.current.working).toBe(false);
+  });
+
+  it("ignores execution:started for a different card", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "execution:started", payload: { cardId: "card-2", executionId: "e1", phase: "run" } });
+    });
+    expect(result.current.working).toBe(false);
+  });
+
+  it("sets working=false on terminal:exit for this card", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "execution:started", payload: { cardId: "card-1", executionId: "e1", phase: "run" } });
+    });
+    expect(result.current.working).toBe(true);
+    act(() => {
+      wsHandler?.({ type: "terminal:exit", payload: { cardId: "card-1", exitCode: 0 } });
+    });
+    expect(result.current.working).toBe(false);
+  });
+
+  it("stop calls terminalApi.stop with the cardId", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      result.current.stop();
+    });
+    expect(terminalApi.stop).toHaveBeenCalledWith("card-1");
   });
 });
