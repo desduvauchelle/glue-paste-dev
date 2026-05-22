@@ -273,7 +273,7 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, isDragOver
 
         <CardExecutionInfo card={card} />
 
-        {(card.tags.length > 0 || card.blocking || card.assignee === "human") && (
+        {(card.tags.length > 0 || card.blocking || card.assignee === "human" || card.criteria.length > 0 || card.blocker) && (
           <div className="flex flex-wrap gap-1 mt-2 ml-5">
             {card.assignee === "human" && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-violet-500/50 text-violet-400">
@@ -291,6 +291,19 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, isDragOver
                 {tag}
               </Badge>
             ))}
+            {card.criteria.length > 0 && (
+              <span
+                className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                title="Acceptance criteria passed"
+              >
+                {card.criteria.filter((c) => c.status === "pass").length}/{card.criteria.length} ✓
+              </span>
+            )}
+            {card.blocker && (
+              <span className="text-xs text-red-500" title={`Blocked: ${card.blocker.root_cause}`}>
+                ⚠ blocked
+              </span>
+            )}
           </div>
         )}
       </CardContent>
