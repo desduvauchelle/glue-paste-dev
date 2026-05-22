@@ -51,6 +51,7 @@ const makeCard = (overrides?: Partial<CardWithTags>): CardWithTags => ({
   plan_summary: null,
   completion_summary: null,
   blocker: null,
+  session_state: null,
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
   ...overrides,

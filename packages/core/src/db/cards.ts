@@ -37,6 +37,7 @@ interface CardRow {
   plan_summary: string | null;
   completion_summary: string | null;
   blocker: string | null;
+  session_state: string | null;
 }
 
 function getTagsForCard(db: Database, cardId: string): string[] {
@@ -110,6 +111,7 @@ function toCardWithTags(db: Database, row: CardRow): CardWithTags {
     plan_summary: parseJson<PlanSummary>(row.plan_summary, PlanSummarySchema),
     completion_summary: row.completion_summary ?? null,
     blocker: parseJson<Blocker>(row.blocker, BlockerSchema),
+    session_state: (row.session_state as "working" | "idle" | null) ?? null,
   } as CardWithTags;
 }
 
@@ -497,4 +499,8 @@ export function setBlocker(db: Database, id: CardId, blocker: Blocker | null): v
     blocker ? JSON.stringify(blocker) : null,
     id
   );
+}
+
+export function setSessionState(db: Database, id: CardId, state: "working" | "idle" | null): void {
+  db.query("UPDATE cards SET session_state = ?, updated_at = datetime('now') WHERE id = ?").run(state, id);
 }

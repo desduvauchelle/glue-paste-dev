@@ -26,6 +26,7 @@ const baseCtx = {
     plan_summary: null,
     completion_summary: null,
     blocker: null,
+    session_state: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },

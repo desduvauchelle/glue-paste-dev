@@ -48,6 +48,7 @@ export const CardWithTagsSchema = CardSchema.extend({
   plan_summary: PlanSummarySchema.nullable().default(null),
   completion_summary: z.string().nullable().default(null),
   blocker: BlockerSchema.nullable().default(null),
+  session_state: z.enum(["working", "idle"]).nullable().default(null),
 });
 
 export const CreateCardSchema = z.object({

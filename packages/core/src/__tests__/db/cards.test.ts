@@ -18,6 +18,7 @@ import {
   countDonePerDay,
   countDonePerDayByBoard,
   countActiveCards,
+  setSessionState,
 } from "../../db/cards.js";
 import { createExecution, getCompletedPlanOutput, updateExecutionStatus } from "../../db/executions.js";
 import type { BoardId, CardId, ExecutionId } from "../../types/index.js";
@@ -378,5 +379,34 @@ describe("countDonePerDay", () => {
       const utcTodayInLocal = localResult[boardId]!.find((r) => r.date === utcToday);
       expect(utcTodayInLocal?.count ?? 0).toBe(0);
     }
+  });
+});
+
+describe("setSessionState", () => {
+  it("new card has session_state === null", () => {
+    const card = createCard(db, boardId, { title: "State test", description: "", tags: [] });
+    expect(card.session_state).toBeNull();
+  });
+
+  it("sets session_state to working", () => {
+    const card = createCard(db, boardId, { title: "State test", description: "", tags: [] });
+    setSessionState(db, card.id as CardId, "working");
+    const updated = getCard(db, card.id as CardId);
+    expect(updated?.session_state).toBe("working");
+  });
+
+  it("sets session_state to idle", () => {
+    const card = createCard(db, boardId, { title: "State test", description: "", tags: [] });
+    setSessionState(db, card.id as CardId, "idle");
+    const updated = getCard(db, card.id as CardId);
+    expect(updated?.session_state).toBe("idle");
+  });
+
+  it("sets session_state back to null", () => {
+    const card = createCard(db, boardId, { title: "State test", description: "", tags: [] });
+    setSessionState(db, card.id as CardId, "working");
+    setSessionState(db, card.id as CardId, null);
+    const updated = getCard(db, card.id as CardId);
+    expect(updated?.session_state).toBeNull();
   });
 });
