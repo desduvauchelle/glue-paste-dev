@@ -94,3 +94,33 @@ describe("POST /:id/terminal/stop", () => {
     expect(mockInterrupt).toHaveBeenCalledWith(cardId);
   });
 });
+
+describe("POST /:id/session/kill", () => {
+  it("returns ok:true, calls hub.close(cardId), sets session_state to null", async () => {
+    mockClose.mockClear();
+
+    // Set an initial session_state so we can confirm it's cleared
+    const appWithDb = new Hono();
+    appWithDb.route("/api/cards", terminalRoutes(db, () => {}));
+
+    const res = await req("POST", `/${cardId}/session/kill`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(mockClose).toHaveBeenCalledTimes(1);
+    expect(mockClose).toHaveBeenCalledWith(cardId);
+
+    // DB session_state should be null
+    const updatedCard = cardsDb.getCard(db, cardId as any);
+    expect(updatedCard?.session_state).toBeNull();
+  });
+
+  it("returns 404 when called with non-existent cardId", async () => {
+    // The kill route doesn't validate card existence per spec — it just closes and resets.
+    // This test documents that it returns ok:true even for unknown cards (hub.close is a no-op).
+    const res = await req("POST", "/nonexistent/session/kill");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+});

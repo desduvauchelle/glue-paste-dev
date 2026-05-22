@@ -155,13 +155,13 @@ app.get(
         const data = typeof event.data === "string" ? event.data : "";
         if (data.includes("terminal:")) {
           const mode = getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching";
-          handleTerminalMessage(getTerminalHub(broadcast, mode), clientId, data);
+          handleTerminalMessage(getTerminalHub(broadcast, mode, db), clientId, data);
         }
       },
       onClose(_event, ws) {
         clients.delete(ws.raw as ServerWebSocket<unknown>);
         const mode = getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching";
-        getTerminalHub(broadcast, mode).detachClientEverywhere(clientId);
+        getTerminalHub(broadcast, mode, db).detachClientEverywhere(clientId);
         log.info("ws", `Client disconnected ${clientId} (${clients.size} total)`);
       }
     };
@@ -182,7 +182,7 @@ const PORT = Number(process.env.PORT) || 4242;
 
 // Share the singleton terminal hub with the run queue so claude cards run as live PTY sessions.
 setInteractiveHub(
-  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching")
+  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching", db)
 );
 
 // Caffeinate: keep machine awake while tasks are active
@@ -205,7 +205,7 @@ function gracefulShutdown() {
   stopCaffeinate();
   killAllCardProcesses();
   killAllChatProcesses();
-  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching").closeAll();
+  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching", db).closeAll();
   setInteractiveHub(null);
   executionsDb.cancelRunningExecutions(db);
   process.exit(0);
