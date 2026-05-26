@@ -180,6 +180,7 @@ fn apply_migrations(conn: &Connection) {
         "ALTER TABLE cards ADD COLUMN plan_summary TEXT DEFAULT NULL",
         "ALTER TABLE cards ADD COLUMN completion_summary TEXT DEFAULT NULL",
         "ALTER TABLE cards ADD COLUMN blocker TEXT DEFAULT NULL",
+        "ALTER TABLE config ADD COLUMN terminal_permission_mode TEXT DEFAULT 'auto-unless-watching'",
     ];
     for sql in migrations {
         let _ = conn.execute(sql, []);
@@ -253,5 +254,20 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM pragma_table_info('cards')", [], |r| r.get(0))
             .unwrap();
         assert_eq!(cols_before, cols_after);
+    }
+
+    #[test]
+    fn config_has_terminal_permission_mode() {
+        let conn = open_memory().expect("open");
+        // Column must be present (migration applies on fresh schema since the column
+        // is not in SCHEMA_SQL; only the migration adds it).
+        let col_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('config') WHERE name = 'terminal_permission_mode'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(col_count, 1);
     }
 }
