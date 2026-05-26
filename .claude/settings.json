@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -E \"\\\\.\\(sql|ts\\)$\")"
+      "Bash(grep -E \"\\\\.\\(sql|ts\\)$\")",
+      "Bash(mkdir -p /Users/denisduvauchelle/Documents/code/glue-paste-dev/docs/superpowers/plans)"
+    ],
+    "additionalDirectories": [
+      "/Users/denisduvauchelle/Documents/code/glue-paste-dev/docs/superpowers/plans"
     ]
   }
 }

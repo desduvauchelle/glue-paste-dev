@@ -475,7 +475,7 @@ export function CardDialog({
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent
-					className="max-w-5xl relative"
+					className={cn("max-w-5xl relative", isEditing && "h-[90vh]")}
 					onDragEnter={handleDragEnter}
 					onDragLeave={handleDragLeave}
 					onDragOver={handleDragOver}
