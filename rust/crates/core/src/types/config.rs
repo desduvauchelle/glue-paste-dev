@@ -22,4 +22,5 @@ pub struct Config {
     pub branch_mode: Option<String>,
     pub branch_name: Option<String>,
     pub max_concurrent_cards: Option<i64>,
+    pub terminal_permission_mode: Option<String>,
 }
