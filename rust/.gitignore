@@ -1,5 +1,5 @@
 target/
 Cargo.lock
-*.db
-*.db-wal
-*.db-shm
+target/**/*.db
+target/**/*.db-wal
+target/**/*.db-shm
