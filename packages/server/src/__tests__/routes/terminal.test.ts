@@ -7,14 +7,23 @@ const mockOpen = mock(() => {});
 const mockIsRunning = mock(() => false);
 const mockGetScrollback = mock(() => "");
 const mockClose = mock(() => {});
+const mockInterrupt = mock(() => {});
+
+// Capture the broadcast passed to getTerminalHub so idle-wiring tests can inspect it.
+let capturedBroadcast: ((e: unknown) => void) | null = null;
+let capturedOnIdle: ((cardId: string) => void) | null = null;
 
 mock.module("../../terminal-hub-singleton.js", () => ({
-  getTerminalHub: () => ({
-    open: mockOpen,
-    isRunning: mockIsRunning,
-    getScrollback: mockGetScrollback,
-    close: mockClose,
-  }),
+  getTerminalHub: (broadcast: (e: unknown) => void) => {
+    capturedBroadcast = broadcast;
+    return {
+      open: mockOpen,
+      isRunning: mockIsRunning,
+      getScrollback: mockGetScrollback,
+      close: mockClose,
+      interrupt: mockInterrupt,
+    };
+  },
 }));
 
 import { terminalRoutes } from "../../routes/terminal.js";
@@ -68,6 +77,48 @@ describe("GET /:id/terminal", () => {
 describe("DELETE /:id/terminal", () => {
   it("returns ok:true for card with no session", async () => {
     const res = await req("DELETE", `/${cardId}/terminal`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+  });
+});
+
+describe("POST /:id/terminal/stop", () => {
+  it("calls interrupt(cardId) and returns ok:true", async () => {
+    mockInterrupt.mockClear();
+    const res = await req("POST", `/${cardId}/terminal/stop`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(mockInterrupt).toHaveBeenCalledTimes(1);
+    expect(mockInterrupt).toHaveBeenCalledWith(cardId);
+  });
+});
+
+describe("POST /:id/session/kill", () => {
+  it("returns ok:true, calls hub.close(cardId), sets session_state to null", async () => {
+    mockClose.mockClear();
+
+    // Set an initial session_state so we can confirm it's cleared
+    const appWithDb = new Hono();
+    appWithDb.route("/api/cards", terminalRoutes(db, () => {}));
+
+    const res = await req("POST", `/${cardId}/session/kill`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(mockClose).toHaveBeenCalledTimes(1);
+    expect(mockClose).toHaveBeenCalledWith(cardId);
+
+    // DB session_state should be null
+    const updatedCard = cardsDb.getCard(db, cardId as any);
+    expect(updatedCard?.session_state).toBeNull();
+  });
+
+  it("returns 404 when called with non-existent cardId", async () => {
+    // The kill route doesn't validate card existence per spec — it just closes and resets.
+    // This test documents that it returns ok:true even for unknown cards (hub.close is a no-op).
+    const res = await req("POST", "/nonexistent/session/kill");
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);

@@ -445,4 +445,7 @@ export function initSchema(db: Database): void {
   } catch {
     // Column already exists — ignore
   }
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN session_state TEXT DEFAULT NULL`);
+  } catch { /* Column already exists — ignore */ }
 }

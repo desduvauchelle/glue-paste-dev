@@ -219,6 +219,10 @@ export const terminal = {
     request<{ running: boolean; scrollback: string }>(`/cards/${cardId}/terminal`),
   close: (cardId: string) =>
     request<{ ok: boolean }>(`/cards/${cardId}/terminal`, { method: "DELETE" }),
+  stop: (cardId: string) =>
+    request<{ ok: boolean }>(`/cards/${cardId}/terminal/stop`, { method: "POST" }),
+  killSession: (cardId: string) =>
+    request<{ ok: boolean }>(`/cards/${cardId}/session/kill`, { method: "POST" }),
 };
 
 // Update
@@ -304,6 +308,7 @@ interface CardWithTags {
   plan_summary: PlanSummary | null;
   completion_summary: string | null;
   blocker: Blocker | null;
+  session_state: "working" | "idle" | null;
   created_at: string;
   updated_at: string;
 }

@@ -2,6 +2,10 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CardDialog } from "./CardDialog";
 
+vi.mock("./InteractiveTerminal", () => ({
+  InteractiveTerminal: () => <div data-testid="live-term" />,
+}));
+
 vi.mock("@/lib/api", () => ({
   config: {
     getForBoard: vi.fn(),
@@ -37,12 +41,6 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/lib/ws", () => ({
   useWSEvent: vi.fn(),
-}));
-
-vi.mock("./InteractiveTerminal", () => ({
-  InteractiveTerminal: ({ active }: { cardId: string; active: boolean }) => (
-    <div data-testid="live-term" data-active={String(active)} />
-  ),
 }));
 
 const { config: configApi, ai: aiApi, cards: cardsApi } = await import("@/lib/api");
@@ -175,6 +173,7 @@ describe("CardDialog — config defaults", () => {
       plan_summary: null,
       completion_summary: null,
       blocker: null,
+      session_state: null as null,
       created_at: "",
       updated_at: "",
     };
@@ -367,6 +366,7 @@ describe("CardDialog — config defaults", () => {
       plan_summary: null,
       completion_summary: null,
       blocker: null,
+      session_state: null as null,
       created_at: "",
       updated_at: "",
     };
@@ -547,13 +547,8 @@ describe("CardDialog — title auto-generation on save", () => {
   });
 });
 
-describe("CardDialog — Live terminal sub-tab", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(configApi.getForBoard).mockResolvedValue(mockConfigDefaults);
-  });
-
-  const editCard = {
+describe("CardDialog — flattened tabs (Terminal / Activity)", () => {
+  const editingCard = {
     id: "card-1",
     board_id: "board-1",
     title: "Test card",
@@ -576,30 +571,52 @@ describe("CardDialog — Live terminal sub-tab", () => {
     plan_summary: null,
     completion_summary: null,
     blocker: null,
+    session_state: null as null,
     created_at: "",
     updated_at: "",
   };
 
-  // NOTE: Live sub-tab UI was removed when feat/card-proof-of-work merged.
-  // Phase3 (terminal-is-run) will reintroduce the Live terminal UI; this
-  // test is expected to fail until phase3 lands on main.
-  it.skip("shows the InteractiveTerminal when the Live sub-tab is clicked and hides it on Activity", async () => {
-    render(<CardDialog {...defaultProps} card={editCard} />);
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(configApi.getForBoard).mockResolvedValue(mockConfigDefaults);
+    try {
+      localStorage.clear();
+    } catch {}
+  });
 
-    // Activity tab is default — terminal not shown
-    expect(screen.queryByTestId("live-term")).toBeNull();
+  it("renders General/Plan/Criteria/Terminal/Activity tab buttons in edit mode", async () => {
+    render(<CardDialog {...defaultProps} card={editingCard} />);
 
-    const liveButton = await screen.findByRole("button", { name: "Live" });
-    fireEvent.click(liveButton);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /general/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^plan$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /criteria/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^terminal$/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^activity$/i })).toBeInTheDocument();
+    });
+  });
 
-    const term = await screen.findByTestId("live-term");
-    expect(term).toBeInTheDocument();
-    expect(term).toHaveAttribute("data-active", "true");
+  it("Terminal tab shows the interactive terminal and no comment box", async () => {
+    render(<CardDialog {...defaultProps} card={editingCard} />);
 
-    // Switch back to Activity — terminal removed
-    const activityButton = screen.getByRole("button", { name: /^Activity/ });
-    fireEvent.click(activityButton);
+    const terminalTab = await screen.findByRole("button", { name: /^terminal$/i });
+    fireEvent.click(terminalTab);
 
-    await waitFor(() => expect(screen.queryByTestId("live-term")).toBeNull());
+    await waitFor(() => {
+      expect(screen.getByTestId("live-term")).toBeInTheDocument();
+    });
+    expect(screen.queryByPlaceholderText(/add a comment/i)).not.toBeInTheDocument();
+  });
+
+  it("Activity tab shows the comment box and hides the interactive terminal", async () => {
+    render(<CardDialog {...defaultProps} card={editingCard} />);
+
+    const activityTab = await screen.findByRole("button", { name: /^activity$/i });
+    fireEvent.click(activityTab);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/add a comment/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("live-term")).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { terminal as terminalApi } from "@/lib/api";
 import { sendWS, useWebSocket } from "@/lib/ws";
 
@@ -16,19 +16,53 @@ interface TerminalPayload {
   exitCode?: number;
 }
 
+interface CardUpdatedPayload {
+  id?: string;
+  session_state?: string | null;
+}
+
 export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs) {
   const onDataRef = useRef(onData);
   onDataRef.current = onData;
   const onExitRef = useRef(onExit);
   onExitRef.current = onExit;
 
-  // Receive output / exit for THIS card.
+  const [working, setWorking] = useState(false);
+  // True while claude is showing a permission prompt (y/n) — the user must be able
+  // to answer even while "working", so this overrides the input lock.
+  const [awaitingPermission, setAwaitingPermission] = useState(false);
+
+  // Receive output / exit / execution state for THIS card.
   useWebSocket((event) => {
-    if (event.type !== "terminal:output" && event.type !== "terminal:exit") return;
+    if (
+      event.type !== "terminal:output" &&
+      event.type !== "terminal:exit" &&
+      event.type !== "card:updated" &&
+      event.type !== "permission:pending"
+    ) return;
+
+    if (event.type === "card:updated") {
+      const payload = event.payload as CardUpdatedPayload;
+      if (payload?.id === cardId) {
+        setWorking(payload.session_state === "working");
+      }
+      return;
+    }
+
+    if (event.type === "permission:pending") {
+      const payload = event.payload as { cardId?: string; pending?: boolean };
+      if (payload?.cardId === cardId) setAwaitingPermission(payload.pending === true);
+      return;
+    }
+
     const payload = event.payload as TerminalPayload;
     if (payload?.cardId !== cardId) return;
     if (event.type === "terminal:output" && payload.data) onDataRef.current(payload.data);
-    if (event.type === "terminal:exit") onExitRef.current?.(payload.exitCode ?? 0);
+    if (event.type === "terminal:exit") {
+      setWorking(false);
+      setAwaitingPermission(false);
+      onExitRef.current?.(payload.exitCode ?? 0);
+    }
   });
 
   // Open + attach + replay scrollback when activated.
@@ -69,6 +103,10 @@ export function useTerminal({ cardId, active, onData, onExit }: UseTerminalArgs)
     (cols: number, rows: number) => sendWS({ type: "terminal:resize", cardId, cols, rows }),
     [cardId]
   );
+  const stop = useCallback(() => { void terminalApi.stop(cardId); }, [cardId]);
 
-  return { sendInput, sendResize };
+  // Input is locked while working, UNLESS a permission prompt needs answering.
+  const inputLocked = working && !awaitingPermission;
+
+  return { sendInput, sendResize, working, awaitingPermission, inputLocked, stop };
 }

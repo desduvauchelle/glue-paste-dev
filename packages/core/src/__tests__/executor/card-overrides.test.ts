@@ -34,6 +34,7 @@ function makeCard(overrides: Partial<CardWithTags> = {}): CardWithTags {
     plan_summary: null,
     completion_summary: null,
     blocker: null,
+    session_state: null,
     created_at: "",
     updated_at: "",
     ...overrides,

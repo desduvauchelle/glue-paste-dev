@@ -72,8 +72,8 @@ function DialogTrigger({
 
 const DialogContent = React.forwardRef<
 	HTMLDivElement,
-	React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => {
+	React.HTMLAttributes<HTMLDivElement> & { variant?: "default" | "bottom-sheet" }
+>(({ className, children, variant = "default", ...props }, ref) => {
 	const { open, setOpen } = useDialog()
 
 	// Close on Escape
@@ -88,9 +88,14 @@ const DialogContent = React.forwardRef<
 
 	if (!open) return null
 
+	const isBottomSheet = variant === "bottom-sheet"
+
 	return createPortal(
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center"
+			className={cn(
+				"fixed inset-0 z-50 flex",
+				isBottomSheet ? "items-end" : "items-center justify-center",
+			)}
 			aria-modal="true"
 			role="dialog"
 		>
@@ -103,7 +108,9 @@ const DialogContent = React.forwardRef<
 			<div
 				ref={ref}
 				className={cn(
-					"relative z-10 w-full max-w-lg max-h-[90vh] flex flex-col rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg",
+					isBottomSheet
+						? "gpd-sheet-enter relative z-10 inset-x-0 bottom-0 w-full max-w-none flex flex-col rounded-t-2xl border border-b-0 border-border bg-card p-6 text-card-foreground shadow-lg max-h-[95vh]"
+						: "relative z-10 w-full max-w-lg max-h-[90vh] flex flex-col rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg",
 					className,
 				)}
 				onClick={(e) => e.stopPropagation()}

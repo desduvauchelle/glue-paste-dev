@@ -273,8 +273,17 @@ export function KanbanCard({ card, onPlay, onStop, onClick, onCoPlan, isDragOver
 
         <CardExecutionInfo card={card} />
 
-        {(card.tags.length > 0 || card.blocking || card.assignee === "human" || card.criteria.length > 0 || card.blocker) && (
+        {(card.tags.length > 0 || card.blocking || card.assignee === "human" || card.criteria.length > 0 || card.blocker || card.session_state != null) && (
           <div className="flex flex-wrap gap-1 mt-2 ml-5">
+            {card.session_state === "working" && (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
+                Working
+              </span>
+            )}
+            {card.session_state === "idle" && (
+              <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] text-blue-300">Your turn</span>
+            )}
             {card.assignee === "human" && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-violet-500/50 text-violet-400">
                 <User className="w-2.5 h-2.5 mr-0.5" />

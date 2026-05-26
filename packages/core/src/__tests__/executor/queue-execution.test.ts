@@ -13,15 +13,18 @@ import type { BoardId, CardId, CardWithTags } from "../../types/index.js";
 import type { QueueCallbacks } from "../../executor/queue.js";
 import type { RunResult } from "../../executor/runner.js";
 
-// --- Mock runCard ---
+// --- Mock runCard (preserve real exports to avoid poisoning module cache for other test files) ---
+const realRunner = await import("../../executor/runner.js");
 let mockRunCardBehavior: (card: CardWithTags) => Promise<RunResult>;
 
 mock.module("../../executor/runner.js", () => ({
+  ...realRunner,
   runCard: async (db: Database, card: CardWithTags, ..._rest: unknown[]) => {
     updateCardStatus(db, card.id as CardId, "in-progress");
     return mockRunCardBehavior(card);
   },
   killCardProcess: () => false,
+  getActiveCardProcess: () => undefined,
 }));
 
 const { startQueue, executeSingleCard, getQueueState, pauseQueue, resumeQueue } = await import("../../executor/queue.js");

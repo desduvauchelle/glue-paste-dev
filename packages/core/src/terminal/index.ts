@@ -5,9 +5,10 @@ import { TerminalHub } from "./terminal-hub.js";
 
 export { PtySession } from "./pty-session.js";
 export { TerminalHub } from "./terminal-hub.js";
-export type { SessionLike, OpenOptions, TerminalHubOptions } from "./terminal-hub.js";
+export type { SessionLike, OpenOptions, TerminalHubOptions, TurnEndResult } from "./terminal-hub.js";
 export { detectPermissionPrompt } from "./permission-detector.js";
 export type { PermissionPromptMatch } from "./permission-detector.js";
+export { detectIdle } from "./idle-detector.js";
 
 /** Builds a hub that spawns real interactive `claude` PTY sessions. */
 export function createTerminalHub(args: {
@@ -15,14 +16,22 @@ export function createTerminalHub(args: {
   command: string[]; // e.g. ["claude"] or ["claude","--resume",id]
   onOutput: (cardId: string, data: string) => void;
   onExit: (cardId: string, code: number) => void;
+  onIdle?: (cardId: string) => void;
+  onBusy?: (cardId: string) => void;
+  onPermissionPending?: (cardId: string, pending: boolean) => void;
+  maxSessions?: number;
 }): TerminalHub {
   return new TerminalHub({
     permissionMode: args.permissionMode,
     onOutput: args.onOutput,
     onExit: args.onExit,
+    ...(args.onIdle ? { onIdle: args.onIdle } : {}),
+    ...(args.onBusy ? { onBusy: args.onBusy } : {}),
+    ...(args.onPermissionPending ? { onPermissionPending: args.onPermissionPending } : {}),
+    ...(args.maxSessions != null ? { maxSessions: args.maxSessions } : {}),
     createSession: (_cardId, onData, onExit, opts) =>
       new PtySession({
-        command: args.command,
+        command: opts.command ?? args.command,
         cwd: opts.cwd,
         env: getFreshEnv(),
         cols: opts.cols,

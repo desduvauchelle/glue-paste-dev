@@ -1,5 +1,6 @@
 import { log } from "../logger.js";
 import { detectPermissionPrompt } from "./permission-detector.js";
+import { detectIdle } from "./idle-detector.js";
 import type { TerminalPermissionMode } from "../schemas/config.js";
 
 /** Minimal surface the hub needs from a session — lets tests inject a fake. */
@@ -15,6 +16,10 @@ export interface OpenOptions {
   cwd: string;
   cols: number;
   rows: number;
+  /** Override the default launch command for this specific session. */
+  command?: string[];
+  /** If set, hub delivers this text via bracketed paste and submits it after initialInputDelayMs. */
+  initialInput?: string;
 }
 
 export interface TerminalHubOptions {
@@ -31,7 +36,19 @@ export interface TerminalHubOptions {
   graceMs?: number;
   /** A heartbeat counts as "watching" for this long. Default 6000ms. */
   watchWindowMs?: number;
+  /** Called when a session transitions to idle (turn complete). */
+  onIdle?: (cardId: string) => void;
+  /** Called when a session transitions from idle to busy (working). */
+  onBusy?: (cardId: string) => void;
+  /** Called when a permission prompt appears (pending=true) or clears (pending=false). */
+  onPermissionPending?: (cardId: string, pending: boolean) => void;
+  /** Delay in ms before writing the submit \r after initial input. Default 300. */
+  initialInputDelayMs?: number;
+  /** Maximum number of concurrent sessions before LRU eviction kicks in. Default 12. */
+  maxSessions?: number;
 }
+
+export type TurnEndResult = { reason: "idle" } | { reason: "exit"; code: number };
 
 interface SessionEntry {
   session: SessionLike;
@@ -39,6 +56,11 @@ interface SessionEntry {
   lastHeartbeat: Map<string, number>;
   pendingPromptTimer: ReturnType<typeof setTimeout> | null;
   buffer: string;
+  wasIdle: boolean;
+  idleDetectionActive: boolean;
+  turnEndWaiters: Array<(r: TurnEndResult) => void>;
+  lastActivity: number;
+  permissionPending: boolean;
 }
 
 const BUFFER_TAIL = 8000;
@@ -47,20 +69,45 @@ export class TerminalHub {
   private sessions = new Map<string, SessionEntry>();
   private graceMs: number;
   private watchWindowMs: number;
+  private initialInputDelayMs: number;
+  private maxSessions: number;
 
   constructor(private opts: TerminalHubOptions) {
     this.graceMs = opts.graceMs ?? 1500;
     this.watchWindowMs = opts.watchWindowMs ?? 6000;
+    this.initialInputDelayMs = opts.initialInputDelayMs ?? 300;
+    this.maxSessions = opts.maxSessions ?? 12;
   }
 
   open(cardId: string, opts: OpenOptions): void {
     if (this.sessions.has(cardId)) return;
+
+    // LRU eviction: if at capacity, close the oldest idle+unwatched session
+    if (this.sessions.size >= this.maxSessions) {
+      let victim: string | null = null;
+      let oldest = Infinity;
+      for (const [id, entry] of this.sessions) {
+        if (!entry.wasIdle) continue;         // never evict a working session
+        if (this.isWatched(id)) continue;     // never evict a session someone is watching
+        if (entry.lastActivity < oldest) { oldest = entry.lastActivity; victim = id; }
+      }
+      if (victim) this.close(victim);
+      // If no evictable session exists, proceed without evicting
+    }
+
+    const hasInitialInput = opts.initialInput != null;
     const entry: SessionEntry = {
       session: null as never,
       subscribers: new Set(),
       lastHeartbeat: new Map(),
       pendingPromptTimer: null,
       buffer: "",
+      wasIdle: false,
+      // Gate: if we have initialInput, hold off detection until after submit
+      idleDetectionActive: !hasInitialInput,
+      turnEndWaiters: [],
+      lastActivity: Date.now(),
+      permissionPending: false,
     };
     entry.session = this.opts.createSession(
       cardId,
@@ -70,6 +117,14 @@ export class TerminalHub {
     );
     this.sessions.set(cardId, entry);
     log.info("terminal-hub", `opened session card=${cardId} cwd=${opts.cwd}`);
+
+    if (hasInitialInput) {
+      entry.session.write("\x1b[200~" + opts.initialInput + "\x1b[201~");
+      setTimeout(() => {
+        entry.idleDetectionActive = true;
+        entry.session.write("\r");
+      }, this.initialInputDelayMs);
+    }
   }
 
   attach(clientId: string, cardId: string): void {
@@ -107,7 +162,20 @@ export class TerminalHub {
   }
 
   input(cardId: string, data: string): void {
-    this.sessions.get(cardId)?.session.write(data);
+    const e = this.sessions.get(cardId);
+    if (!e) return;
+    // If the user is answering a permission prompt, clear the pending state and
+    // drop the answered prompt from the buffer so it isn't re-detected (re-locks input).
+    if (e.permissionPending) {
+      e.permissionPending = false;
+      e.buffer = "";
+      this.opts.onPermissionPending?.(cardId, false);
+    }
+    e.session.write(data);
+  }
+
+  interrupt(cardId: string): void {
+    this.sessions.get(cardId)?.session.write("\x03");
   }
 
   resize(cardId: string, cols: number, rows: number): void {
@@ -120,6 +188,12 @@ export class TerminalHub {
 
   isRunning(cardId: string): boolean {
     return this.sessions.get(cardId)?.session.isRunning() ?? false;
+  }
+
+  waitForTurnEnd(cardId: string): Promise<TurnEndResult> {
+    const e = this.sessions.get(cardId);
+    if (!e) return Promise.resolve({ reason: "exit", code: -1 });
+    return new Promise((resolve) => { e.turnEndWaiters.push(resolve); });
   }
 
   close(cardId: string): void {
@@ -138,14 +212,40 @@ export class TerminalHub {
     this.opts.onOutput(cardId, chunk);
     const e = this.sessions.get(cardId);
     if (!e) return;
+    e.lastActivity = Date.now();
     e.buffer = (e.buffer + chunk).slice(-BUFFER_TAIL);
+    // Permission-pending signal (independent of auto-answer mode): a prompt on
+    // screen means the user may need to answer — the dashboard unlocks input on it.
+    const promptNow = detectPermissionPrompt(e.buffer) != null;
+    if (promptNow !== e.permissionPending) {
+      e.permissionPending = promptNow;
+      this.opts.onPermissionPending?.(cardId, promptNow);
+    }
     this.maybeHandlePermission(cardId, e);
+    if (e.idleDetectionActive) {
+      const idle = detectIdle(chunk);
+      if (idle && !e.wasIdle) {
+        e.wasIdle = true;
+        this.opts.onIdle?.(cardId);
+        const waiters = e.turnEndWaiters;
+        e.turnEndWaiters = [];
+        for (const w of waiters) w({ reason: "idle" });
+      } else if (!idle && e.wasIdle) {
+        e.wasIdle = false;
+        this.opts.onBusy?.(cardId);
+      }
+    }
   }
 
   private handleExit(cardId: string, code: number): void {
     const e = this.sessions.get(cardId);
     if (e?.pendingPromptTimer) clearTimeout(e.pendingPromptTimer);
     this.opts.onExit(cardId, code);
+    if (e) {
+      const waiters = e.turnEndWaiters;
+      e.turnEndWaiters = [];
+      for (const w of waiters) w({ reason: "exit", code });
+    }
     this.sessions.delete(cardId);
   }
 

@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { TerminalStream, type TerminalStreamHandle } from "./TerminalStream"
 import { ActivityList } from "./ActivityList"
+import { InteractiveTerminal } from "./InteractiveTerminal"
 import { PlanPanel } from "./PlanPanel"
 import { CriteriaList } from "./CriteriaList"
-import { createPortal } from "react-dom"
 import type { CardWithTags, CreateCard, UpdateCard, Board, CliProvider, BranchMode, Criterion } from "@/lib/api"
 import { config as configApi, boards as boardsApi, cards as cardsApi, attachments as attachmentsApi, ai as aiApi, criteria as criteriaApi } from "@/lib/api"
 import { useComments } from "@/hooks/use-comments"
@@ -12,14 +12,12 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-	DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, Maximize2, Minimize2, GitCommit, ExternalLink, Upload, GitBranch, Sparkles } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, GitCommit, ExternalLink, Upload, GitBranch, Sparkles } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
@@ -76,25 +74,23 @@ export function CardDialog({
 	const [showFileBrowser, setShowFileBrowser] = useState(false)
 	const [commentText, setCommentText] = useState("")
 	const [confirmDelete, setConfirmDelete] = useState(false)
-	const ACTIVITY_TAB_KEY = "card-dialog-activity-tab"
-	const [activityTab, setActivityTab] = useState<"terminal" | "activity">(() => {
-		try {
-			const stored = localStorage.getItem(ACTIVITY_TAB_KEY)
-			if (stored === "terminal" || stored === "activity") return stored
-		} catch {}
-		return "terminal"
-	})
 	const terminalRef = useRef<TerminalStreamHandle>(null)
-	const maximizedTerminalRef = useRef<TerminalStreamHandle>(null)
-	useEffect(() => {
-		try { localStorage.setItem(ACTIVITY_TAB_KEY, activityTab) } catch {}
-	}, [activityTab])
 	const [allBoards, setAllBoards] = useState<Board[]>([])
 	const [moveTargetBoardId, setMoveTargetBoardId] = useState("")
 	const [isMoving, setIsMoving] = useState(false)
 	const [targetBoardId, setTargetBoardId] = useState(boardId)
-	const [activityMaximized, setActivityMaximized] = useState(false)
-	const [activeTab, setActiveTab] = useState<"general" | "plan" | "criteria" | "conversation">("general")
+	const ACTIVE_TAB_KEY = "card-dialog-active-tab"
+	const [activeTab, setActiveTab] = useState<"general" | "plan" | "criteria" | "terminal" | "activity">(() => {
+		try {
+			const stored = localStorage.getItem(ACTIVE_TAB_KEY)
+			if (stored === "conversation") return "activity"
+			if (stored === "general" || stored === "plan" || stored === "criteria" || stored === "terminal" || stored === "activity") return stored
+		} catch {}
+		return "general"
+	})
+	useEffect(() => {
+		try { localStorage.setItem(ACTIVE_TAB_KEY, activeTab) } catch {}
+	}, [activeTab])
 	const [localCriteria, setLocalCriteria] = useState<Criterion[]>([])
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
@@ -226,23 +222,9 @@ export function CardDialog({
 		activityEndRef.current?.scrollIntoView({ behavior: "smooth" })
 	}, [executions])
 
-	// Close maximized activity on Escape
-	useEffect(() => {
-		if (!activityMaximized) return
-		const handler = (e: KeyboardEvent) => {
-			if (e.key === "Escape") {
-				e.stopPropagation()
-				setActivityMaximized(false)
-			}
-		}
-		document.addEventListener("keydown", handler, true)
-		return () => document.removeEventListener("keydown", handler, true)
-	}, [activityMaximized])
-
 	// Reset state when dialog closes
 	useEffect(() => {
 		if (!open) {
-			setActivityMaximized(false)
 			setIsDragging(false)
 			dragCounterRef.current = 0
 			setActiveTab("general")
@@ -368,43 +350,6 @@ export function CardDialog({
 		setCommentText("")
 	}
 
-	const activityTabButton = (key: "terminal" | "activity", label: string) => (
-		<button
-			type="button"
-			onClick={() => setActivityTab(key)}
-			className={cn(
-				"px-2.5 py-1 text-xs font-medium rounded-t border-b-2 transition-colors -mb-px",
-				activityTab === key
-					? "border-primary text-foreground"
-					: "border-transparent text-muted-foreground hover:text-foreground"
-			)}
-		>
-			{label}
-		</button>
-	)
-
-	const renderActivityTabBody = (maximized: boolean) => (
-		activityTab === "terminal" ? (
-			<TerminalStream
-				ref={maximized ? maximizedTerminalRef : terminalRef}
-				executions={executions}
-				maximized={maximized}
-			/>
-		) : (
-			<ActivityList
-				comments={comments}
-				executionMap={executionMap}
-				onJumpToExecution={(executionId) => {
-					setActivityTab("terminal")
-					setTimeout(() => {
-						const r = maximized ? maximizedTerminalRef.current : terminalRef.current
-						r?.scrollToExecution(executionId)
-					}, 50)
-				}}
-			/>
-		)
-	)
-
 	const renderCommentInput = () => (
 		<div className="flex items-end gap-2">
 			<Textarea
@@ -432,50 +377,11 @@ export function CardDialog({
 		</div>
 	)
 
-	const renderMaximizedPortal = () => activityMaximized && createPortal(
-		<div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
-			<div
-				className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-				onClick={() => setActivityMaximized(false)}
-			/>
-			<div
-				className="relative z-10 w-full h-full max-w-6xl rounded-lg border border-border bg-card text-card-foreground shadow-lg flex flex-col"
-				onClick={(e) => e.stopPropagation()}
-			>
-				<div className="flex items-end justify-between px-4 pt-3 border-b border-border">
-					<div className="flex items-end gap-1">
-						{activityTabButton("terminal", "Terminal")}
-						{activityTabButton("activity", `Activity (${comments.length})`)}
-					</div>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-7 w-7 mb-1"
-						onClick={() => setActivityMaximized(false)}
-						title="Minimize"
-					>
-						<Minimize2 className="w-4 h-4" />
-					</Button>
-				</div>
-				<div className="flex-1 overflow-hidden p-4">
-					{activityTab === "terminal" ? (
-						<div className="h-full">{renderActivityTabBody(true)}</div>
-					) : (
-						<ScrollArea className="h-full">{renderActivityTabBody(true)}</ScrollArea>
-					)}
-				</div>
-				<div className="px-4 py-3 border-t border-border">
-					{renderCommentInput()}
-				</div>
-			</div>
-		</div>,
-		document.body
-	)
-
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent
-					className={cn("max-w-5xl relative", isEditing && "h-[90vh]")}
+					variant="bottom-sheet"
+					className="relative flex flex-col"
 					onDragEnter={handleDragEnter}
 					onDragLeave={handleDragLeave}
 					onDragOver={handleDragOver}
@@ -498,8 +404,40 @@ export function CardDialog({
 							</div>
 						</div>
 					)}
-					<DialogHeader>
-						<DialogTitle>{isEditing ? "Edit Card" : "New Card"}{!isEditing ? ` — ${(targetBoardId && targetBoardId !== boardId ? allBoards.find((b) => b.id === targetBoardId)?.name : boardName) ?? ""}` : ""}</DialogTitle>
+					<DialogHeader className="flex flex-row items-center justify-between gap-4 space-y-0 pr-8">
+						<DialogTitle className="truncate">{isEditing ? "Edit Card" : "New Card"}{!isEditing ? ` — ${(targetBoardId && targetBoardId !== boardId ? allBoards.find((b) => b.id === targetBoardId)?.name : boardName) ?? ""}` : ""}</DialogTitle>
+						<div className="flex items-center gap-2 shrink-0">
+							{isEditing && (
+								<Button
+									variant="ghost"
+									size="sm"
+									className="text-red-600 hover:text-red-700"
+									onClick={() => void handleDelete()}
+								>
+									<Trash2 className="w-4 h-4 mr-1" />
+									{confirmDelete ? "Confirm Delete" : "Delete"}
+								</Button>
+							)}
+							{isEditing && card.status === "todo" && card.assignee !== "human" && (
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => {
+										onPlay(card.id)
+										onOpenChange(false)
+									}}
+								>
+									<Play className="w-4 h-4 mr-2" />
+									Add to Queue
+								</Button>
+							)}
+							<Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+								Cancel
+							</Button>
+							<Button size="sm" onClick={() => void handleSave()} disabled={!title.trim() && !description.trim()}>
+								{isEditing ? "Save" : "Create"}
+							</Button>
+						</div>
 					</DialogHeader>
 
 					{/* Top-level tab navigation (edit mode only) */}
@@ -548,15 +486,30 @@ export function CardDialog({
 							</button>
 							<button
 								type="button"
-								onClick={() => setActiveTab("conversation")}
+								onClick={() => setActiveTab("terminal")}
 								className={cn(
 									"px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-									activeTab === "conversation"
+									activeTab === "terminal"
 										? "border-primary text-foreground"
 										: "border-transparent text-muted-foreground hover:text-foreground"
 								)}
 							>
-								Conversation
+								Terminal
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("activity")}
+								className={cn(
+									"px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+									activeTab === "activity"
+										? "border-primary text-foreground"
+										: "border-transparent text-muted-foreground hover:text-foreground"
+								)}
+							>
+								Activity
+								{comments.length > 0 && (
+									<span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{comments.length}</span>
+								)}
 							</button>
 						</div>
 					)}
@@ -1158,8 +1111,7 @@ export function CardDialog({
 									setLocalCriteria((prev) => prev.filter((c) => c.id !== id))
 								}}
 								onJumpToExecution={(executionId) => {
-									setActiveTab("conversation")
-									setActivityTab("terminal")
+									setActiveTab("activity")
 									setTimeout(() => {
 										terminalRef.current?.scrollToExecution(executionId)
 									}, 50)
@@ -1167,97 +1119,35 @@ export function CardDialog({
 							/>
 						)}
 
-						{/* Conversation Tab */}
-						{isEditing && activeTab === "conversation" && (
-							<div className="space-y-2">
-								<div className="flex items-end justify-between mb-1 border-b border-border">
-									<div className="flex items-end gap-1">
-										{activityTabButton("terminal", "Terminal")}
-										{activityTabButton("activity", `Activity (${comments.length})`)}
-									</div>
-									<div className="flex items-center gap-1 pb-1">
-										{activityTab === "activity" && comments.length > 0 && (
-											<Button
-												variant="ghost"
-												size="icon"
-												className="h-6 w-6"
-												onClick={() => void clearComments()}
-												title="Clear all comments"
-											>
-												<Eraser className="w-3.5 h-3.5 text-muted-foreground" />
-											</Button>
-										)}
-										<Button
-											variant="ghost"
-											size="icon"
-											className="h-6 w-6"
-											onClick={() => setActivityMaximized(true)}
-											title="Maximize"
-										>
-											<Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
+						{/* Terminal Tab — interactive PTY session */}
+						{isEditing && activeTab === "terminal" && (
+							<div className="h-[calc(95vh-200px)] min-h-[400px] border rounded-md overflow-hidden">
+								<InteractiveTerminal cardId={card.id} active={activeTab === "terminal"} />
+							</div>
+						)}
+
+						{/* Activity Tab — comments + execution logs */}
+						{isEditing && activeTab === "activity" && (
+							<div className="space-y-3">
+								{comments.length > 0 && (
+									<div className="flex items-center justify-end">
+										<Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => void clearComments()} title="Clear all comments">
+											<Eraser className="w-3.5 h-3.5 text-muted-foreground" />
 										</Button>
 									</div>
-								</div>
-								{activityTab === "terminal" ? (
-									<div className="border rounded-md h-[600px]">
-										<TerminalStream
-											ref={terminalRef}
-											executions={executions}
-											maximized={true}
-										/>
-									</div>
-								) : (
-									<ScrollArea className="max-h-[600px] border rounded-md p-2">
-										<ActivityList
-											comments={comments}
-											executionMap={executionMap}
-											onJumpToExecution={(executionId) => {
-												setActivityTab("terminal")
-												setTimeout(() => {
-													terminalRef.current?.scrollToExecution(executionId)
-												}, 50)
-											}}
-										/>
-									</ScrollArea>
 								)}
-								<div className="mt-2">
-									{renderCommentInput()}
+								<ActivityList
+									comments={comments}
+									executionMap={executionMap}
+									onJumpToExecution={(executionId) => { terminalRef.current?.scrollToExecution(executionId) }}
+								/>
+								<div className="border rounded-md h-[260px]">
+									<TerminalStream ref={terminalRef} executions={executions} maximized={false} />
 								</div>
-								{renderMaximizedPortal()}
+								{renderCommentInput()}
 							</div>
 						)}
 					</div>
-
-					<DialogFooter>
-						{isEditing && (
-							<Button
-								variant="destructive"
-								onClick={() => void handleDelete()}
-								className="mr-auto"
-							>
-								<Trash2 className="w-4 h-4 mr-1" />
-								{confirmDelete ? "Confirm Delete" : "Delete"}
-							</Button>
-						)}
-						{isEditing && card.status === "todo" && card.assignee !== "human" && (
-							<Button
-								variant="outline"
-								onClick={() => {
-									onPlay(card.id)
-									onOpenChange(false)
-								}}
-							>
-								<Play className="w-4 h-4 mr-2" />
-								Add to Queue
-							</Button>
-						)}
-						<Button variant="outline" onClick={() => onOpenChange(false)}>
-							Cancel
-						</Button>
-						<Button onClick={() => void handleSave()} disabled={!title.trim() && !description.trim()}>
-							{isEditing ? "Save" : "Create"}
-						</Button>
-					</DialogFooter>
 				</DialogContent>
 		</Dialog>
 	)

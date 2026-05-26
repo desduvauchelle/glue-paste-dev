@@ -24,6 +24,7 @@ export type * from "./types/index.js";
 export { getDb, getTestDb, closeDb, getDataDir, walCheckpoint } from "./db/connection.js";
 export * as boardsDb from "./db/boards.js";
 export * as cardsDb from "./db/cards.js";
+export { setSessionState } from "./db/cards.js";
 export * as commentsDb from "./db/comments.js";
 export * as executionsDb from "./db/executions.js";
 export * as commitsDb from "./db/commits.js";
@@ -33,7 +34,7 @@ export * as criteriaDb from "./db/criteria.js";
 export * from "./config/manager.js";
 
 // Executor
-export { startQueue, executeSingleCard, stopCard, stopQueue, pauseQueue, resumeQueue, getQueueState, refreshConcurrency, notifyNewCard, getRunningQueueBoardIds } from "./executor/queue.js";
+export { startQueue, executeSingleCard, stopCard, stopQueue, pauseQueue, resumeQueue, getQueueState, refreshConcurrency, notifyNewCard, getRunningQueueBoardIds, setInteractiveHub, clearAwaitingReview } from "./executor/queue.js";
 export type { QueueState, QueueCallbacks } from "./executor/queue.js";
 export { killAllCardProcesses } from "./executor/runner.js";
 export type { RunnerCallbacks, RunResult } from "./executor/runner.js";

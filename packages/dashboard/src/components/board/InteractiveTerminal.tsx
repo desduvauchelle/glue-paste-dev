@@ -22,13 +22,18 @@ export function InteractiveTerminal({
     sendResize: () => {},
   });
 
-  const { sendInput, sendResize } = useTerminal({
+  const { sendInput, sendResize, working, awaitingPermission, inputLocked, stop } = useTerminal({
     cardId,
     active,
     onData: (data) => termRef.current?.write(data),
     onExit: () => termRef.current?.write("\r\n[session ended]\r\n"),
   });
   sendRef.current = { sendInput, sendResize };
+
+  // Keep a ref so the onData handler (registered once) always sees the latest value.
+  // Input is allowed when not locked — i.e. idle, OR a permission prompt is awaiting an answer.
+  const lockedRef = useRef(inputLocked);
+  lockedRef.current = inputLocked;
 
   useEffect(() => {
     if (!containerRef.current || termRef.current) return;
@@ -42,7 +47,7 @@ export function InteractiveTerminal({
     term.loadAddon(fit);
     term.open(containerRef.current);
     fit.fit();
-    term.onData((d) => sendRef.current.sendInput(d));
+    term.onData((d) => { if (!lockedRef.current) sendRef.current.sendInput(d); });
     term.onResize(({ cols, rows }) => sendRef.current.sendResize(cols, rows));
     termRef.current = term;
     fitRef.current = fit;
@@ -52,6 +57,14 @@ export function InteractiveTerminal({
       fitRef.current = null;
     };
   }, []);
+
+  // Reflect input-lock state on the xterm instance (unlocked during a permission prompt).
+  useEffect(() => {
+    const t = termRef.current;
+    if (!t) return;
+    t.options.disableStdin = inputLocked;
+    t.options.cursorBlink = !inputLocked;
+  }, [inputLocked]);
 
   // Refit when the tab becomes active or the window resizes.
   useEffect(() => {
@@ -67,9 +80,29 @@ export function InteractiveTerminal({
   }, [active]);
 
   return (
-    <div
-      ref={containerRef}
-      className="gpd-xterm h-full w-full overflow-hidden rounded bg-[#0b0b0c]"
-    />
+    <div className="flex h-full w-full flex-col">
+      <div className="flex items-center justify-between px-2 py-1 text-xs text-neutral-400">
+        <span className={awaitingPermission ? "text-amber-300" : undefined}>
+          {awaitingPermission
+            ? "Claude is asking — answer in the terminal (↑/↓ + Enter)"
+            : working
+              ? "Working…"
+              : "Idle — you can type"}
+        </span>
+        {working && (
+          <button
+            type="button"
+            onClick={stop}
+            className="rounded bg-red-600/80 px-2 py-0.5 text-white hover:bg-red-600"
+          >
+            Stop
+          </button>
+        )}
+      </div>
+      <div
+        ref={containerRef}
+        className="gpd-xterm min-h-0 flex-1 w-full overflow-hidden rounded bg-[#0b0b0c]"
+      />
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { cardsDb, executionsDb, getDb, getGlobalConfig, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync, log } from "@glue-paste-dev/core";
+import { cardsDb, executionsDb, getDb, getGlobalConfig, killAllCardProcesses, killAllChatProcesses, killProcessTreeSync, log, setInteractiveHub } from "@glue-paste-dev/core";
 import { Hono } from "hono";
 import { createBunWebSocket, serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
@@ -19,10 +19,10 @@ import { tagRoutes } from "./routes/tags.js";
 import { systemRoutes } from "./routes/system.js";
 import { startUpdateChecker, updateRoutes } from "./routes/update.js";
 import { aiRoutes } from "./routes/ai.js";
+import { criteriaRoutes } from "./routes/criteria.js";
 import { terminalRoutes } from "./routes/terminal.js";
 import { handleTerminalMessage } from "./terminal-ws.js";
 import { getTerminalHub } from "./terminal-hub-singleton.js";
-import { criteriaRoutes } from "./routes/criteria.js";
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -155,13 +155,13 @@ app.get(
         const data = typeof event.data === "string" ? event.data : "";
         if (data.includes("terminal:")) {
           const mode = getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching";
-          handleTerminalMessage(getTerminalHub(broadcast, mode), clientId, data);
+          handleTerminalMessage(getTerminalHub(broadcast, mode, db), clientId, data);
         }
       },
       onClose(_event, ws) {
         clients.delete(ws.raw as ServerWebSocket<unknown>);
         const mode = getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching";
-        getTerminalHub(broadcast, mode).detachClientEverywhere(clientId);
+        getTerminalHub(broadcast, mode, db).detachClientEverywhere(clientId);
         log.info("ws", `Client disconnected ${clientId} (${clients.size} total)`);
       }
     };
@@ -179,6 +179,11 @@ app.use("*", serveStatic({ root: publicDir }));
 app.get("*", (c) => new Response(Bun.file(join(publicDir, "index.html"))));
 
 const PORT = Number(process.env.PORT) || 4242;
+
+// Share the singleton terminal hub with the run queue so claude cards run as live PTY sessions.
+setInteractiveHub(
+  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching", db)
+);
 
 // Caffeinate: keep machine awake while tasks are active
 checkAndToggleCaffeinate(db);
@@ -200,7 +205,8 @@ function gracefulShutdown() {
   stopCaffeinate();
   killAllCardProcesses();
   killAllChatProcesses();
-  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching").closeAll();
+  getTerminalHub(broadcast, getGlobalConfig(db).terminalPermissionMode ?? "auto-unless-watching", db).closeAll();
+  setInteractiveHub(null);
   executionsDb.cancelRunningExecutions(db);
   process.exit(0);
 }

@@ -1,17 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor, act } from "@testing-library/react";
 
 vi.mock("@/lib/api", () => ({
   terminal: {
     open: vi.fn().mockResolvedValue({ ok: true, running: true }),
     status: vi.fn().mockResolvedValue({ running: true, scrollback: "" }),
     close: vi.fn(),
+    stop: vi.fn().mockResolvedValue({ ok: true }),
   },
 }));
 
+let wsHandler: ((event: { type: string; payload: unknown }) => void) | undefined;
+
 vi.mock("@/lib/ws", () => ({
   sendWS: vi.fn(),
-  useWebSocket: vi.fn(),
+  useWebSocket: vi.fn((cb: (event: { type: string; payload: unknown }) => void) => {
+    wsHandler = cb;
+  }),
 }));
 
 import { useTerminal } from "./use-terminal";
@@ -20,8 +25,10 @@ import { sendWS } from "@/lib/ws";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  wsHandler = undefined;
   vi.mocked(terminalApi.open).mockResolvedValue({ ok: true, running: true });
   vi.mocked(terminalApi.status).mockResolvedValue({ running: true, scrollback: "" });
+  vi.mocked(terminalApi.stop).mockResolvedValue({ ok: true });
 });
 
 describe("useTerminal", () => {
@@ -98,5 +105,116 @@ describe("useTerminal", () => {
       useTerminal({ cardId: "card-1", active: false, onData: () => {} })
     );
     expect(terminalApi.open).not.toHaveBeenCalled();
+  });
+
+  it("working starts as false", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    expect(result.current.working).toBe(false);
+  });
+
+  // permission:pending unlocks input even while working
+  it("permission:pending overrides the input lock while working", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(true);
+    expect(result.current.inputLocked).toBe(true);
+    act(() => {
+      wsHandler?.({ type: "permission:pending", payload: { cardId: "card-1", pending: true } });
+    });
+    expect(result.current.awaitingPermission).toBe(true);
+    expect(result.current.inputLocked).toBe(false); // unlocked so the user can answer
+    act(() => {
+      wsHandler?.({ type: "permission:pending", payload: { cardId: "card-1", pending: false } });
+    });
+    expect(result.current.inputLocked).toBe(true); // re-locked once the prompt clears
+  });
+
+  it("ignores permission:pending for a different card id", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "permission:pending", payload: { cardId: "card-2", pending: true } });
+    });
+    expect(result.current.awaitingPermission).toBe(false);
+  });
+
+  // card:updated is the authoritative source for working state
+  it("sets working=true on card:updated with session_state='working' for this card", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(true);
+  });
+
+  it("sets working=false on card:updated with session_state='idle' for this card", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(true);
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "idle" } });
+    });
+    expect(result.current.working).toBe(false);
+  });
+
+  it("sets working=false on card:updated with session_state=null for this card", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(true);
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: null } });
+    });
+    expect(result.current.working).toBe(false);
+  });
+
+  it("ignores card:updated for a different card id", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-2", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(false);
+  });
+
+  it("sets working=false on terminal:exit for this card (safety)", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      wsHandler?.({ type: "card:updated", payload: { id: "card-1", session_state: "working" } });
+    });
+    expect(result.current.working).toBe(true);
+    act(() => {
+      wsHandler?.({ type: "terminal:exit", payload: { cardId: "card-1", exitCode: 0 } });
+    });
+    expect(result.current.working).toBe(false);
+  });
+
+  it("stop calls terminalApi.stop with the cardId", () => {
+    const { result } = renderHook(() =>
+      useTerminal({ cardId: "card-1", active: false, onData: () => {} })
+    );
+    act(() => {
+      result.current.stop();
+    });
+    expect(terminalApi.stop).toHaveBeenCalledWith("card-1");
   });
 });
