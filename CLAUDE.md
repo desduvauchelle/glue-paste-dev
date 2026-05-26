@@ -19,6 +19,7 @@ This is a TypeScript monorepo. After writing or editing code, always run a type 
 | `packages/server` | `cd packages/server && bunx tsc --noEmit` |
 | `packages/dashboard` | `cd packages/dashboard && bunx tsc -b` |
 | `packages/cli` | `cd packages/cli && bunx tsc --noEmit` |
+| `rust/crates/core` | `cd rust && cargo check -p glue-paste-dev-core` |
 
 Fix all type errors before finishing. Do not leave `// @ts-ignore` or `any` casts unless the user explicitly approves them.
 
@@ -49,6 +50,7 @@ bun run test          # if a root-level test script exists
 cd packages/core && bun test
 cd packages/server && bunx vitest run
 cd packages/dashboard && bunx vitest run
+cd rust && cargo test -p glue-paste-dev-core
 ```
 
 Always run the relevant package tests after making changes and confirm they pass before finishing.
