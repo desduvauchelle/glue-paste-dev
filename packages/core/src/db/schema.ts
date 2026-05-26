@@ -86,12 +86,26 @@ export function initSchema(db: Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS card_criteria (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','pass','fail')),
+      source TEXT NOT NULL DEFAULT 'ai' CHECK(source IN ('ai','user')),
+      evidence TEXT DEFAULT NULL,
+      execution_id TEXT REFERENCES executions(id) ON DELETE SET NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_cards_board_id ON cards(board_id);
     CREATE INDEX IF NOT EXISTS idx_cards_status ON cards(status);
     CREATE INDEX IF NOT EXISTS idx_comments_card_id ON comments(card_id);
     CREATE INDEX IF NOT EXISTS idx_executions_card_id ON executions(card_id);
     CREATE INDEX IF NOT EXISTS idx_card_files_card_id ON card_files(card_id);
     CREATE INDEX IF NOT EXISTS idx_card_commits_card_id ON card_commits(card_id);
+    CREATE INDEX IF NOT EXISTS idx_card_criteria_card_id ON card_criteria(card_id);
 
     -- Insert default global config if not exists
     INSERT OR IGNORE INTO config (key) VALUES ('global');
@@ -392,6 +406,42 @@ export function initSchema(db: Database): void {
   }
   try {
     db.exec(`ALTER TABLE cards ADD COLUMN branch_name TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add card_criteria table for existing databases
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS card_criteria (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+      card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','pass','fail')),
+      source TEXT NOT NULL DEFAULT 'ai' CHECK(source IN ('ai','user')),
+      evidence TEXT DEFAULT NULL,
+      execution_id TEXT REFERENCES executions(id) ON DELETE SET NULL,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_card_criteria_card_id ON card_criteria(card_id)`);
+  } catch {
+    // Table already exists — ignore
+  }
+
+  // Migration: add proof-of-work columns to cards
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN plan_summary TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN completion_summary TEXT DEFAULT NULL`);
+  } catch {
+    // Column already exists — ignore
+  }
+  try {
+    db.exec(`ALTER TABLE cards ADD COLUMN blocker TEXT DEFAULT NULL`);
   } catch {
     // Column already exists — ignore
   }

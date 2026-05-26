@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { BoardIdSchema } from "./board.js";
 import { CliProviderSchema, BranchModeSchema } from "./config.js";
+import { CriterionSchema } from "./criterion.js";
+import { PlanSummarySchema, BlockerSchema } from "./report.js";
 
 export const CardIdSchema = z.string().brand<"CardId">();
 
@@ -42,6 +44,10 @@ export const CardSchema = z.object({
 export const CardWithTagsSchema = CardSchema.extend({
   tags: z.array(z.string()),
   files: z.array(z.string()),
+  criteria: z.array(CriterionSchema).default([]),
+  plan_summary: PlanSummarySchema.nullable().default(null),
+  completion_summary: z.string().nullable().default(null),
+  blocker: BlockerSchema.nullable().default(null),
 });
 
 export const CreateCardSchema = z.object({

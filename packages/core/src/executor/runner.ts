@@ -3,11 +3,13 @@ import * as cardsDb from "../db/cards.js";
 import * as commentsDb from "../db/comments.js";
 import type { CreateCommitInput } from "../db/commits.js";
 import * as commitsDb from "../db/commits.js";
+import * as criteriaDb from "../db/criteria.js";
 import * as executionsDb from "../db/executions.js";
 import { log } from "../logger.js";
-import type { Board, CardId, CardWithTags, Comment, ConfigInput, ExecutionId, FileChange } from "../types/index.js";
+import type { Board, CardId, CardWithTags, Comment, ConfigInput, CriterionId, ExecutionId, FileChange } from "../types/index.js";
 import { cardLabel } from "../utils/cardLabel.js";
 import { buildCliCommand } from "./cli-adapter.js";
+import { extractExecuteReport, extractPlanReport, writeReportFile } from "./extract-report.js";
 import { getFreshEnv } from "./fresh-env.js";
 import { detectGitError } from "./git-errors.js";
 import { killProcessTreeSync } from "./process-cleanup.js";
@@ -320,6 +322,7 @@ async function executePhase(
   log.debug("runner", `Board directory: ${board.directory}`);
   // Resolve attachment paths for this card
   let attachmentPaths: string[] = [];
+  let executeFilesChanged: FileChange[] = [];
   try {
     const attachDir = join(resolve(board.directory), ".glue-paste", "attachments", card.id);
     const names = readdirSync(attachDir);
@@ -328,7 +331,16 @@ async function executePhase(
     // no attachments directory
   }
 
-  const prompt = buildPrompt({ card, board, comments, config, phase, planOutput, attachmentPaths });
+  const prompt = buildPrompt({
+    card,
+    board,
+    comments,
+    config,
+    phase,
+    planOutput,
+    attachmentPaths,
+    ...(phase === "execute" ? { criteria: criteriaDb.getCriteria(db, card.id as CardId) } : {}),
+  });
   log.debug("runner", `Prompt length: ${prompt.length} chars`);
 
   // Create execution record
@@ -480,6 +492,7 @@ async function executePhase(
   if (phase === "execute" && shaBefore) {
     try {
       const filesChanged = await captureFileChanges(board.directory, shaBefore);
+      executeFilesChanged = filesChanged;
       executionsDb.updateExecutionFilesChanged(db, execution.id as ExecutionId, filesChanged);
       log.info("runner", `File changes: ${filesChanged.length} files modified for execution ${execution.id}`);
       if (filesChanged.length > 0) {
@@ -527,6 +540,56 @@ async function executePhase(
     } catch (err) {
       log.warn("runner", `Failed to capture commits:`, err);
     }
+  }
+
+  // === Proof of work: extract structured artifacts (best-effort, never fails the card) ===
+  try {
+    if (phase === "plan" && success) {
+      const report = await extractPlanReport({
+        title: card.title,
+        description: card.description,
+        planOutput: output,
+      });
+      if (report) {
+        criteriaDb.seedCriteria(db, card.id as CardId, report.criteria);
+        cardsDb.setPlanSummary(db, card.id as CardId, report.plan_summary);
+        writeReportFile(board.directory, execution.id, report);
+      }
+    } else if (phase === "execute") {
+      // Clear any stale blocker on a successful run, even if extraction yields no report.
+      if (success) cardsDb.setBlocker(db, card.id as CardId, null);
+      const criteria = criteriaDb.getCriteria(db, card.id as CardId);
+      const report = await extractExecuteReport({
+        title: card.title,
+        description: card.description,
+        criteria,
+        output,
+        filesChanged: executeFilesChanged,
+        exitCode,
+      });
+      if (report) {
+        for (const r of report.criteria) {
+          criteriaDb.setCriterionResult(db, r.id as CriterionId, r.status, r.evidence, execution.id as ExecutionId);
+        }
+        if (success) cardsDb.setCompletionSummary(db, card.id as CardId, report.completion_summary);
+        if (!success) cardsDb.setBlocker(db, card.id as CardId, report.blocker);
+        writeReportFile(board.directory, execution.id, report);
+        const passed = report.criteria.filter((r) => r.status === "pass").length;
+        if (report.criteria.length > 0) {
+          const proofComment = commentsDb.addSystemComment(
+            db,
+            card.id as CardId,
+            execution.id,
+            `Proof: ${passed}/${report.criteria.length} criteria passed.`
+          );
+          callbacks.onCommentAdded(proofComment);
+        }
+      }
+    }
+    const refreshed = cardsDb.getCard(db, card.id as CardId);
+    if (refreshed) callbacks.onCardUpdated(refreshed);
+  } catch (err) {
+    log.warn("runner", `Proof extraction failed for phase "${phase}":`, err);
   }
 
   // Add system comment with summary (including duration)

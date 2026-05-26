@@ -171,6 +171,10 @@ describe("CardDialog — config defaults", () => {
       assignee: "ai" as const,
       files: [],
       tags: [],
+      criteria: [],
+      plan_summary: null,
+      completion_summary: null,
+      blocker: null,
       created_at: "",
       updated_at: "",
     };
@@ -359,6 +363,10 @@ describe("CardDialog — config defaults", () => {
       assignee: "ai" as const,
       files: [],
       tags: [],
+      criteria: [],
+      plan_summary: null,
+      completion_summary: null,
+      blocker: null,
       created_at: "",
       updated_at: "",
     };

@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { buildPrompt } from "../../executor/prompt.js";
-import type { Board, BoardId, CardId, CardWithTags, Comment, CommentId, ConfigInput } from "../../types/index.js";
+import type { Board, BoardId, CardId, CardWithTags, Comment, CommentId, ConfigInput, Criterion, CriterionId } from "../../types/index.js";
 
 const makeBoard = (overrides?: Partial<Board>): Board => ({
   id: "board-1" as BoardId,
@@ -36,6 +36,10 @@ const makeCard = (overrides?: Partial<CardWithTags>): CardWithTags => ({
   assignee: "ai",
   tags: [],
   files: [],
+  criteria: [],
+  plan_summary: null,
+  completion_summary: null,
+  blocker: null,
   created_at: "2024-01-01",
   updated_at: "2024-01-01",
   ...overrides,
@@ -247,5 +251,35 @@ describe("buildPrompt", () => {
     });
 
     expect(prompt).not.toContain("Project description:");
+  });
+
+  test("execute phase lists acceptance criteria when provided", () => {
+    const card = makeCard();
+    const criteria: Criterion[] = [
+      {
+        id: "c1" as CriterionId,
+        card_id: card.id,
+        text: "App builds",
+        status: "pending",
+        source: "ai",
+        evidence: null,
+        execution_id: null,
+        position: 0,
+        created_at: "",
+        updated_at: "",
+      },
+    ];
+
+    const prompt = buildPrompt({
+      card,
+      board: makeBoard(),
+      comments: [],
+      config: makeConfig(),
+      phase: "execute",
+      criteria,
+    });
+
+    expect(prompt).toContain("## Acceptance Criteria");
+    expect(prompt).toContain("[c1] App builds");
   });
 });

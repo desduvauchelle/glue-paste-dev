@@ -1,4 +1,4 @@
-import type { Board, CardWithTags, Comment, ConfigInput } from "../types/index.js";
+import type { Board, CardWithTags, Comment, ConfigInput, Criterion } from "../types/index.js";
 
 interface PromptContext {
   card: CardWithTags;
@@ -8,6 +8,7 @@ interface PromptContext {
   phase: "plan" | "execute";
   planOutput?: string | undefined;
   attachmentPaths?: string[];
+  criteria?: Criterion[];
 }
 
 export function buildPrompt(ctx: PromptContext): string {
@@ -108,6 +109,14 @@ export function buildPrompt(ctx: PromptContext): string {
     if (planOutput) {
       parts.push(`## Plan from previous step`);
       parts.push(planOutput);
+      parts.push("");
+    }
+    if (ctx.criteria && ctx.criteria.length > 0) {
+      parts.push(`## Acceptance Criteria`);
+      parts.push(`Your work must satisfy each of these. Make the proof visible (run tests, show output):`);
+      for (const cr of ctx.criteria) {
+        parts.push(`- [${cr.id}] ${cr.text}`);
+      }
       parts.push("");
     }
     parts.push(`## Instructions`);

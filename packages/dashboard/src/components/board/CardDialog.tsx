@@ -1,7 +1,11 @@
-import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { TerminalStream, type TerminalStreamHandle } from "./TerminalStream"
+import { ActivityList } from "./ActivityList"
+import { PlanPanel } from "./PlanPanel"
+import { CriteriaList } from "./CriteriaList"
 import { createPortal } from "react-dom"
-import type { CardWithTags, CreateCard, UpdateCard, Board, CliProvider, BranchMode } from "@/lib/api"
-import { config as configApi, boards as boardsApi, cards as cardsApi, attachments as attachmentsApi, ai as aiApi } from "@/lib/api"
+import type { CardWithTags, CreateCard, UpdateCard, Board, CliProvider, BranchMode, Criterion } from "@/lib/api"
+import { config as configApi, boards as boardsApi, cards as cardsApi, attachments as attachmentsApi, ai as aiApi, criteria as criteriaApi } from "@/lib/api"
 import { useComments } from "@/hooks/use-comments"
 import {
 	Dialog,
@@ -15,17 +19,15 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Switch } from "@/components/ui/switch"
-import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, FileCode, Maximize2, Minimize2, GitCommit, ExternalLink, Upload, GitBranch, Sparkles } from "lucide-react"
+import { Send, Play, Trash2, Eraser, Brain, Zap, FolderOpen, X, Settings, Bot, User, Maximize2, Minimize2, GitCommit, ExternalLink, Upload, GitBranch, Sparkles } from "lucide-react"
 import { FileBrowser } from "./FileBrowser"
 import { FileSearchInput } from "./FileSearchInput"
 import { SidebarPanel } from "./SidebarPanel"
-import { InteractiveTerminal } from "./InteractiveTerminal"
 import { useExecutions } from "@/hooks/use-executions"
 import { useCommits } from "@/hooks/use-commits"
 import type { Execution, Board as BoardType } from "@/lib/api"
 import { parseFilesChanged } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import { Markdown } from "@/components/ui/markdown"
 import { getBoardColor } from "@/lib/colors"
 
 interface CardDialogProps {
@@ -74,13 +76,26 @@ export function CardDialog({
 	const [showFileBrowser, setShowFileBrowser] = useState(false)
 	const [commentText, setCommentText] = useState("")
 	const [confirmDelete, setConfirmDelete] = useState(false)
-	const [expandedExecutions, setExpandedExecutions] = useState<Set<string>>(new Set())
+	const ACTIVITY_TAB_KEY = "card-dialog-activity-tab"
+	const [activityTab, setActivityTab] = useState<"terminal" | "activity">(() => {
+		try {
+			const stored = localStorage.getItem(ACTIVITY_TAB_KEY)
+			if (stored === "terminal" || stored === "activity") return stored
+		} catch {}
+		return "terminal"
+	})
+	const terminalRef = useRef<TerminalStreamHandle>(null)
+	const maximizedTerminalRef = useRef<TerminalStreamHandle>(null)
+	useEffect(() => {
+		try { localStorage.setItem(ACTIVITY_TAB_KEY, activityTab) } catch {}
+	}, [activityTab])
 	const [allBoards, setAllBoards] = useState<Board[]>([])
 	const [moveTargetBoardId, setMoveTargetBoardId] = useState("")
 	const [isMoving, setIsMoving] = useState(false)
 	const [targetBoardId, setTargetBoardId] = useState(boardId)
 	const [activityMaximized, setActivityMaximized] = useState(false)
-	const [convSubTab, setConvSubTab] = useState<"activity" | "live">("activity")
+	const [activeTab, setActiveTab] = useState<"general" | "plan" | "criteria" | "conversation">("general")
+	const [localCriteria, setLocalCriteria] = useState<Criterion[]>([])
 	const { comments, add: addComment, clear: clearComments } = useComments(card?.id ?? null)
 	const { executions } = useExecutions(card?.id ?? null)
 	const { commits } = useCommits(card?.id ?? null)
@@ -138,15 +153,6 @@ export function CardDialog({
 	}, [card?.id, boardId])
 
 	const executionMap = Object.fromEntries(executions.map((e) => [e.id, e])) as Record<string, Execution>
-
-	const toggleExecution = (id: string) => {
-		setExpandedExecutions((prev) => {
-			const next = new Set(prev)
-			if (next.has(id)) next.delete(id)
-			else next.add(id)
-			return next
-		})
-	}
 
 	const LAST_STATUS_KEY = "card-dialog-last-status"
 	const [selectedStatus, setSelectedStatus] = useState<"todo" | "queued">("queued")
@@ -233,14 +239,20 @@ export function CardDialog({
 		return () => document.removeEventListener("keydown", handler, true)
 	}, [activityMaximized])
 
-	// Reset maximized state and drag state when dialog closes
+	// Reset state when dialog closes
 	useEffect(() => {
 		if (!open) {
 			setActivityMaximized(false)
 			setIsDragging(false)
 			dragCounterRef.current = 0
+			setActiveTab("general")
 		}
 	}, [open])
+
+	// Sync localCriteria from card prop
+	useEffect(() => {
+		setLocalCriteria(card?.criteria ?? [])
+	}, [card])
 
 	const countWords = (text: string) =>
 		text.trim().split(/\s+/).filter(Boolean).length
@@ -356,10 +368,114 @@ export function CardDialog({
 		setCommentText("")
 	}
 
+	const activityTabButton = (key: "terminal" | "activity", label: string) => (
+		<button
+			type="button"
+			onClick={() => setActivityTab(key)}
+			className={cn(
+				"px-2.5 py-1 text-xs font-medium rounded-t border-b-2 transition-colors -mb-px",
+				activityTab === key
+					? "border-primary text-foreground"
+					: "border-transparent text-muted-foreground hover:text-foreground"
+			)}
+		>
+			{label}
+		</button>
+	)
+
+	const renderActivityTabBody = (maximized: boolean) => (
+		activityTab === "terminal" ? (
+			<TerminalStream
+				ref={maximized ? maximizedTerminalRef : terminalRef}
+				executions={executions}
+				maximized={maximized}
+			/>
+		) : (
+			<ActivityList
+				comments={comments}
+				executionMap={executionMap}
+				onJumpToExecution={(executionId) => {
+					setActivityTab("terminal")
+					setTimeout(() => {
+						const r = maximized ? maximizedTerminalRef.current : terminalRef.current
+						r?.scrollToExecution(executionId)
+					}, 50)
+				}}
+			/>
+		)
+	)
+
+	const renderCommentInput = () => (
+		<div className="flex items-end gap-2">
+			<Textarea
+				autoResize
+				rows={1}
+				placeholder="Add a comment..."
+				value={commentText}
+				onChange={(e) => setCommentText(e.target.value)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" && !e.shiftKey) {
+						e.preventDefault()
+						void handleAddComment()
+					}
+				}}
+				className="min-h-[36px]"
+			/>
+			<Button
+				size="icon"
+				variant="outline"
+				onClick={() => void handleAddComment()}
+				disabled={!commentText.trim()}
+			>
+				<Send className="w-4 h-4" />
+			</Button>
+		</div>
+	)
+
+	const renderMaximizedPortal = () => activityMaximized && createPortal(
+		<div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+			<div
+				className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+				onClick={() => setActivityMaximized(false)}
+			/>
+			<div
+				className="relative z-10 w-full h-full max-w-6xl rounded-lg border border-border bg-card text-card-foreground shadow-lg flex flex-col"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<div className="flex items-end justify-between px-4 pt-3 border-b border-border">
+					<div className="flex items-end gap-1">
+						{activityTabButton("terminal", "Terminal")}
+						{activityTabButton("activity", `Activity (${comments.length})`)}
+					</div>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-7 w-7 mb-1"
+						onClick={() => setActivityMaximized(false)}
+						title="Minimize"
+					>
+						<Minimize2 className="w-4 h-4" />
+					</Button>
+				</div>
+				<div className="flex-1 overflow-hidden p-4">
+					{activityTab === "terminal" ? (
+						<div className="h-full">{renderActivityTabBody(true)}</div>
+					) : (
+						<ScrollArea className="h-full">{renderActivityTabBody(true)}</ScrollArea>
+					)}
+				</div>
+				<div className="px-4 py-3 border-t border-border">
+					{renderCommentInput()}
+				</div>
+			</div>
+		</div>,
+		document.body
+	)
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 				<DialogContent
-					className="max-w-5xl relative"
+					className={cn("max-w-5xl relative", isEditing && "h-[90vh]")}
 					onDragEnter={handleDragEnter}
 					onDragLeave={handleDragLeave}
 					onDragOver={handleDragOver}
@@ -386,817 +502,730 @@ export function CardDialog({
 						<DialogTitle>{isEditing ? "Edit Card" : "New Card"}{!isEditing ? ` — ${(targetBoardId && targetBoardId !== boardId ? allBoards.find((b) => b.id === targetBoardId)?.name : boardName) ?? ""}` : ""}</DialogTitle>
 					</DialogHeader>
 
-					<div className="flex-1 overflow-y-auto py-2 px-1 -mx-1">
-						<div className="flex flex-col md:flex-row gap-6">
-							{/* Left Column — Main Content */}
-							<div className="flex-1 min-w-0 space-y-4">
-								{/* Title */}
-								<div>
-									<label className="text-sm font-medium mb-1 block">Title</label>
-									<div className="flex gap-1.5">
-										<Input
-											placeholder={isGeneratingTitle ? "Generating title..." : "Card title (auto-generated from description)"}
-											value={title}
-											onChange={(e) => {
-												setTitle(e.target.value)
-												titleGeneratedRef.current = false
-											}}
-											className={cn("flex-1", isGeneratingTitle && "animate-pulse")}
-										/>
-										<Button
-											type="button"
-											variant="outline"
-											size="icon"
-											className="h-9 w-9 shrink-0"
-											onClick={() => void handleGenerateTitle()}
-											disabled={isGeneratingTitle || !description.trim()}
-											title="Generate title with AI"
-										>
-											<Sparkles className={cn("w-3.5 h-3.5", isGeneratingTitle && "animate-spin")} />
-										</Button>
-									</div>
-								</div>
-
-								{/* Column selector (create mode only) */}
-								{!isEditing && (
-									<div>
-										<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Column</label>
-										<div className="flex items-center gap-2">
-											{([["todo", "To Do"], ["queued", "Queued"]] as const).map(([val, label]) => (
-												<label key={val} className="flex items-center gap-1 cursor-pointer select-none">
-													<input
-														type="radio"
-														name="card-status"
-														checked={selectedStatus === val}
-														onChange={() => setSelectedStatus(val)}
-														className="accent-primary h-3.5 w-3.5"
-													/>
-													<span className="text-xs">{label}</span>
-												</label>
-											))}
-										</div>
-									</div>
+					{/* Top-level tab navigation (edit mode only) */}
+					{isEditing && (
+						<div className="flex items-center gap-1 border-b border-border -mt-1">
+							<button
+								type="button"
+								onClick={() => setActiveTab("general")}
+								className={cn(
+									"px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+									activeTab === "general"
+										? "border-primary text-foreground"
+										: "border-transparent text-muted-foreground hover:text-foreground"
 								)}
+							>
+								General
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("plan")}
+								className={cn(
+									"px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+									activeTab === "plan"
+										? "border-primary text-foreground"
+										: "border-transparent text-muted-foreground hover:text-foreground"
+								)}
+							>
+								Plan
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("criteria")}
+								className={cn(
+									"px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+									activeTab === "criteria"
+										? "border-primary text-foreground"
+										: "border-transparent text-muted-foreground hover:text-foreground"
+								)}
+							>
+								Criteria & Proof
+								{localCriteria.length > 0 && (
+									<span className="ml-1.5 text-xs tabular-nums text-muted-foreground">
+										{localCriteria.filter((c) => c.status === "pass").length}/{localCriteria.length}
+									</span>
+								)}
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("conversation")}
+								className={cn(
+									"px-3 py-1.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+									activeTab === "conversation"
+										? "border-primary text-foreground"
+										: "border-transparent text-muted-foreground hover:text-foreground"
+								)}
+							>
+								Conversation
+							</button>
+						</div>
+					)}
 
-								{/* Description */}
-								<div>
-									<label className="text-sm font-medium mb-1 block">Description</label>
-									<Textarea
-										placeholder="Describe what needs to be done..."
-										value={description}
-										onChange={(e) => setDescription(e.target.value)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-												e.preventDefault()
-												void handleSave()
-											}
-										}}
-										rows={3}
-										autoResize
-										autoFocus={!isEditing}
-									/>
-									<p className="text-xs text-muted-foreground/50 mt-1">
-										<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">⌘/Ctrl</kbd>
-										{" + "}
-										<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">Enter</kbd>
-										{" to submit"}
-									</p>
-								</div>
+					<div className="flex-1 overflow-y-auto py-2 px-1 -mx-1">
+						{/* Status banner (edit mode only) */}
+						{isEditing && card.blocker && (
+							<div className="mb-2 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm">
+								<span className="font-semibold text-red-600 dark:text-red-400">Blocked ({card.blocker.type}):</span>{" "}
+								{card.blocker.root_cause} — <span className="italic">{card.blocker.resolution_route}</span>
+							</div>
+						)}
+						{isEditing && !card.blocker && card.completion_summary && (
+							<div className="mb-2 rounded border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm">
+								<span className="font-semibold text-green-600 dark:text-green-400">Done:</span> {card.completion_summary}
+							</div>
+						)}
 
-								{/* Reference Files */}
-								<div>
-									<label className="text-sm font-medium mb-1 block">Reference Files</label>
-									{files.length > 0 && (
-										<div className="flex flex-wrap gap-1 mb-2">
-											{files.map((f) => (
-												<span
-													key={f}
-													className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded"
-												>
-													<span className="truncate max-w-[180px]">{f}</span>
-													<button
-														type="button"
-														className="hover:text-destructive"
-														onClick={() => setFiles((prev) => prev.filter((p) => p !== f))}
-													>
-														<X className="w-3 h-3" />
-													</button>
-												</span>
-											))}
-										</div>
-									)}
-									<div className="flex gap-1.5">
-										<div className="flex-1 min-w-0">
-											<FileSearchInput
-												boardId={boardId}
-												selectedFiles={files}
-												onSelect={(path) => {
-													if (!files.includes(path)) {
-														setFiles((prev) => [...prev, path])
-													}
+						{/* General Tab */}
+						{(!isEditing || activeTab === "general") && (
+							<div className="flex flex-col md:flex-row gap-6">
+								{/* Left Column — Main Content */}
+								<div className="flex-1 min-w-0 space-y-4">
+									{/* Title */}
+									<div>
+										<label className="text-sm font-medium mb-1 block">Title</label>
+										<div className="flex gap-1.5">
+											<Input
+												placeholder={isGeneratingTitle ? "Generating title..." : "Card title (auto-generated from description)"}
+												value={title}
+												onChange={(e) => {
+													setTitle(e.target.value)
+													titleGeneratedRef.current = false
 												}}
-											/>
-										</div>
-										<Button
-											type="button"
-											variant="outline"
-											size="icon"
-											className="h-8 w-8 shrink-0"
-											onClick={() => setShowFileBrowser(!showFileBrowser)}
-											title="Browse project files"
-										>
-											<FolderOpen className="w-3.5 h-3.5" />
-										</Button>
-									</div>
-									{showFileBrowser && (
-										<div className="mt-2">
-											<FileBrowser
-												boardId={boardId}
-												onSelect={(path) => {
-													if (!files.includes(path)) {
-														setFiles((prev) => [...prev, path])
-													}
-												}}
-												onClose={() => setShowFileBrowser(false)}
-											/>
-										</div>
-									)}
-								</div>
-
-								{/* Attached Files */}
-								<div>
-									<label className="text-sm font-medium mb-1 block">Attached Files</label>
-									<p className="text-xs text-muted-foreground mb-2">
-										Drag & drop anywhere, or click to upload screenshots and files for AI context.
-									</p>
-									{attachedFiles.length > 0 && (
-										<div className="flex flex-wrap gap-1 mb-2">
-											{attachedFiles.map((f) => (
-												<span
-													key={f}
-													className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-300 px-2 py-1 rounded"
-												>
-													<span className="truncate max-w-[180px]">{f.split("/").pop()}</span>
-													<button
-														type="button"
-														className="hover:text-destructive"
-														onClick={() => {
-															setAttachedFiles((prev) => prev.filter((p) => p !== f))
-															if (card?.id) {
-																void attachmentsApi.deleteFile(boardId, card.id, f.split("/").pop()!)
-															}
-														}}
-													>
-														<X className="w-3 h-3" />
-													</button>
-												</span>
-											))}
-										</div>
-									)}
-									<label className="cursor-pointer">
-										<input
-											type="file"
-											multiple
-											className="hidden"
-											onChange={async (e) => {
-												const selectedFiles = e.target.files
-												if (!selectedFiles || selectedFiles.length === 0) return
-												const cardId = card?.id ?? `tmp-${Date.now()}`
-												setIsUploading(true)
-												try {
-													const paths = await attachmentsApi.upload(boardId, cardId, Array.from(selectedFiles))
-													setAttachedFiles((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
-												} catch (err) {
-													console.error("File upload failed:", err)
-												} finally {
-													setIsUploading(false)
-													e.target.value = ""
-												}
-											}}
-										/>
-										<span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-dashed border-border hover:border-primary hover:text-primary transition-colors cursor-pointer">
-											<Upload className="w-3.5 h-3.5" />
-											Upload files
-										</span>
-									</label>
-								</div>
-
-								{/* Activity / User Comments (only when editing) */}
-								{isEditing && (() => {
-									const renderActivityList = (maximized: boolean): ReactNode => (
-										<>
-											{comments.length === 0 ? (
-												<p className="text-xs text-muted-foreground py-2 text-center">
-													No activity yet
-												</p>
-											) : (
-												<div className="space-y-2">
-													{comments.map((comment) => {
-														const execution = comment.execution_id
-															? executionMap[comment.execution_id]
-															: null
-														const isExpanded = comment.execution_id
-															? expandedExecutions.has(comment.execution_id)
-															: false
-														const hasOutput = execution && execution.output && execution.output.length > 0
-
-														if (comment.author !== "system") {
-															return (
-																<div key={comment.id} className="text-xs border-l-2 pl-2 border-primary/40">
-																	<span className="font-semibold capitalize text-muted-foreground">{comment.author}</span>
-																	<span className="text-muted-foreground/60 ml-2">{new Date(comment.created_at).toLocaleString()}</span>
-																	<div className="mt-0.5">
-																		<Markdown>{comment.content}</Markdown>
-																	</div>
-																</div>
-															)
-														}
-
-														if (!execution) {
-															return (
-																<div key={comment.id} className="text-xs border-l-2 pl-2 border-muted-foreground/40">
-																	<span className="text-muted-foreground/60">{new Date(comment.created_at).toLocaleString()}</span>
-																	<div className="mt-0.5">
-																		<Markdown>{comment.content}</Markdown>
-																	</div>
-																</div>
-															)
-														}
-
-														const phaseLabel = execution.phase === "plan" ? "Plan" : "Execution"
-														return (
-															<div key={comment.id} className="text-xs border-l-2 pl-2 border-border">
-																<button
-																	type="button"
-																	className="flex items-center gap-2 w-full text-left hover:text-foreground text-muted-foreground transition-colors"
-																	onClick={() => toggleExecution(execution.id)}
-																	disabled={!hasOutput}
-																>
-																	<span className="font-semibold">{phaseLabel}</span>
-																	<span
-																		className={cn(
-																			"inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-																			execution.status === "running"
-																				? "bg-green-500/20 text-green-400"
-																				: execution.status === "success"
-																				? "bg-blue-500/20 text-blue-400"
-																				: execution.status === "failed"
-																				? "bg-red-500/20 text-red-400"
-																				: "bg-muted text-muted-foreground"
-																		)}
-																	>
-																		{execution.status === "running" && (
-																			<span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-																		)}
-																		{execution.status === "running"
-																			? "Live"
-																			: execution.status === "success"
-																			? "Done"
-																			: execution.status === "failed"
-																			? "Failed"
-																			: "Cancelled"}
-																	</span>
-																	<span className="text-muted-foreground/60">—</span>
-																	<span className="flex-1 truncate">{comment.content}</span>
-																</button>
-																<span className="text-muted-foreground/60 text-[10px]">
-																	{new Date(comment.created_at).toLocaleString()}
-																</span>
-																{isExpanded && hasOutput && (
-																	<pre className={cn(
-																		"mt-2 text-xs overflow-auto bg-muted/50 rounded p-3 whitespace-pre-wrap break-words",
-																		!maximized && "max-h-[300px]"
-																	)}>
-																		{execution.output}
-																	</pre>
-																)}
-																{isExpanded && (() => {
-																	const filesChanged = parseFilesChanged(execution.files_changed)
-																	if (filesChanged.length === 0) return null
-																	const totalAdd = filesChanged.reduce((s, f) => s + f.additions, 0)
-																	const totalDel = filesChanged.reduce((s, f) => s + f.deletions, 0)
-																	return (
-																		<div className="mt-2 text-xs bg-muted/50 rounded p-3">
-																			<div className="flex items-center gap-1.5 mb-1 font-semibold text-muted-foreground">
-																				<FileCode className="w-3.5 h-3.5" />
-																				{filesChanged.length} {filesChanged.length === 1 ? "file" : "files"} changed,{" "}
-																				<span className="text-green-400">{totalAdd} insertions(+)</span>,{" "}
-																				<span className="text-red-400">{totalDel} deletions(-)</span>
-																			</div>
-																			<div className="space-y-0.5">
-																				{filesChanged.map((f) => (
-																					<div key={f.path} className="flex items-center gap-2 font-mono">
-																						<span className="text-green-400 w-10 text-right">+{f.additions}</span>
-																						<span className="text-red-400 w-10 text-right">-{f.deletions}</span>
-																						<span className="truncate">{f.path}</span>
-																					</div>
-																				))}
-																			</div>
-																		</div>
-																	)
-																})()}
-															</div>
-														)
-													})}
-													<div ref={activityEndRef} />
-												</div>
-											)}
-										</>
-									)
-
-									const renderCommentInput = () => (
-										<div className="flex items-end gap-2">
-											<Textarea
-												autoResize
-												rows={1}
-												placeholder="Add a comment..."
-												value={commentText}
-												onChange={(e) => setCommentText(e.target.value)}
-												onKeyDown={(e) => {
-													if (e.key === "Enter" && !e.shiftKey) {
-														e.preventDefault()
-														void handleAddComment()
-													}
-												}}
-												className="min-h-[36px]"
+												className={cn("flex-1", isGeneratingTitle && "animate-pulse")}
 											/>
 											<Button
-												size="icon"
+												type="button"
 												variant="outline"
-												onClick={() => void handleAddComment()}
-												disabled={!commentText.trim()}
+												size="icon"
+												className="h-9 w-9 shrink-0"
+												onClick={() => void handleGenerateTitle()}
+												disabled={isGeneratingTitle || !description.trim()}
+												title="Generate title with AI"
 											>
-												<Send className="w-4 h-4" />
+												<Sparkles className={cn("w-3.5 h-3.5", isGeneratingTitle && "animate-spin")} />
 											</Button>
 										</div>
-									)
+									</div>
 
-									return (
+									{/* Column selector (create mode only) */}
+									{!isEditing && (
 										<div>
-											<div className="flex items-center justify-between mb-1">
-												<div className="flex items-center gap-1">
-													<button
-														type="button"
-														onClick={() => setConvSubTab("activity")}
-														className={cn(
-															"text-sm font-medium px-2 py-1 rounded transition-colors",
-															convSubTab === "activity"
-																? "bg-accent text-accent-foreground"
-																: "text-muted-foreground hover:text-foreground"
-														)}
-													>
-														Activity ({comments.length})
-													</button>
-													<button
-														type="button"
-														onClick={() => setConvSubTab("live")}
-														className={cn(
-															"text-sm font-medium px-2 py-1 rounded transition-colors",
-															convSubTab === "live"
-																? "bg-accent text-accent-foreground"
-																: "text-muted-foreground hover:text-foreground"
-														)}
-													>
-														Live
-													</button>
-												</div>
-												<div className="flex items-center gap-1">
-													{convSubTab === "activity" && comments.length > 0 && (
-														<Button
-															variant="ghost"
-															size="icon"
-															className="h-6 w-6"
-															onClick={() => void clearComments()}
-															title="Clear all comments"
-														>
-															<Eraser className="w-3.5 h-3.5 text-muted-foreground" />
-														</Button>
-													)}
-													{convSubTab === "activity" && (
-														<Button
-															variant="ghost"
-															size="icon"
-															className="h-6 w-6"
-															onClick={() => setActivityMaximized(true)}
-															title="Maximize activity"
-														>
-															<Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
-														</Button>
-													)}
-												</div>
-											</div>
-											{convSubTab === "activity" ? (
-												<ScrollArea className="max-h-[400px] border rounded-md p-2">
-													{renderActivityList(false)}
-												</ScrollArea>
-											) : (
-												<div className="h-[420px] border rounded-md overflow-hidden">
-													<InteractiveTerminal cardId={card.id} active={convSubTab === "live"} />
-												</div>
-											)}
-											<div className="mt-2">
-												{renderCommentInput()}
-											</div>
-
-											{activityMaximized && createPortal(
-												<div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
-													<div
-														className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-														onClick={() => setActivityMaximized(false)}
-													/>
-													<div
-														className="relative z-10 w-full h-full max-w-6xl rounded-lg border border-border bg-card text-card-foreground shadow-lg flex flex-col"
-														onClick={(e) => e.stopPropagation()}
-													>
-														<div className="flex items-center justify-between px-4 py-3 border-b border-border">
-															<span className="text-sm font-medium">Activity ({comments.length})</span>
-															<Button
-																variant="ghost"
-																size="icon"
-																className="h-7 w-7"
-																onClick={() => setActivityMaximized(false)}
-																title="Minimize"
-															>
-																<Minimize2 className="w-4 h-4" />
-															</Button>
-														</div>
-														<ScrollArea className="flex-1 p-4">
-															{renderActivityList(true)}
-														</ScrollArea>
-														<div className="px-4 py-3 border-t border-border">
-															{renderCommentInput()}
-														</div>
-													</div>
-												</div>,
-												document.body
-											)}
-										</div>
-									)
-								})()}
-							</div>
-
-							{/* Right Column — Sidebar Panels */}
-							<div className="w-full md:w-72 lg:w-80 shrink-0 space-y-3">
-								{/* Settings Panel */}
-								<SidebarPanel
-									label="Settings"
-									icon={<Settings className="w-3.5 h-3.5" />}
-									defaultOpen
-								>
-									<div className="space-y-3">
-										{/* Assignee toggle */}
-										<div>
-											<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Assigned to</label>
+											<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Column</label>
 											<div className="flex items-center gap-2">
-												{(["ai", "human"] as const).map((val) => (
+												{([["todo", "To Do"], ["queued", "Queued"]] as const).map(([val, label]) => (
 													<label key={val} className="flex items-center gap-1 cursor-pointer select-none">
 														<input
 															type="radio"
-															name="card-assignee"
-															checked={assignee === val}
-															onChange={() => setAssignee(val)}
+															name="card-status"
+															checked={selectedStatus === val}
+															onChange={() => setSelectedStatus(val)}
 															className="accent-primary h-3.5 w-3.5"
 														/>
-														<span className="flex items-center gap-0.5 text-xs">
-															{val === "ai" ? <Bot className="w-3 h-3" /> : <User className="w-3 h-3" />}
-															{val === "ai" ? "AI" : "Human"}
-														</span>
+														<span className="text-xs">{label}</span>
 													</label>
 												))}
 											</div>
-											{assignee === "human" && (
-												<p className="text-xs text-muted-foreground mt-1">
-													AI will never process this card
-												</p>
-											)}
 										</div>
+									)}
 
-										{/* Blocking toggle */}
-										<div className="flex items-start gap-3">
-											<Switch
-												id="blocking"
-												checked={blocking}
-												onCheckedChange={setBlocking}
-												className="mt-0.5"
-											/>
-											<div>
-												<label htmlFor="blocking" className="text-xs font-medium block text-muted-foreground uppercase tracking-wide cursor-pointer">Blocking</label>
-												<p className="text-xs text-muted-foreground mt-0.5">
-													Play All stops if this card fails
-												</p>
-											</div>
-										</div>
-
-										{/* Thinking Level */}
-										<div>
-											<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Thinking</label>
-											<div className="space-y-1.5">
-												{/* Plan row */}
-												<div className="flex items-center gap-2">
-													<span className="text-xs text-muted-foreground w-11">Plan</span>
-													{(["smart", "basic"] as const).map((level) => {
-														const effective = planThinking === "none" ? null : (planThinking ?? configDefaults.planThinking)
-														const isChecked = effective === level
-														return (
-															<label key={level} className="flex items-center gap-1 cursor-pointer select-none">
-																<input
-																	type="checkbox"
-																	checked={isChecked}
-																	onChange={() => {
-																		if (isChecked) setPlanThinking("none")
-																		else setPlanThinking(level)
-																	}}
-																	className="h-3.5 w-3.5 rounded border-border bg-background accent-primary"
-																/>
-																{level === "smart" ? (
-																	<span className="flex items-center gap-0.5 text-xs"><Brain className="w-3 h-3" /> Smart</span>
-																) : (
-																	<span className="flex items-center gap-0.5 text-xs"><Zap className="w-3 h-3" /> Normal</span>
-																)}
-															</label>
-														)
-													})}
-													{planThinking === "none" && (
-														<span className="text-xs text-muted-foreground italic">skip</span>
-													)}
-												</div>
-												{/* Execute row */}
-												<div className="flex items-center gap-2">
-													<span className="text-xs text-muted-foreground w-11">Exec</span>
-													{(["smart", "basic"] as const).map((level) => {
-														const effective = executeThinking ?? configDefaults.executeThinking
-														const isChecked = effective === level
-														return (
-															<label key={level} className="flex items-center gap-1 cursor-pointer select-none">
-																<input
-																	type="radio"
-																	name="execute-thinking"
-																	checked={isChecked}
-																	onChange={() => setExecuteThinking(level)}
-																	className="h-3.5 w-3.5 border-border bg-background accent-primary"
-																/>
-																{level === "smart" ? (
-																	<span className="flex items-center gap-0.5 text-xs"><Brain className="w-3 h-3" /> Smart</span>
-																) : (
-																	<span className="flex items-center gap-0.5 text-xs"><Zap className="w-3 h-3" /> Normal</span>
-																)}
-															</label>
-														)
-													})}
-												</div>
-											</div>
-										</div>
-
-										{/* Auto-commit */}
-										<div>
-											<div className="flex items-center gap-2">
-												<Switch
-													checked={autoCommit ?? configDefaults.autoCommit}
-													onCheckedChange={(v) => setAutoCommit(v)}
-												/>
-												<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-commit</label>
-											</div>
-										</div>
-
-										{/* Auto-push */}
-										<div>
-											<div className="flex items-center gap-2">
-												<Switch
-													checked={autoPush ?? configDefaults.autoPush}
-													onCheckedChange={(v) => setAutoPush(v)}
-												/>
-												<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-push</label>
-											</div>
-										</div>
+									{/* Description */}
+									<div>
+										<label className="text-sm font-medium mb-1 block">Description</label>
+										<Textarea
+											placeholder="Describe what needs to be done..."
+											value={description}
+											onChange={(e) => setDescription(e.target.value)}
+											onKeyDown={(e) => {
+												if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+													e.preventDefault()
+													void handleSave()
+												}
+											}}
+											rows={3}
+											autoResize
+											autoFocus={!isEditing}
+										/>
+										<p className="text-xs text-muted-foreground/50 mt-1">
+											<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">⌘/Ctrl</kbd>
+											{" + "}
+											<kbd className="text-[10px] px-1 py-0.5 rounded border border-border/50 font-mono">Enter</kbd>
+											{" to submit"}
+										</p>
 									</div>
-								</SidebarPanel>
 
-								{/* Project selector (create mode only) */}
-								{!isEditing && allBoards.length > 1 && (
+									{/* Reference Files */}
+									<div>
+										<label className="text-sm font-medium mb-1 block">Reference Files</label>
+										{files.length > 0 && (
+											<div className="flex flex-wrap gap-1 mb-2">
+												{files.map((f) => (
+													<span
+														key={f}
+														className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded"
+													>
+														<span className="truncate max-w-[180px]">{f}</span>
+														<button
+															type="button"
+															className="hover:text-destructive"
+															onClick={() => setFiles((prev) => prev.filter((p) => p !== f))}
+														>
+															<X className="w-3 h-3" />
+														</button>
+													</span>
+												))}
+											</div>
+										)}
+										<div className="flex gap-1.5">
+											<div className="flex-1 min-w-0">
+												<FileSearchInput
+													boardId={boardId}
+													selectedFiles={files}
+													onSelect={(path) => {
+														if (!files.includes(path)) {
+															setFiles((prev) => [...prev, path])
+														}
+													}}
+												/>
+											</div>
+											<Button
+												type="button"
+												variant="outline"
+												size="icon"
+												className="h-8 w-8 shrink-0"
+												onClick={() => setShowFileBrowser(!showFileBrowser)}
+												title="Browse project files"
+											>
+												<FolderOpen className="w-3.5 h-3.5" />
+											</Button>
+										</div>
+										{showFileBrowser && (
+											<div className="mt-2">
+												<FileBrowser
+													boardId={boardId}
+													onSelect={(path) => {
+														if (!files.includes(path)) {
+															setFiles((prev) => [...prev, path])
+														}
+													}}
+													onClose={() => setShowFileBrowser(false)}
+												/>
+											</div>
+										)}
+									</div>
+
+									{/* Attached Files */}
+									<div>
+										<label className="text-sm font-medium mb-1 block">Attached Files</label>
+										<p className="text-xs text-muted-foreground mb-2">
+											Drag & drop anywhere, or click to upload screenshots and files for AI context.
+										</p>
+										{attachedFiles.length > 0 && (
+											<div className="flex flex-wrap gap-1 mb-2">
+												{attachedFiles.map((f) => (
+													<span
+														key={f}
+														className="inline-flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-300 px-2 py-1 rounded"
+													>
+														<span className="truncate max-w-[180px]">{f.split("/").pop()}</span>
+														<button
+															type="button"
+															className="hover:text-destructive"
+															onClick={() => {
+																setAttachedFiles((prev) => prev.filter((p) => p !== f))
+																if (card?.id) {
+																	void attachmentsApi.deleteFile(boardId, card.id, f.split("/").pop()!)
+																}
+															}}
+														>
+															<X className="w-3 h-3" />
+														</button>
+													</span>
+												))}
+											</div>
+										)}
+										<label className="cursor-pointer">
+											<input
+												type="file"
+												multiple
+												className="hidden"
+												onChange={async (e) => {
+													const selectedFiles = e.target.files
+													if (!selectedFiles || selectedFiles.length === 0) return
+													const cardId = card?.id ?? `tmp-${Date.now()}`
+													setIsUploading(true)
+													try {
+														const paths = await attachmentsApi.upload(boardId, cardId, Array.from(selectedFiles))
+														setAttachedFiles((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
+													} catch (err) {
+														console.error("File upload failed:", err)
+													} finally {
+														setIsUploading(false)
+														e.target.value = ""
+													}
+												}}
+											/>
+											<span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-dashed border-border hover:border-primary hover:text-primary transition-colors cursor-pointer">
+												<Upload className="w-3.5 h-3.5" />
+												Upload files
+											</span>
+										</label>
+									</div>
+								</div>
+
+								{/* Right Column — Sidebar Panels */}
+								<div className="w-full md:w-72 lg:w-80 shrink-0 space-y-3">
+									{/* Settings Panel */}
 									<SidebarPanel
-										label="Project"
-										icon={<FolderOpen className="w-3.5 h-3.5" />}
+										label="Settings"
+										icon={<Settings className="w-3.5 h-3.5" />}
 										defaultOpen
 									>
-										<div className="space-y-1.5">
-											{allBoards.map((b) => {
-												const color = getBoardColor(b.color)
-												const isSelected = (targetBoardId || boardId) === b.id
-												return (
-													<label
-														key={b.id}
-														className={cn(
-															"flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs transition-colors",
-															isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted"
+										<div className="space-y-3">
+											{/* Assignee toggle */}
+											<div>
+												<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Assigned to</label>
+												<div className="flex items-center gap-2">
+													{(["ai", "human"] as const).map((val) => (
+														<label key={val} className="flex items-center gap-1 cursor-pointer select-none">
+															<input
+																type="radio"
+																name="card-assignee"
+																checked={assignee === val}
+																onChange={() => setAssignee(val)}
+																className="accent-primary h-3.5 w-3.5"
+															/>
+															<span className="flex items-center gap-0.5 text-xs">
+																{val === "ai" ? <Bot className="w-3 h-3" /> : <User className="w-3 h-3" />}
+																{val === "ai" ? "AI" : "Human"}
+															</span>
+														</label>
+													))}
+												</div>
+												{assignee === "human" && (
+													<p className="text-xs text-muted-foreground mt-1">
+														AI will never process this card
+													</p>
+												)}
+											</div>
+
+											{/* Blocking toggle */}
+											<div className="flex items-start gap-3">
+												<Switch
+													id="blocking"
+													checked={blocking}
+													onCheckedChange={setBlocking}
+													className="mt-0.5"
+												/>
+												<div>
+													<label htmlFor="blocking" className="text-xs font-medium block text-muted-foreground uppercase tracking-wide cursor-pointer">Blocking</label>
+													<p className="text-xs text-muted-foreground mt-0.5">
+														Play All stops if this card fails
+													</p>
+												</div>
+											</div>
+
+											{/* Thinking Level */}
+											<div>
+												<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">Thinking</label>
+												<div className="space-y-1.5">
+													{/* Plan row */}
+													<div className="flex items-center gap-2">
+														<span className="text-xs text-muted-foreground w-11">Plan</span>
+														{(["smart", "basic"] as const).map((level) => {
+															const effective = planThinking === "none" ? null : (planThinking ?? configDefaults.planThinking)
+															const isChecked = effective === level
+															return (
+																<label key={level} className="flex items-center gap-1 cursor-pointer select-none">
+																	<input
+																		type="checkbox"
+																		checked={isChecked}
+																		onChange={() => {
+																			if (isChecked) setPlanThinking("none")
+																			else setPlanThinking(level)
+																		}}
+																		className="h-3.5 w-3.5 rounded border-border bg-background accent-primary"
+																	/>
+																	{level === "smart" ? (
+																		<span className="flex items-center gap-0.5 text-xs"><Brain className="w-3 h-3" /> Smart</span>
+																	) : (
+																		<span className="flex items-center gap-0.5 text-xs"><Zap className="w-3 h-3" /> Normal</span>
+																	)}
+																</label>
+															)
+														})}
+														{planThinking === "none" && (
+															<span className="text-xs text-muted-foreground italic">skip</span>
 														)}
-													>
-														<input
-															type="radio"
-															name="target-project"
-															checked={isSelected}
-															onChange={() => setTargetBoardId(b.id)}
-															className="sr-only"
-														/>
-														<span
-															className="w-2.5 h-2.5 rounded-full shrink-0"
-															style={{ backgroundColor: color?.bg ?? "#64748b" }}
-														/>
-														<span className="truncate">{b.name}</span>
-														{b.id === boardId && (
-															<span className="text-[10px] text-muted-foreground ml-auto">(current)</span>
-														)}
-													</label>
-												)
-											})}
+													</div>
+													{/* Execute row */}
+													<div className="flex items-center gap-2">
+														<span className="text-xs text-muted-foreground w-11">Exec</span>
+														{(["smart", "basic"] as const).map((level) => {
+															const effective = executeThinking ?? configDefaults.executeThinking
+															const isChecked = effective === level
+															return (
+																<label key={level} className="flex items-center gap-1 cursor-pointer select-none">
+																	<input
+																		type="radio"
+																		name="execute-thinking"
+																		checked={isChecked}
+																		onChange={() => setExecuteThinking(level)}
+																		className="h-3.5 w-3.5 border-border bg-background accent-primary"
+																	/>
+																	{level === "smart" ? (
+																		<span className="flex items-center gap-0.5 text-xs"><Brain className="w-3 h-3" /> Smart</span>
+																	) : (
+																		<span className="flex items-center gap-0.5 text-xs"><Zap className="w-3 h-3" /> Normal</span>
+																	)}
+																</label>
+															)
+														})}
+													</div>
+												</div>
+											</div>
+
+											{/* Auto-commit */}
+											<div>
+												<div className="flex items-center gap-2">
+													<Switch
+														checked={autoCommit ?? configDefaults.autoCommit}
+														onCheckedChange={(v) => setAutoCommit(v)}
+													/>
+													<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-commit</label>
+												</div>
+											</div>
+
+											{/* Auto-push */}
+											<div>
+												<div className="flex items-center gap-2">
+													<Switch
+														checked={autoPush ?? configDefaults.autoPush}
+														onCheckedChange={(v) => setAutoPush(v)}
+													/>
+													<label className="text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-pointer">Auto-push</label>
+												</div>
+											</div>
 										</div>
 									</SidebarPanel>
-								)}
 
-							{/* Commits Panel (only when editing and has commits) */}
-								{isEditing && commits.length > 0 && (
-									<SidebarPanel
-										label={`Commits (${commits.length})`}
-										icon={<GitCommit className="w-3.5 h-3.5" />}
-										defaultOpen
-									>
-										<div className="space-y-2">
-											{commits.map((commit) => {
-												const shortSha = commit.sha.slice(0, 7)
-												const githubUrl = currentBoard?.github_url
-												const commitUrl = githubUrl
-													? `${githubUrl.replace(/\/$/, "")}/commit/${commit.sha}`
-													: null
-												const commitFiles = parseFilesChanged(commit.files_changed)
-												const totalAdd = commitFiles.reduce((s, f) => s + f.additions, 0)
-												const totalDel = commitFiles.reduce((s, f) => s + f.deletions, 0)
+									{/* Project selector (create mode only) */}
+									{!isEditing && allBoards.length > 1 && (
+										<SidebarPanel
+											label="Project"
+											icon={<FolderOpen className="w-3.5 h-3.5" />}
+											defaultOpen
+										>
+											<div className="space-y-1.5">
+												{allBoards.map((b) => {
+													const color = getBoardColor(b.color)
+													const isSelected = (targetBoardId || boardId) === b.id
+													return (
+														<label
+															key={b.id}
+															className={cn(
+																"flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs transition-colors",
+																isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted"
+															)}
+														>
+															<input
+																type="radio"
+																name="target-project"
+																checked={isSelected}
+																onChange={() => setTargetBoardId(b.id)}
+																className="sr-only"
+															/>
+															<span
+																className="w-2.5 h-2.5 rounded-full shrink-0"
+																style={{ backgroundColor: color?.bg ?? "#64748b" }}
+															/>
+															<span className="truncate">{b.name}</span>
+															{b.id === boardId && (
+																<span className="text-[10px] text-muted-foreground ml-auto">(current)</span>
+															)}
+														</label>
+													)
+												})}
+											</div>
+										</SidebarPanel>
+									)}
 
-												return (
-													<div key={commit.id} className="text-xs border-l-2 pl-2 border-border">
-														<div className="flex items-center gap-1.5">
-															<code className="text-[10px] bg-muted px-1 py-0.5 rounded font-mono">
-																{commitUrl ? (
-																	<a
-																		href={commitUrl}
-																		target="_blank"
-																		rel="noopener noreferrer"
-																		className="text-primary hover:underline inline-flex items-center gap-0.5"
-																		onClick={(e) => e.stopPropagation()}
-																	>
-																		{shortSha}
-																		<ExternalLink className="w-2.5 h-2.5" />
-																	</a>
-																) : (
-																	shortSha
+								{/* Commits Panel (only when editing and has commits) */}
+									{isEditing && commits.length > 0 && (
+										<SidebarPanel
+											label={`Commits (${commits.length})`}
+											icon={<GitCommit className="w-3.5 h-3.5" />}
+											defaultOpen
+										>
+											<div className="space-y-2">
+												{commits.map((commit) => {
+													const shortSha = commit.sha.slice(0, 7)
+													const githubUrl = currentBoard?.github_url
+													const commitUrl = githubUrl
+														? `${githubUrl.replace(/\/$/, "")}/commit/${commit.sha}`
+														: null
+													const commitFiles = parseFilesChanged(commit.files_changed)
+													const totalAdd = commitFiles.reduce((s, f) => s + f.additions, 0)
+													const totalDel = commitFiles.reduce((s, f) => s + f.deletions, 0)
+
+													return (
+														<div key={commit.id} className="text-xs border-l-2 pl-2 border-border">
+															<div className="flex items-center gap-1.5">
+																<code className="text-[10px] bg-muted px-1 py-0.5 rounded font-mono">
+																	{commitUrl ? (
+																		<a
+																			href={commitUrl}
+																			target="_blank"
+																			rel="noopener noreferrer"
+																			className="text-primary hover:underline inline-flex items-center gap-0.5"
+																			onClick={(e) => e.stopPropagation()}
+																		>
+																			{shortSha}
+																			<ExternalLink className="w-2.5 h-2.5" />
+																		</a>
+																	) : (
+																		shortSha
+																	)}
+																</code>
+																{commitFiles.length > 0 && (
+																	<span className="text-muted-foreground">
+																		{commitFiles.length} {commitFiles.length === 1 ? "file" : "files"}
+																		{" "}
+																		<span className="text-green-400">+{totalAdd}</span>
+																		{" "}
+																		<span className="text-red-400">-{totalDel}</span>
+																	</span>
 																)}
-															</code>
+															</div>
+															<p className="mt-0.5 truncate text-muted-foreground" title={commit.message}>
+																{commit.message}
+															</p>
 															{commitFiles.length > 0 && (
-																<span className="text-muted-foreground">
-																	{commitFiles.length} {commitFiles.length === 1 ? "file" : "files"}
-																	{" "}
-																	<span className="text-green-400">+{totalAdd}</span>
-																	{" "}
-																	<span className="text-red-400">-{totalDel}</span>
-																</span>
+																<details className="mt-1">
+																	<summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">
+																		Show files
+																	</summary>
+																	<div className="mt-1 space-y-0.5 text-[10px] font-mono">
+																		{commitFiles.map((f) => (
+																			<div key={f.path} className="flex items-center gap-1.5">
+																				<span className="text-green-400 w-7 text-right">+{f.additions}</span>
+																				<span className="text-red-400 w-7 text-right">-{f.deletions}</span>
+																				<span className="truncate">{f.path}</span>
+																			</div>
+																		))}
+																	</div>
+																</details>
 															)}
 														</div>
-														<p className="mt-0.5 truncate text-muted-foreground" title={commit.message}>
-															{commit.message}
-														</p>
-														{commitFiles.length > 0 && (
-															<details className="mt-1">
-																<summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">
-																	Show files
-																</summary>
-																<div className="mt-1 space-y-0.5 text-[10px] font-mono">
-																	{commitFiles.map((f) => (
-																		<div key={f.path} className="flex items-center gap-1.5">
-																			<span className="text-green-400 w-7 text-right">+{f.additions}</span>
-																			<span className="text-red-400 w-7 text-right">-{f.deletions}</span>
-																			<span className="truncate">{f.path}</span>
-																		</div>
-																	))}
-																</div>
-															</details>
-														)}
+													)
+												})}
+											</div>
+										</SidebarPanel>
+									)}
+
+								{/* Advanced Panel */}
+									<SidebarPanel
+										label="Advanced"
+										icon={<Settings className="w-3.5 h-3.5" />}
+										defaultOpen={false}
+									>
+										<div className="space-y-3">
+											{/* CLI Provider Override */}
+											<div>
+												<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">CLI Provider</label>
+												<select
+													className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+													value={cliProvider ?? ""}
+													onChange={(e) => setCliProvider(e.target.value ? e.target.value as CliProvider : null)}
+												>
+													<option value="">Inherit ({configDefaults.cliProvider})</option>
+													<option value="claude">Claude Code</option>
+													<option value="gemini">Gemini CLI</option>
+													<option value="codex">Codex CLI</option>
+													<option value="aider">Aider</option>
+													<option value="copilot">GitHub Copilot</option>
+													<option value="custom">Custom</option>
+												</select>
+											</div>
+
+											{/* Custom command (only when provider is custom) */}
+											{cliProvider === "custom" && (
+												<div>
+													<label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wide">Custom Command</label>
+													<input
+														type="text"
+														className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+														placeholder="e.g., my-cli --flag"
+														value={cliCustomCommand ?? ""}
+														onChange={(e) => setCliCustomCommand(e.target.value || null)}
+													/>
+												</div>
+											)}
+
+											{/* Branch Settings */}
+											<div>
+												<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">
+													<span className="inline-flex items-center gap-1"><GitBranch className="w-3 h-3" /> Branch</span>
+												</label>
+												<select
+													className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+													value={branchMode ?? ""}
+													onChange={(e) => {
+														const val = e.target.value as BranchMode | "";
+														setBranchMode(val || null)
+														if (val !== "specific") setBranchName(null)
+													}}
+												>
+													<option value="">Inherit ({configDefaults.branchMode})</option>
+													<option value="current">Current branch</option>
+													<option value="new">New branch (auto-named)</option>
+													<option value="specific">Specific branch</option>
+												</select>
+											</div>
+
+											{/* Branch name (only when specific) */}
+											{(branchMode === "specific" || (branchMode === null && configDefaults.branchMode === "specific")) && (
+												<div>
+													<label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wide">Branch Name</label>
+													<input
+														type="text"
+														className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
+														placeholder={configDefaults.branchName || "e.g., feature/my-branch"}
+														value={branchName ?? ""}
+														onChange={(e) => setBranchName(e.target.value || null)}
+													/>
+												</div>
+											)}
+
+											{/* Move to project (edit mode only) */}
+											{isEditing && (
+												<>
+													<div className="border-t border-border pt-3">
+														<label className="text-xs font-medium block text-muted-foreground uppercase tracking-wide">Move to project</label>
 													</div>
-												)
-											})}
+													{allBoards.filter((b) => b.id !== boardId).length === 0 ? (
+														<p className="text-xs text-muted-foreground">No other projects available</p>
+													) : (
+														<div className="flex gap-2">
+															<select
+																className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5"
+																value={moveTargetBoardId}
+																onChange={(e) => setMoveTargetBoardId(e.target.value)}
+															>
+																<option value="">Select project...</option>
+																{allBoards
+																	.filter((b) => b.id !== boardId)
+																	.map((b) => (
+																		<option key={b.id} value={b.id}>{b.name}</option>
+																	))}
+															</select>
+															<Button
+																size="sm"
+																variant="outline"
+																disabled={isMoving || !moveTargetBoardId}
+																onClick={() => void handleMoveToBoard()}
+															>
+																Move
+															</Button>
+														</div>
+													)}
+												</>
+											)}
 										</div>
 									</SidebarPanel>
-								)}
-
-							{/* Advanced Panel */}
-								<SidebarPanel
-									label="Advanced"
-									icon={<Settings className="w-3.5 h-3.5" />}
-									defaultOpen={false}
-								>
-									<div className="space-y-3">
-										{/* CLI Provider Override */}
-										<div>
-											<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">CLI Provider</label>
-											<select
-												className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-												value={cliProvider ?? ""}
-												onChange={(e) => setCliProvider(e.target.value ? e.target.value as CliProvider : null)}
-											>
-												<option value="">Inherit ({configDefaults.cliProvider})</option>
-												<option value="claude">Claude Code</option>
-												<option value="gemini">Gemini CLI</option>
-												<option value="codex">Codex CLI</option>
-												<option value="aider">Aider</option>
-												<option value="copilot">GitHub Copilot</option>
-												<option value="custom">Custom</option>
-											</select>
-										</div>
-
-										{/* Custom command (only when provider is custom) */}
-										{cliProvider === "custom" && (
-											<div>
-												<label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wide">Custom Command</label>
-												<input
-													type="text"
-													className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-													placeholder="e.g., my-cli --flag"
-													value={cliCustomCommand ?? ""}
-													onChange={(e) => setCliCustomCommand(e.target.value || null)}
-												/>
-											</div>
-										)}
-
-										{/* Branch Settings */}
-										<div>
-											<label className="text-xs font-medium mb-1.5 block text-muted-foreground uppercase tracking-wide">
-												<span className="inline-flex items-center gap-1"><GitBranch className="w-3 h-3" /> Branch</span>
-											</label>
-											<select
-												className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-												value={branchMode ?? ""}
-												onChange={(e) => {
-													const val = e.target.value as BranchMode | "";
-													setBranchMode(val || null)
-													if (val !== "specific") setBranchName(null)
-												}}
-											>
-												<option value="">Inherit ({configDefaults.branchMode})</option>
-												<option value="current">Current branch</option>
-												<option value="new">New branch (auto-named)</option>
-												<option value="specific">Specific branch</option>
-											</select>
-										</div>
-
-										{/* Branch name (only when specific) */}
-										{(branchMode === "specific" || (branchMode === null && configDefaults.branchMode === "specific")) && (
-											<div>
-												<label className="text-xs font-medium mb-1 block text-muted-foreground uppercase tracking-wide">Branch Name</label>
-												<input
-													type="text"
-													className="w-full text-xs rounded border border-border bg-background px-2 py-1.5"
-													placeholder={configDefaults.branchName || "e.g., feature/my-branch"}
-													value={branchName ?? ""}
-													onChange={(e) => setBranchName(e.target.value || null)}
-												/>
-											</div>
-										)}
-
-										{/* Move to project (edit mode only) */}
-										{isEditing && (
-											<>
-												<div className="border-t border-border pt-3">
-													<label className="text-xs font-medium block text-muted-foreground uppercase tracking-wide">Move to project</label>
-												</div>
-												{allBoards.filter((b) => b.id !== boardId).length === 0 ? (
-													<p className="text-xs text-muted-foreground">No other projects available</p>
-												) : (
-													<div className="flex gap-2">
-														<select
-															className="flex-1 text-xs rounded border border-border bg-background px-2 py-1.5"
-															value={moveTargetBoardId}
-															onChange={(e) => setMoveTargetBoardId(e.target.value)}
-														>
-															<option value="">Select project...</option>
-															{allBoards
-																.filter((b) => b.id !== boardId)
-																.map((b) => (
-																	<option key={b.id} value={b.id}>{b.name}</option>
-																))}
-														</select>
-														<Button
-															size="sm"
-															variant="outline"
-															disabled={isMoving || !moveTargetBoardId}
-															onClick={() => void handleMoveToBoard()}
-														>
-															Move
-														</Button>
-													</div>
-												)}
-											</>
-										)}
-									</div>
-								</SidebarPanel>
+								</div>
 							</div>
-						</div>
+						)}
+
+						{/* Plan Tab */}
+						{isEditing && activeTab === "plan" && (
+							<PlanPanel planSummary={card.plan_summary} />
+						)}
+
+						{/* Criteria & Proof Tab */}
+						{isEditing && activeTab === "criteria" && (
+							<CriteriaList
+								criteria={localCriteria}
+								onAdd={async (text) => {
+									const created = await criteriaApi.add(card.id, text)
+									setLocalCriteria((prev) => [...prev, created])
+								}}
+								onUpdate={async (id, data) => {
+									const updated = await criteriaApi.update(id, data)
+									setLocalCriteria((prev) => prev.map((c) => c.id === id ? updated : c))
+								}}
+								onRemove={async (id) => {
+									await criteriaApi.remove(id)
+									setLocalCriteria((prev) => prev.filter((c) => c.id !== id))
+								}}
+								onJumpToExecution={(executionId) => {
+									setActiveTab("conversation")
+									setActivityTab("terminal")
+									setTimeout(() => {
+										terminalRef.current?.scrollToExecution(executionId)
+									}, 50)
+								}}
+							/>
+						)}
+
+						{/* Conversation Tab */}
+						{isEditing && activeTab === "conversation" && (
+							<div className="space-y-2">
+								<div className="flex items-end justify-between mb-1 border-b border-border">
+									<div className="flex items-end gap-1">
+										{activityTabButton("terminal", "Terminal")}
+										{activityTabButton("activity", `Activity (${comments.length})`)}
+									</div>
+									<div className="flex items-center gap-1 pb-1">
+										{activityTab === "activity" && comments.length > 0 && (
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-6 w-6"
+												onClick={() => void clearComments()}
+												title="Clear all comments"
+											>
+												<Eraser className="w-3.5 h-3.5 text-muted-foreground" />
+											</Button>
+										)}
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-6 w-6"
+											onClick={() => setActivityMaximized(true)}
+											title="Maximize"
+										>
+											<Maximize2 className="w-3.5 h-3.5 text-muted-foreground" />
+										</Button>
+									</div>
+								</div>
+								{activityTab === "terminal" ? (
+									<div className="border rounded-md h-[600px]">
+										<TerminalStream
+											ref={terminalRef}
+											executions={executions}
+											maximized={true}
+										/>
+									</div>
+								) : (
+									<ScrollArea className="max-h-[600px] border rounded-md p-2">
+										<ActivityList
+											comments={comments}
+											executionMap={executionMap}
+											onJumpToExecution={(executionId) => {
+												setActivityTab("terminal")
+												setTimeout(() => {
+													terminalRef.current?.scrollToExecution(executionId)
+												}, 50)
+											}}
+										/>
+									</ScrollArea>
+								)}
+								<div className="mt-2">
+									{renderCommentInput()}
+								</div>
+								{renderMaximizedPortal()}
+							</div>
+						)}
 					</div>
 
 					<DialogFooter>

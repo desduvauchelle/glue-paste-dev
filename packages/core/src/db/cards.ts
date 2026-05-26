@@ -8,8 +8,12 @@ import type {
   ReorderCards,
   BoardId,
   CardStatusType,
+  PlanSummary,
+  Blocker,
 } from "../types/index.js";
 import { CreateCardSchema } from "../schemas/card.js";
+import * as criteriaDb from "./criteria.js";
+import { PlanSummarySchema, BlockerSchema } from "../schemas/report.js";
 
 interface CardRow {
   id: string;
@@ -30,6 +34,9 @@ interface CardRow {
   assignee: string;
   created_at: string;
   updated_at: string;
+  plan_summary: string | null;
+  completion_summary: string | null;
+  blocker: string | null;
 }
 
 function getTagsForCard(db: Database, cardId: string): string[] {
@@ -74,6 +81,16 @@ function setFilesForCard(
   }
 }
 
+function parseJson<T>(raw: string | null, schema: { safeParse: (v: unknown) => { success: boolean; data?: T } }): T | null {
+  if (!raw) return null;
+  try {
+    const result = schema.safeParse(JSON.parse(raw));
+    return result.success ? (result.data as T) : null;
+  } catch {
+    return null;
+  }
+}
+
 function toCardWithTags(db: Database, row: CardRow): CardWithTags {
   return {
     ...row,
@@ -89,6 +106,10 @@ function toCardWithTags(db: Database, row: CardRow): CardWithTags {
     assignee: (row.assignee ?? "ai") as "ai" | "human",
     tags: getTagsForCard(db, row.id),
     files: getFilesForCard(db, row.id),
+    criteria: criteriaDb.getCriteria(db, row.id as CardId),
+    plan_summary: parseJson<PlanSummary>(row.plan_summary, PlanSummarySchema),
+    completion_summary: row.completion_summary ?? null,
+    blocker: parseJson<Blocker>(row.blocker, BlockerSchema),
   } as CardWithTags;
 }
 
@@ -455,4 +476,25 @@ export function getDistinctTags(db: Database, boardId: BoardId): string[] {
     )
     .all(boardId) as Array<{ tag: string }>;
   return rows.map((r) => r.tag);
+}
+
+export function setPlanSummary(db: Database, id: CardId, summary: PlanSummary | null): void {
+  db.query("UPDATE cards SET plan_summary = ?, updated_at = datetime('now') WHERE id = ?").run(
+    summary ? JSON.stringify(summary) : null,
+    id
+  );
+}
+
+export function setCompletionSummary(db: Database, id: CardId, summary: string | null): void {
+  db.query("UPDATE cards SET completion_summary = ?, updated_at = datetime('now') WHERE id = ?").run(
+    summary ?? null,
+    id
+  );
+}
+
+export function setBlocker(db: Database, id: CardId, blocker: Blocker | null): void {
+  db.query("UPDATE cards SET blocker = ?, updated_at = datetime('now') WHERE id = ?").run(
+    blocker ? JSON.stringify(blocker) : null,
+    id
+  );
 }

@@ -32,6 +32,17 @@ import type {
   CardCommitSchema,
   CommitIdSchema,
 } from "../schemas/commit.js";
+import type {
+  CriterionSchema,
+  CriterionIdSchema,
+  CriterionStatus,
+} from "../schemas/criterion.js";
+import type {
+  PlanSummarySchema,
+  BlockerSchema,
+  PlanReportSchema,
+  ExecuteReportSchema,
+} from "../schemas/report.js";
 import type { ConfigSchema, ConfigInputSchema } from "../schemas/config.js";
 import type { WSEventSchema } from "../schemas/ws-events.js";
 import type { ClaudeStreamEventSchema } from "../schemas/claude.js";
@@ -70,6 +81,17 @@ export type FileChange = z.infer<typeof FileChangeSchema>;
 // Commit types
 export type CardCommit = z.infer<typeof CardCommitSchema>;
 export type CommitId = z.infer<typeof CommitIdSchema>;
+
+// Criterion types
+export type Criterion = z.infer<typeof CriterionSchema>;
+export type CriterionId = z.infer<typeof CriterionIdSchema>;
+export type CriterionStatusType = z.infer<typeof CriterionStatus>;
+
+// Report types
+export type PlanSummary = z.infer<typeof PlanSummarySchema>;
+export type Blocker = z.infer<typeof BlockerSchema>;
+export type PlanReport = z.infer<typeof PlanReportSchema>;
+export type ExecuteReport = z.infer<typeof ExecuteReportSchema>;
 
 // Config types
 export type Config = z.infer<typeof ConfigSchema>;

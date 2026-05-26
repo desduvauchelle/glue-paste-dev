@@ -22,6 +22,7 @@ import { aiRoutes } from "./routes/ai.js";
 import { terminalRoutes } from "./routes/terminal.js";
 import { handleTerminalMessage } from "./terminal-ws.js";
 import { getTerminalHub } from "./terminal-hub-singleton.js";
+import { criteriaRoutes } from "./routes/criteria.js";
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -125,6 +126,7 @@ app.route("/api/cards", cardRoutes(db, broadcast));
 app.route("/api/comments", commentRoutes(db, broadcast));
 app.route("/api/executions", executionRoutes(db));
 app.route("/api/commits", commitRoutes(db));
+app.route("/api/criteria", criteriaRoutes(db, broadcast));
 app.route("/api/queue", queueRoutes(db, broadcast));
 app.route("/api/cards", cardExecuteRoutes(db, broadcast));
 app.route("/api/config", configRoutes(db, broadcast));

@@ -71,6 +71,24 @@ export const cards = {
     request<{ ok: boolean }>(`/cards/${id}/stop`, { method: "POST" }),
 };
 
+// Criteria
+export const criteria = {
+  add: (cardId: string, text: string) =>
+    request<Criterion>(`/criteria/card/${cardId}`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  update: (id: string, data: { text?: string; status?: "pending" | "pass" | "fail" }) =>
+    request<Criterion>(`/criteria/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (id: string) =>
+    request<{ ok: boolean }>(`/criteria/${id}`, { method: "DELETE" }),
+  reorder: (updates: Array<{ id: string; position: number }>) =>
+    request<{ ok: boolean }>("/criteria/reorder", {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    }),
+};
+
 // Comments
 export const comments = {
   list: (cardId: string) => request<Comment[]>(`/comments/card/${cardId}`),
@@ -282,6 +300,10 @@ interface CardWithTags {
   assignee: "ai" | "human";
   tags: string[];
   files: string[];
+  criteria: Criterion[];
+  plan_summary: PlanSummary | null;
+  completion_summary: string | null;
+  blocker: Blocker | null;
   created_at: string;
   updated_at: string;
 }
@@ -321,6 +343,31 @@ interface UpdateCard {
   branch_mode?: BranchMode | null;
   branch_name?: string | null;
   assignee?: "ai" | "human";
+}
+
+interface Criterion {
+  id: string;
+  card_id: string;
+  text: string;
+  status: "pending" | "pass" | "fail";
+  source: "ai" | "user";
+  evidence: string | null;
+  execution_id: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PlanSummary {
+  key_files: string[];
+  risks: string[];
+  dependencies: string[];
+}
+
+interface Blocker {
+  type: string;
+  root_cause: string;
+  resolution_route: string;
 }
 
 interface Comment {
@@ -425,6 +472,9 @@ export type {
   Board,
   CreateBoard,
   CardWithTags,
+  Criterion,
+  PlanSummary,
+  Blocker,
   CreateCard,
   UpdateCard,
   Comment,

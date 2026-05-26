@@ -32,6 +32,9 @@ cd "$ELECTRON_DIR"
 npx tsc
 ok "Electron main compiled"
 
+info "Cleaning previous build output (avoids stale arch dirs, e.g. x64 mac/)..."
+rm -rf "$ELECTRON_DIR/dist-app"
+
 info "Packaging with electron-builder..."
 CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --publish never
 
