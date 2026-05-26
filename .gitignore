@@ -17,3 +17,6 @@ packages/electron/resources/
 .env.*
 .env.local
 !.env.example
+
+# Rust
+rust/target/
