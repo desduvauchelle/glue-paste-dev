@@ -572,11 +572,18 @@ describe("CardDialog — Live terminal sub-tab", () => {
     assignee: "ai" as const,
     files: [],
     tags: [],
+    criteria: [],
+    plan_summary: null,
+    completion_summary: null,
+    blocker: null,
     created_at: "",
     updated_at: "",
   };
 
-  it("shows the InteractiveTerminal when the Live sub-tab is clicked and hides it on Activity", async () => {
+  // NOTE: Live sub-tab UI was removed when feat/card-proof-of-work merged.
+  // Phase3 (terminal-is-run) will reintroduce the Live terminal UI; this
+  // test is expected to fail until phase3 lands on main.
+  it.skip("shows the InteractiveTerminal when the Live sub-tab is clicked and hides it on Activity", async () => {
     render(<CardDialog {...defaultProps} card={editCard} />);
 
     // Activity tab is default — terminal not shown
