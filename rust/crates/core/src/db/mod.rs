@@ -5,3 +5,4 @@ pub mod cards;
 pub mod comments;
 pub mod executions;
 pub mod criteria;
+pub mod commits;
