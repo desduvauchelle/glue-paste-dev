@@ -14,3 +14,10 @@ pub use process_cleanup::kill_process_tree;
 
 pub mod stream_parser;
 pub use stream_parser::{parse_stream_line, ParsedStreamEvent, StreamEventKind};
+
+pub mod extract_report;
+pub use extract_report::{
+    parse_report_json, write_report_file, extract_plan_report, extract_execute_report,
+    PlanReport, ExecuteReport, PlanSummary, Blocker, CriterionResult,
+    PlanReportArgs, ExecuteReportArgs, FileChange, CriterionInput,
+};
