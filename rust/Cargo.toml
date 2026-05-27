@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/core"]
+members = ["crates/core", "crates/tauri-app"]
 
 [workspace.package]
 version = "0.1.0"
@@ -24,3 +24,6 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 async-trait = "0.1"
 futures = "0.3"
 libc = "0.2"
+tauri = { version = "2" }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-shell = "2"
