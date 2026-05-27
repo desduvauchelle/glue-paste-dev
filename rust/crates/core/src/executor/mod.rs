@@ -30,3 +30,6 @@ pub use prompt::{build_prompt, PromptContext, PromptConfig};
 
 pub mod execution_logger;
 pub use execution_logger::{execution_log_path, write_execution_log, write_execution_log_raw};
+
+pub mod generate_title;
+pub use generate_title::generate_title;
