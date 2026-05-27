@@ -27,3 +27,6 @@ pub use cli_adapter::{build_cli_command, CliCommand, CliConfig, CliAdapterError}
 
 pub mod prompt;
 pub use prompt::{build_prompt, PromptContext, PromptConfig};
+
+pub mod execution_logger;
+pub use execution_logger::{execution_log_path, write_execution_log, write_execution_log_raw};
