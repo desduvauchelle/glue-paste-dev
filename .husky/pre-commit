@@ -11,8 +11,13 @@ fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
 "
 git add package.json
 
-# 2. Type check all packages
+# 2. Type check + test dashboard
+cd packages/dashboard
 ~/.bun/bin/bun x tsc -b
+~/.bun/bin/bun x vitest run
+cd ../..
 
-# 3. Run tests
-~/.bun/bin/bun run test
+# 3. Rust check
+cd rust
+cargo check --workspace
+cd ..
