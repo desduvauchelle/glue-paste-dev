@@ -24,3 +24,6 @@ pub use extract_report::{
 
 pub mod cli_adapter;
 pub use cli_adapter::{build_cli_command, CliCommand, CliConfig, CliAdapterError};
+
+pub mod prompt;
+pub use prompt::{build_prompt, PromptContext, PromptConfig};
