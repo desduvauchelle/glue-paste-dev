@@ -8,3 +8,6 @@ pub use rate_limit::{detect_rate_limit, RateLimitInfo};
 
 pub mod git_errors;
 pub use git_errors::{detect_git_error, GitErrorInfo};
+
+pub mod process_cleanup;
+pub use process_cleanup::kill_process_tree;
