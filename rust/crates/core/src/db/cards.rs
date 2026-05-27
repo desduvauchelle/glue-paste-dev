@@ -209,6 +209,73 @@ pub fn clear_blocker(conn: &Connection, id: &str) -> Result<()> {
     set_blocker(conn, id, None)
 }
 
+pub fn distinct_tags(conn: &Connection, board_id: &str) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT ct.tag FROM card_tags ct
+         JOIN cards c ON c.id = ct.card_id
+         WHERE c.board_id = ?
+         ORDER BY ct.tag",
+    )?;
+    let tags: Vec<String> = stmt
+        .query_map([board_id], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(tags)
+}
+
+/// Returns card counts grouped by board_id and status.
+pub fn count_by_status_all_boards(conn: &Connection) -> Result<Vec<(String, String, i64)>> {
+    let mut stmt = conn.prepare(
+        "SELECT board_id, status, COUNT(*) as cnt FROM cards GROUP BY board_id, status",
+    )?;
+    let rows = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// Returns done-card counts per day for the last `days` days.
+/// `tz_offset_minutes` follows the JS convention: positive = UTC-behind (e.g. 420 for UTC-7).
+pub fn count_done_per_day(conn: &Connection, days: i64, tz_offset_minutes: i64) -> Result<Vec<(String, i64)>> {
+    let offset_minutes = -tz_offset_minutes;
+    let modifier = format!("{} minutes", offset_minutes);
+    let mut stmt = conn.prepare(
+        "SELECT date(updated_at, ?) as day, COUNT(*) as cnt
+         FROM cards
+         WHERE status = 'done'
+           AND date(updated_at, ?) >= date('now', ?, '-' || ? || ' days')
+         GROUP BY date(updated_at, ?)
+         ORDER BY day ASC",
+    )?;
+    let rows = stmt
+        .query_map(
+            rusqlite::params![modifier, modifier, modifier, days, modifier],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+/// Returns done-card counts per day per board.
+pub fn count_done_per_day_by_board(conn: &Connection, days: i64, tz_offset_minutes: i64) -> Result<Vec<(String, String, i64)>> {
+    let offset_minutes = -tz_offset_minutes;
+    let modifier = format!("{} minutes", offset_minutes);
+    let mut stmt = conn.prepare(
+        "SELECT board_id, date(updated_at, ?) as day, COUNT(*) as cnt
+         FROM cards
+         WHERE status = 'done'
+           AND date(updated_at, ?) >= date('now', ?, '-' || ? || ' days')
+         GROUP BY board_id, date(updated_at, ?)
+         ORDER BY board_id, day ASC",
+    )?;
+    let rows = stmt
+        .query_map(
+            rusqlite::params![modifier, modifier, modifier, days, modifier],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, i64>(2)?)),
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 fn tags_for_card(conn: &Connection, card_id: &str) -> Result<Vec<String>> {
     let mut stmt = conn.prepare("SELECT tag FROM card_tags WHERE card_id = ? ORDER BY tag")?;
     let tags: Vec<String> = stmt
