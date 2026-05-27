@@ -1,10 +1,13 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, Arc};
 use rusqlite::Connection;
 use tauri::AppHandle;
+use glue_paste_dev_core::terminal::TerminalHub;
 
 pub struct AppState {
     pub db: Mutex<Connection>,
     pub app_handle: OnceLock<AppHandle>,
+    /// Lazily initialised process-wide terminal hub.
+    pub terminal_hub: OnceLock<Arc<TerminalHub>>,
 }
 
 impl AppState {
@@ -14,6 +17,7 @@ impl AppState {
         Ok(Self {
             db: Mutex::new(conn),
             app_handle: OnceLock::new(),
+            terminal_hub: OnceLock::new(),
         })
     }
 }

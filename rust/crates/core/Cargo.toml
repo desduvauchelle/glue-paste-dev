@@ -19,7 +19,8 @@ regex = { workspace = true }
 reqwest = { workspace = true }
 async-trait = { workspace = true }
 futures = { workspace = true }
+portable-pty = "0.8"
+libc = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-libc = { workspace = true }
