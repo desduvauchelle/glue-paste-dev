@@ -4,9 +4,7 @@
   "version": "0.1.0",
   "identifier": "dev.gluepaste.app.tauri",
   "build": {
-    "beforeDevCommand": "bun run --cwd ../../../packages/dashboard dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "bun run --cwd ../../../packages/dashboard build",
     "frontendDist": "../../../packages/dashboard/dist"
   },
   "app": {
