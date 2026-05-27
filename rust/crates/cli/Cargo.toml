@@ -1,0 +1,16 @@
+[package]
+name = "glue-paste-dev-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "glue-paste-dev"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+glue-paste-dev-core = { path = "../core" }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+dirs = { workspace = true }
+serde_json = { workspace = true }
