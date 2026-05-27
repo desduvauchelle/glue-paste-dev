@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 
 interface WSEvent {
@@ -38,7 +38,6 @@ function dispatch(event: WSEvent): void {
   for (const fn of listeners) fn(event);
 }
 
-const unlistenFns: UnlistenFn[] = [];
 let bridgeStarted = false;
 
 function startBridge(): void {
@@ -48,18 +47,26 @@ function startBridge(): void {
     listen<unknown>(evtType, (e) => {
       dbg("tauri←", evtType, e.payload);
       dispatch({ type: evtType, payload: e.payload });
-    })
-      .then((un) => unlistenFns.push(un))
-      .catch((err) => {
-        console.error("[gpd:ws] Failed to register Tauri listener for", evtType, err);
-      });
+    }).catch((err) => {
+      console.error("[gpd:ws] Failed to register Tauri listener for", evtType, err);
+    });
   }
   dbg("Tauri event bridge active");
 }
 
 startBridge();
 
-/** Send a message to the backend. In Tauri mode, only terminal:input and terminal:resize are routed. */
+/**
+ * Route a frontend message to the Tauri backend.
+ *
+ * Only `terminal:input` and `terminal:resize` are routed via `invoke()`.
+ * Legacy WebSocket message types (`terminal:attach`, `terminal:detach`,
+ * `terminal:heartbeat`) are no-ops because the Rust terminal hub manages
+ * session lifecycle internally — no client-side signals required.
+ *
+ * Returns true if the message was recognised (and dispatched or no-op'd as
+ * intentional), false otherwise.
+ */
 export function sendWS(message: unknown): boolean {
   const msg = message as { type?: string; cardId?: string; data?: string; cols?: number; rows?: number };
   if (!msg?.type?.startsWith("terminal:") || !msg.cardId) return false;
