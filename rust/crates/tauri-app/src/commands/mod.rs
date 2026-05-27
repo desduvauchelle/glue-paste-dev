@@ -5,6 +5,7 @@ pub mod executions;
 pub mod commits;
 pub mod criteria;
 pub mod config;
+pub mod queue;
 pub mod tags;
 pub mod stats;
 pub mod system;
