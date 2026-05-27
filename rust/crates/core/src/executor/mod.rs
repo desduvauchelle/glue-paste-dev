@@ -42,3 +42,11 @@ pub use runner::{
     run_card, kill_card_process, kill_all_card_processes, get_active_card_process,
     RunnerCallbacks, RunResult, RunOptions, RunnerConfig,
 };
+
+pub mod queue;
+pub use queue::{
+    start_queue, stop_queue, pause_queue, resume_queue, get_queue_state,
+    refresh_concurrency, notify_new_card, get_running_queue_board_ids,
+    execute_single_card, stop_card, set_interactive_hub, clear_awaiting_review,
+    is_card_stopped, QueueState, QueueStatus, QueueCallbacks,
+};

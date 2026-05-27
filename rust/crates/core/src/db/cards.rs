@@ -139,6 +139,25 @@ pub fn move_card(conn: &Connection, id: &str, status: CardStatus, position: i64)
     get_with_tags(conn, id)
 }
 
+/// List all cards for a board with a given status, ordered by position then created_at.
+pub fn list_by_status(conn: &Connection, board_id: &str, status: CardStatus) -> Result<Vec<CardWithTags>> {
+    let status_str = status_to_str(&status);
+    let mut stmt = conn.prepare(
+        "SELECT * FROM cards WHERE board_id = ? AND status = ? ORDER BY position ASC, created_at ASC",
+    )?;
+    let cards: Vec<Card> = stmt
+        .query_map(params![board_id, status_str], row_to_card)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let with_tags = cards
+        .into_iter()
+        .map(|c| {
+            let tags = tags_for_card(conn, &c.id).unwrap_or_default();
+            CardWithTags { card: c, tags }
+        })
+        .collect();
+    Ok(with_tags)
+}
+
 pub fn set_status(conn: &Connection, id: &str, status: CardStatus) -> Result<()> {
     let status_str = status_to_str(&status);
     conn.execute(

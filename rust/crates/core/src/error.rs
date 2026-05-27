@@ -8,6 +8,12 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("not found")]
     NotFound,
+    #[error("not found: {0}")]
+    NotFoundMsg(String),
+    #[error("bad request: {0}")]
+    BadRequest(String),
+    #[error("{0}")]
+    Other(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

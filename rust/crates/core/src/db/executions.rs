@@ -114,6 +114,21 @@ pub fn get(conn: &Connection, id: &str) -> Result<Option<Execution>> {
     Ok(ex)
 }
 
+/// Returns the output of the most recently completed plan-phase execution for a card.
+/// Used by the queue to skip re-planning when retrying after a failed execute phase.
+pub fn get_completed_plan_output(conn: &Connection, card_id: &str) -> Result<Option<String>> {
+    let row: Option<Option<String>> = conn
+        .query_row(
+            "SELECT output FROM executions \
+             WHERE card_id = ? AND phase = 'plan' AND status = 'success' \
+             ORDER BY finished_at DESC, rowid DESC LIMIT 1",
+            [card_id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(row.flatten())
+}
+
 pub fn get_last_session_id(conn: &Connection, card_id: &str) -> Result<Option<String>> {
     let row: Option<Option<String>> = conn
         .query_row(
