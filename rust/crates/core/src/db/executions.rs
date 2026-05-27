@@ -72,6 +72,17 @@ pub fn get(conn: &Connection, id: &str) -> Result<Option<Execution>> {
     Ok(ex)
 }
 
+pub fn get_last_session_id(conn: &Connection, card_id: &str) -> Result<Option<String>> {
+    let row: Option<Option<String>> = conn
+        .query_row(
+            "SELECT session_id FROM executions WHERE card_id = ? ORDER BY started_at DESC, rowid DESC LIMIT 1",
+            [card_id],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(row.flatten())
+}
+
 fn phase_to_str(p: &ExecutionPhase) -> &'static str {
     match p {
         ExecutionPhase::Plan => "plan",
@@ -152,6 +163,24 @@ mod tests {
         assert_eq!(fetched.status, ExecutionStatus::Success);
         assert_eq!(fetched.exit_code, Some(0));
         assert!((fetched.cost_usd - 0.25).abs() < 1e-9);
+    }
+
+    #[test]
+    fn get_last_session_id_returns_none_when_no_executions() {
+        let (conn, card_id) = setup();
+        let result = get_last_session_id(&conn, &card_id).unwrap();
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn get_last_session_id_returns_latest_session() {
+        let (conn, card_id) = setup();
+        create_execution(&conn, &card_id, "sess-old", ExecutionPhase::Plan).unwrap();
+        // Brief sleep not needed — SQLite uses datetime('now') which may collide in fast tests,
+        // but inserting two rows is enough to test ordering as long as IDs differ.
+        create_execution(&conn, &card_id, "sess-new", ExecutionPhase::Execute).unwrap();
+        let result = get_last_session_id(&conn, &card_id).unwrap();
+        assert_eq!(result, Some("sess-new".to_string()));
     }
 
     #[test]

@@ -33,3 +33,6 @@ pub use execution_logger::{execution_log_path, write_execution_log, write_execut
 
 pub mod generate_title;
 pub use generate_title::generate_title;
+
+pub mod chat;
+pub use chat::{run_chat, kill_chat_process, kill_all_chat_processes, has_chat_process, ChatCallbacks, ChatOptions, ChatMode, ChatThinking, ChatConfig};
