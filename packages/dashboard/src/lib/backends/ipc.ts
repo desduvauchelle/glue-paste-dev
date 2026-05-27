@@ -124,9 +124,24 @@ export const ipcBackend = {
     deleteFile: (boardId: string, cardId: string, filename: string) =>
       invoke<{ ok: boolean }>("attachments_delete_file", { boardId, cardId, filename }),
   },
-  ai: notImplemented("ai"),
-  chat: notImplemented("chat"),
-  update: notImplemented("update"),
+  ai: {
+    generateTitle: (description: string) =>
+      invoke<string>("ai_generate_title", { args: { description } }).then((title) => ({ title })),
+  },
+  chat: {
+    send: (cardId: string, data: { message: string; mode: string; thinking: string }) =>
+      invoke<void>("chat_start", { cardId, args: data }).then(() => ({ ok: true })),
+    stop: (cardId: string) =>
+      invoke<boolean>("chat_stop", { cardId }).then((killed) => ({ ok: true, killed: killed as unknown as boolean })),
+  },
+  update: {
+    check: () =>
+      invoke<{ available: boolean; current: string; latest: string; asset_url: string | null }>("update_check").then(
+        (r) => ({ available: r.available, currentVersion: r.current, latestVersion: r.latest })
+      ),
+    apply: () => Promise.reject(new Error("ipc backend: update_apply deferred to Phase 4.8")),
+    logs: () => Promise.reject(new Error("ipc backend: update_logs not implemented")),
+  },
   caffeinate: {
     status: () => invoke<any>("caffeinate_status"),
     start: () => invoke<any>("caffeinate_start"),
