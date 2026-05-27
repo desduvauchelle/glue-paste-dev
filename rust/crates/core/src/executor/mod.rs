@@ -11,3 +11,6 @@ pub use git_errors::{detect_git_error, GitErrorInfo};
 
 pub mod process_cleanup;
 pub use process_cleanup::kill_process_tree;
+
+pub mod stream_parser;
+pub use stream_parser::{parse_stream_line, ParsedStreamEvent, StreamEventKind};
