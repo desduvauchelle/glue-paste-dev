@@ -86,6 +86,14 @@ pub fn run() {
             commands::ai::ai_generate_title,
             // update
             commands::update::update_check,
+            // terminal
+            commands::terminal::terminal_open,
+            commands::terminal::terminal_close,
+            commands::terminal::terminal_status,
+            commands::terminal::terminal_input,
+            commands::terminal::terminal_resize,
+            commands::terminal::terminal_interrupt,
+            commands::terminal::terminal_kill_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

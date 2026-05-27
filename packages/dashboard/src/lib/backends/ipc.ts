@@ -17,6 +17,8 @@ function notImplemented(path: string): any {
     },
   });
 }
+// Keep notImplemented available for future use — suppress the unused warning.
+void notImplemented;
 
 export const ipcBackend = {
   boards: {
@@ -147,10 +149,40 @@ export const ipcBackend = {
     start: () => invoke<any>("caffeinate_start"),
     stop: () => invoke<any>("caffeinate_stop"),
   },
-  terminal: notImplemented("terminal"),
+  terminal: {
+    open: (cardId: string, _size: { cols: number; rows: number }, cwd?: string) =>
+      invoke<void>("terminal_open", { cardId, cwd: cwd ?? "." }).then(() => ({ ok: true, running: true })),
+    status: (cardId: string) =>
+      invoke<{ running: boolean; scrollback: string }>("terminal_status", { cardId }),
+    close: (cardId: string) =>
+      invoke<boolean>("terminal_close", { cardId }).then(() => ({ ok: true })),
+    stop: (cardId: string) =>
+      invoke<void>("terminal_interrupt", { cardId }).then(() => ({ ok: true })),
+    killSession: (cardId: string) =>
+      invoke<boolean>("terminal_kill_session", { cardId }).then(() => ({ ok: true })),
+  },
   ws: {
-    // No bidirectional WS in IPC mode — sending is a no-op.
-    sendWS: (_message: unknown): boolean => false,
+    // In IPC mode, terminal:input and terminal:resize are dispatched via Tauri commands.
+    // Other WS message types are no-ops (server push only).
+    sendWS: (message: unknown): boolean => {
+      const msg = message as { type?: string; cardId?: string; data?: string; cols?: number; rows?: number };
+      if (!msg?.type?.startsWith("terminal:") || !msg.cardId) return false;
+      switch (msg.type) {
+        case "terminal:input":
+          if (typeof msg.data === "string") {
+            invoke<void>("terminal_input", { cardId: msg.cardId, data: msg.data }).catch(() => {});
+          }
+          return true;
+        case "terminal:resize":
+          if (typeof msg.cols === "number" && typeof msg.rows === "number") {
+            invoke<void>("terminal_resize", { cardId: msg.cardId, cols: msg.cols, rows: msg.rows }).catch(() => {});
+          }
+          return true;
+        // attach/detach/heartbeat are hub-internal in IPC mode — no-op
+        default:
+          return false;
+      }
+    },
     useWebSocket: (onEvent: (event: { type: string; payload: unknown }) => void): void => {
       // Implemented via Tauri event bridge in lib/ws.ts when VITE_BACKEND=ipc.
       // This method is provided for type-compat; actual subscription is wired in ws.ts.

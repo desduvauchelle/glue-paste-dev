@@ -43,6 +43,9 @@ pub use runner::{
     RunnerCallbacks, RunResult, RunOptions, RunnerConfig,
 };
 
+pub mod pty_runner;
+pub use pty_runner::{create_execution_hub, open_card_pty_session};
+
 pub mod queue;
 pub use queue::{
     start_queue, stop_queue, pause_queue, resume_queue, get_queue_state,

@@ -1,5 +1,6 @@
 pub mod boards;
 pub mod cards;
+pub mod terminal;
 pub mod comments;
 pub mod executions;
 pub mod commits;
