@@ -2,24 +2,23 @@
 
 ## Project Structure
 
-Monorepo with four packages:
+Monorepo with one TypeScript package and three Rust crates:
 
-- `packages/core` — shared types, schemas (Zod), DB layer, executor logic. Runtime: Bun.
-- `packages/server` — HTTP API built with Hono. Runtime: Bun.
-- `packages/dashboard` — React 19 frontend (Vite + Tailwind v4).
-- `packages/cli` — CLI entry point. Runtime: Bun.
+- `packages/dashboard` — React 19 frontend (Vite + Tailwind v4). The only TypeScript package.
+- `rust/crates/core` — shared types, schemas, DB layer, executor logic.
+- `rust/crates/tauri-app` — Tauri 2 host: window, IPC commands, event emission.
+- `rust/crates/cli` — `glue-paste-dev` CLI (start/stop/status/logs/add/update/uninstall).
 
 ## TypeScript — Run After Every Change
 
-This is a TypeScript monorepo. After writing or editing code, always run a type check before considering the task done.
+After writing or editing code, always run a type check before considering the task done.
 
 | Package | Type check command |
 |---|---|
-| `packages/core` | `cd packages/core && bunx tsc --noEmit` |
-| `packages/server` | `cd packages/server && bunx tsc --noEmit` |
 | `packages/dashboard` | `cd packages/dashboard && bunx tsc -b` |
-| `packages/cli` | `cd packages/cli && bunx tsc --noEmit` |
 | `rust/crates/core` | `cd rust && cargo check -p glue-paste-dev-core` |
+| `rust/crates/tauri-app` | `cd rust && cargo check -p glue-paste-dev-tauri` |
+| `rust/crates/cli` | `cd rust && cargo check -p glue-paste-dev-cli` |
 
 Fix all type errors before finishing. Do not leave `// @ts-ignore` or `any` casts unless the user explicitly approves them.
 
@@ -29,28 +28,23 @@ Fix all type errors before finishing. Do not leave `// @ts-ignore` or `any` cast
 
 | Package | Runner | Libraries |
 |---|---|---|
-| `packages/core` | Bun test (`bun test`) | Built-in Bun assertions |
-| `packages/server` | Vitest (`vitest run`) | Vitest + Hono test client |
 | `packages/dashboard` | Vitest (`vitest run`) | Vitest + @testing-library/react + @testing-library/jest-dom + jsdom |
+| `rust/crates/core` | `cargo test` | Bun parity fixtures |
+| `rust/crates/tauri-app` | `cargo test` | Tauri test utils |
 
 ### When to write tests
 
-- **New business logic** in `core` (schemas, DB helpers, executor): write a unit test alongside the implementation.
-- **New API routes** in `server`: write an integration test using Hono's test utilities.
+- **New business logic** in `rust/crates/core`: write a Rust unit test alongside the implementation.
+- **New Tauri commands**: write an integration test in `rust/crates/tauri-app/tests/`.
 - **New React components or hooks** in `dashboard` with non-trivial behaviour: write a component test with `@testing-library/react`.
 - **Bug fixes**: add a regression test that fails before the fix and passes after.
 
 ### Running tests
 
 ```bash
-# Run all tests from the repo root
-bun run test          # if a root-level test script exists
-
 # Per package
-cd packages/core && bun test
-cd packages/server && bunx vitest run
 cd packages/dashboard && bunx vitest run
-cd rust && cargo test -p glue-paste-dev-core
+cd rust && cargo test --workspace
 ```
 
 Always run the relevant package tests after making changes and confirm they pass before finishing.
