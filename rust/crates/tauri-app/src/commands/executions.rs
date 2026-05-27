@@ -10,3 +10,9 @@ pub fn executions_list_for_card(state: State<AppState>, card_id: String) -> Resu
     let conn = state.db.lock().map_err(map_err)?;
     executions::list_for_card(&conn, &card_id).map_err(map_err)
 }
+
+#[tauri::command]
+pub fn executions_get(state: State<AppState>, id: String) -> Result<Option<Execution>, String> {
+    let conn = state.db.lock().map_err(map_err)?;
+    executions::get(&conn, &id).map_err(map_err)
+}
