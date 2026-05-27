@@ -12,3 +12,6 @@ pub mod system;
 pub mod auth;
 pub mod caffeinate;
 pub mod files;
+pub mod chat;
+pub mod ai;
+pub mod update;

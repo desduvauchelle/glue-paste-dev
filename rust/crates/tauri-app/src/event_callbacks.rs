@@ -1,4 +1,5 @@
 use tauri::{AppHandle, Emitter};
+use glue_paste_dev_core::executor::chat::ChatCallbacks;
 use glue_paste_dev_core::executor::queue::{QueueCallbacks, QueueState, QueueStatus};
 use glue_paste_dev_core::executor::runner::RunnerCallbacks;
 use glue_paste_dev_core::types::{CardWithTags, Comment, ExecutionPhase};
@@ -84,6 +85,26 @@ impl RunnerCallbacks for AppEventCallbacks {
 
     fn on_card_updated(&self, card: &CardWithTags) {
         let _ = self.app.emit("card:updated", card);
+    }
+
+    fn on_comment_added(&self, comment: &Comment) {
+        let _ = self.app.emit("comment:added", comment);
+    }
+}
+
+impl ChatCallbacks for AppEventCallbacks {
+    fn on_output(&self, card_id: &str, chunk: &str) {
+        let _ = self.app.emit(
+            "chat:output",
+            serde_json::json!({ "cardId": card_id, "chunk": chunk }),
+        );
+    }
+
+    fn on_completed(&self, card_id: &str, comment: &Comment) {
+        let _ = self.app.emit(
+            "chat:completed",
+            serde_json::json!({ "cardId": card_id, "commentId": comment.id }),
+        );
     }
 
     fn on_comment_added(&self, comment: &Comment) {

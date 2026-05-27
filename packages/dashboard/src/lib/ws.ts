@@ -33,6 +33,8 @@ const TAURI_WS_EVENTS = [
   "queue:updated",
   "queue:stopped",
   "notification",
+  "chat:output",
+  "chat:completed",
 ] as const;
 
 /** Fire an event into the shared listener registry (used by both WS and Tauri paths). */
