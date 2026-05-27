@@ -7,7 +7,7 @@ import { CardExecutionInfo } from "@/components/board/KanbanCard";
 import { Square, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getBoardColor } from "@/lib/colors";
-import { cardLabel } from "@glue-paste-dev/core/browser";
+import { cardLabel } from "@/lib/cardLabel";
 import { useWebSocket } from "@/lib/ws";
 
 interface RunningCardsProps {

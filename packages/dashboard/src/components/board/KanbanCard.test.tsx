@@ -17,8 +17,8 @@ vi.mock("@dnd-kit/utilities", () => ({
   CSS: { Transform: { toString: () => "" } },
 }));
 
-vi.mock("@glue-paste-dev/core/browser", () => ({
-  cardLabel: (card: { title: string }) => card.title || "Untitled",
+vi.mock("@/lib/cardLabel", () => ({
+  cardLabel: (c: { title: string; description: string }) => c.title || c.description,
 }));
 
 vi.mock("@/hooks/use-executions", () => ({

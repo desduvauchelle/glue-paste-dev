@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { X, Send, Square, Brain, Zap, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Markdown } from "@/components/ui/markdown";
-import { cardLabel } from "@glue-paste-dev/core/browser";
+import { cardLabel } from "@/lib/cardLabel";
 
 interface CoPlanSidebarProps {
   card: CardWithTags;
