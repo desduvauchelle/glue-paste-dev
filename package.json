@@ -1,6 +1,6 @@
 {
   "name": "glue-paste-dev",
-  "version": "0.1.330",
+  "version": "0.1.331",
   "private": true,
   "workspaces": [
     "packages/dashboard"
@@ -20,7 +20,6 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "bun-types": "^1.3.11",
     "husky": "^9.1.7",
     "prettier": "3.8.1",
     "typescript": "^5.8.3",
