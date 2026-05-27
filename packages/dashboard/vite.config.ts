@@ -10,18 +10,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  server: {
-    port: 5173,
-    proxy: {
-      "/api": "http://localhost:4242",
-      "/ws": {
-        target: "ws://localhost:4242",
-        ws: true,
-      },
-    },
-  },
   build: {
-    outDir: "../server/public",
+    outDir: "dist",
     emptyOutDir: true,
   },
 });
