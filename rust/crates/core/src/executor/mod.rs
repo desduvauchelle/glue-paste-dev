@@ -21,3 +21,6 @@ pub use extract_report::{
     PlanReport, ExecuteReport, PlanSummary, Blocker, CriterionResult,
     PlanReportArgs, ExecuteReportArgs, FileChange, CriterionInput,
 };
+
+pub mod cli_adapter;
+pub use cli_adapter::{build_cli_command, CliCommand, CliConfig, CliAdapterError};
