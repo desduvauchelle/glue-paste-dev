@@ -77,7 +77,13 @@ export const queue = {
   status: (boardId: string) =>
     invoke<QueueStatus | null>("queue_get_state", { boardId }).then((s) =>
       s
-        ? s
+        ? {
+            boardId: s.boardId,
+            queue: s.queue ?? [],
+            current: s.current ?? null,
+            isRunning: s.isRunning ?? false,
+            isPaused: s.isPaused ?? false,
+          }
         : { boardId, queue: [], current: null, isRunning: false, isPaused: false }
     ),
   start: (boardId: string) =>
