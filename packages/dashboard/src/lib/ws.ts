@@ -18,6 +18,48 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let reconnectDelay = 1000;
 let wasConnected = false;
 
+// ---------------------------------------------------------------------------
+// Tauri event bridge — active only in IPC mode
+// ---------------------------------------------------------------------------
+
+const IS_IPC = (import.meta.env.VITE_BACKEND as string | undefined) === "ipc";
+
+const TAURI_WS_EVENTS = [
+  "execution:started",
+  "execution:output",
+  "execution:completed",
+  "card:updated",
+  "comment:added",
+  "queue:updated",
+  "queue:stopped",
+  "notification",
+] as const;
+
+/** Fire an event into the shared listener registry (used by both WS and Tauri paths). */
+function dispatch(event: WSEvent): void {
+  for (const listener of listeners) {
+    listener(event);
+  }
+}
+
+// Wire up Tauri listeners once at module initialisation time when in IPC mode.
+// Dynamic import keeps the Tauri API out of the bundle in HTTP mode.
+if (IS_IPC) {
+  import("@tauri-apps/api/event").then(({ listen }) => {
+    for (const evtType of TAURI_WS_EVENTS) {
+      listen<unknown>(evtType, (e) => {
+        dbg("tauri←", evtType, e.payload);
+        dispatch({ type: evtType, payload: e.payload });
+      }).catch((err) => {
+        console.error("[gpd:ws] Failed to register Tauri listener for", evtType, err);
+      });
+    }
+    dbg("Tauri event bridge active");
+  }).catch((err) => {
+    console.error("[gpd:ws] Failed to import @tauri-apps/api/event:", err);
+  });
+}
+
 function connect() {
   if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) {
     return;
@@ -74,7 +116,8 @@ function scheduleReconnect() {
 
 function subscribe(listener: WSListener): () => void {
   listeners.add(listener);
-  if (listeners.size === 1) connect();
+  // In IPC mode the Tauri event bridge (wired above) feeds dispatch(); skip WS.
+  if (!IS_IPC && listeners.size === 1) connect();
   return () => {
     listeners.delete(listener);
   };

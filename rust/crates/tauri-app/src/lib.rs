@@ -1,7 +1,9 @@
 mod state;
 mod commands;
+mod event_callbacks;
 
 use state::AppState;
+use tauri::Manager;
 
 pub fn run() {
     let app_state = AppState::new().expect("failed to initialize app state");
@@ -9,6 +11,11 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(app_state)
+        .setup(|app| {
+            let handle = app.handle().clone();
+            app.state::<AppState>().app_handle.set(handle).ok();
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             // boards
             commands::boards::boards_list,
@@ -43,6 +50,14 @@ pub fn run() {
             commands::config::config_get_for_board,
             commands::config::config_update_global,
             commands::config::config_update_for_board,
+            // queue
+            commands::queue::queue_start,
+            commands::queue::queue_stop,
+            commands::queue::queue_pause,
+            commands::queue::queue_resume,
+            commands::queue::queue_get_state,
+            commands::queue::card_execute_single,
+            commands::queue::card_stop,
             // tags
             commands::tags::tags_defaults,
             commands::tags::tags_for_board,

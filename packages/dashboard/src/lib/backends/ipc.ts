@@ -38,8 +38,8 @@ export const ipcBackend = {
     reorder: () => Promise.reject(new Error("ipc backend not implemented: cards.reorder (Phase 4.5)")),
     delete: (id: string) => invoke<boolean>("cards_delete", { id }).then((deleted) => ({ ok: deleted as unknown as boolean })),
     moveToBoard: () => Promise.reject(new Error("ipc backend not implemented: cards.moveToBoard (Phase 4.5)")),
-    execute: () => Promise.reject(new Error("ipc backend not implemented: cards.execute (Phase 4.5)")),
-    stop: () => Promise.reject(new Error("ipc backend not implemented: cards.stop (Phase 4.5)")),
+    execute: (id: string) => invoke<void>("card_execute_single", { cardId: id }).then(() => ({ ok: true })),
+    stop: (id: string) => invoke<boolean>("card_stop", { cardId: id }).then(() => ({ ok: true })),
   },
   comments: {
     list: (cardId: string) => invoke<any[]>("comments_list_for_card", { cardId }),
@@ -77,7 +77,28 @@ export const ipcBackend = {
     updateForBoard: (boardId: string, data: any) =>
       invoke<any>("config_update_for_board", { boardId, input: data }),
   },
-  queue: notImplemented("queue"),
+  queue: {
+    status: (boardId: string) =>
+      invoke<any>("queue_get_state", { boardId }).then((s) =>
+        s
+          ? {
+              boardId: s.boardId,
+              queue: s.queue ?? [],
+              current: s.current ?? null,
+              isRunning: s.isRunning ?? false,
+              isPaused: s.isPaused ?? false,
+            }
+          : { boardId, queue: [], current: null, isRunning: false, isPaused: false }
+      ),
+    start: (boardId: string) =>
+      invoke<void>("queue_start", { boardId }).then(() => ({ ok: true })),
+    stop: (boardId: string) =>
+      invoke<boolean>("queue_stop", { boardId }).then(() => ({ ok: true })),
+    pause: (boardId: string) =>
+      invoke<boolean>("queue_pause", { boardId }).then(() => ({ ok: true })),
+    resume: (boardId: string) =>
+      invoke<boolean>("queue_resume", { boardId }).then(() => ({ ok: true })),
+  },
   tags: {
     defaults: () => invoke<string[]>("tags_defaults"),
     forBoard: (boardId: string) => invoke<string[]>("tags_for_board", { boardId }),
@@ -113,14 +134,17 @@ export const ipcBackend = {
   },
   terminal: notImplemented("terminal"),
   ws: {
-    sendWS: (): never => {
-      throw new Error("ipc backend not implemented (Phase 4.5): ws.sendWS");
+    // No bidirectional WS in IPC mode — sending is a no-op.
+    sendWS: (_message: unknown): boolean => false,
+    useWebSocket: (onEvent: (event: { type: string; payload: unknown }) => void): void => {
+      // Implemented via Tauri event bridge in lib/ws.ts when VITE_BACKEND=ipc.
+      // This method is provided for type-compat; actual subscription is wired in ws.ts.
+      void onEvent;
     },
-    useWebSocket: (): never => {
-      throw new Error("ipc backend not implemented (Phase 4.5): ws.useWebSocket");
-    },
-    useWSEvent: (): never => {
-      throw new Error("ipc backend not implemented (Phase 4.5): ws.useWSEvent");
+    useWSEvent: (type: string, handler: (payload: unknown) => void): void => {
+      // Implemented via Tauri event bridge in lib/ws.ts when VITE_BACKEND=ipc.
+      void type;
+      void handler;
     },
   },
 } as unknown as IBackend;
