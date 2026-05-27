@@ -25,6 +25,15 @@ pub fn create(conn: &Connection, card_id: &str, input: &CreateComment) -> Result
     Ok(comment)
 }
 
+/// Convenience: creates a System-authored comment tied to an execution.
+pub fn add_system_comment(conn: &Connection, card_id: &str, execution_id: &str, content: &str) -> Result<Comment> {
+    create(conn, card_id, &CreateComment {
+        author: CommentAuthor::System,
+        content: content.to_string(),
+        execution_id: Some(execution_id.to_string()),
+    })
+}
+
 pub fn clear_for_card(conn: &Connection, card_id: &str) -> Result<usize> {
     let n = conn.execute("DELETE FROM comments WHERE card_id = ?", [card_id])?;
     Ok(n)

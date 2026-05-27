@@ -47,6 +47,48 @@ pub fn complete(
     Ok(())
 }
 
+pub fn update_pid(conn: &Connection, id: &str, pid: u32) -> Result<()> {
+    conn.execute(
+        "UPDATE executions SET pid = ? WHERE id = ?",
+        rusqlite::params![pid as i64, id],
+    )?;
+    Ok(())
+}
+
+pub fn update_status(conn: &Connection, id: &str, status: ExecutionStatus, exit_code: Option<i64>) -> Result<()> {
+    let status_str = status_to_str(&status);
+    conn.execute(
+        "UPDATE executions SET status = ?, exit_code = ? WHERE id = ?",
+        rusqlite::params![status_str, exit_code, id],
+    )?;
+    Ok(())
+}
+
+pub fn update_cost(conn: &Connection, id: &str, cost_usd: f64) -> Result<()> {
+    conn.execute(
+        "UPDATE executions SET cost_usd = ? WHERE id = ?",
+        rusqlite::params![cost_usd, id],
+    )?;
+    Ok(())
+}
+
+pub fn update_files_changed(conn: &Connection, id: &str, files_changed: Option<&str>) -> Result<()> {
+    conn.execute(
+        "UPDATE executions SET files_changed = ? WHERE id = ?",
+        rusqlite::params![files_changed, id],
+    )?;
+    Ok(())
+}
+
+pub fn finish(conn: &Connection, id: &str, status: ExecutionStatus, exit_code: Option<i64>, cost_usd: f64) -> Result<()> {
+    let status_str = status_to_str(&status);
+    conn.execute(
+        "UPDATE executions SET status = ?, exit_code = ?, cost_usd = ?, finished_at = datetime('now') WHERE id = ?",
+        rusqlite::params![status_str, exit_code, cost_usd, id],
+    )?;
+    Ok(())
+}
+
 pub fn cancel_running(conn: &Connection) -> Result<usize> {
     let n = conn.execute(
         "UPDATE executions SET status = 'cancelled', finished_at = datetime('now') WHERE status = 'running'",

@@ -36,3 +36,9 @@ pub use generate_title::generate_title;
 
 pub mod chat;
 pub use chat::{run_chat, kill_chat_process, kill_all_chat_processes, has_chat_process, ChatCallbacks, ChatOptions, ChatMode, ChatThinking, ChatConfig};
+
+pub mod runner;
+pub use runner::{
+    run_card, kill_card_process, kill_all_card_processes, get_active_card_process,
+    RunnerCallbacks, RunResult, RunOptions, RunnerConfig,
+};

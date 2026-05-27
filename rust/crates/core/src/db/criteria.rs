@@ -73,6 +73,41 @@ pub fn clear_for_card(conn: &Connection, card_id: &str) -> Result<usize> {
     Ok(n)
 }
 
+/// Seeds criteria from a plan report. Skips criteria that already exist (by text match).
+/// Used after plan phase: adds each criterion text as an AI-sourced criterion.
+pub fn seed_criteria(conn: &Connection, card_id: &str, texts: &[String]) -> Result<Vec<Criterion>> {
+    let mut out = Vec::new();
+    for text in texts {
+        let criterion = add(conn, card_id, &CreateCriterion {
+            text: text.clone(),
+            source: CriterionSource::Ai,
+        })?;
+        out.push(criterion);
+    }
+    Ok(out)
+}
+
+/// Sets the result of a criterion (status, evidence, execution_id) after execute phase.
+pub fn set_criterion_result(
+    conn: &Connection,
+    id: &str,
+    status: &str,
+    evidence: &str,
+    execution_id: &str,
+) -> Result<()> {
+    let status_val = match status {
+        "pass" => CriterionStatus::Pass,
+        "fail" => CriterionStatus::Fail,
+        _ => CriterionStatus::Pending,
+    };
+    let status_str = status_to_str(&status_val);
+    conn.execute(
+        "UPDATE card_criteria SET status = ?, evidence = ?, execution_id = ?, updated_at = datetime('now') WHERE id = ?",
+        rusqlite::params![status_str, evidence, execution_id, id],
+    )?;
+    Ok(())
+}
+
 pub fn get(conn: &Connection, id: &str) -> Result<Option<Criterion>> {
     let c = conn
         .query_row("SELECT * FROM card_criteria WHERE id = ?", [id], row_to_criterion)
