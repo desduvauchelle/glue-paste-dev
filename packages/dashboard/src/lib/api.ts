@@ -1,264 +1,189 @@
-const BASE = "/api";
-const DEBUG = import.meta.env.DEV || import.meta.env.VITE_GPD_DEBUG === "1";
-
-function dbg(...args: unknown[]) {
-  if (DEBUG) console.debug("[gpd:api]", ...args);
-}
-
-async function request<T>(
-  path: string,
-  options?: RequestInit
-): Promise<T> {
-  const method = options?.method ?? "GET";
-  dbg(`→ ${method} ${path}`);
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    ...options,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    const msg = (err as { error?: string }).error ?? res.statusText;
-    console.error(`[gpd:api] ← ${method} ${path} ${res.status}:`, msg);
-    throw new Error(msg);
-  }
-  dbg(`← ${method} ${path} ${res.status}`);
-  return res.json() as Promise<T>;
-}
+import { invoke } from "@tauri-apps/api/core";
 
 // Boards
 export const boards = {
-  list: () => request<Board[]>("/boards"),
-  get: (id: string) => request<Board>(`/boards/${id}`),
-  create: (data: CreateBoard) =>
-    request<Board>("/boards", { method: "POST", body: JSON.stringify(data) }),
+  list: () => invoke<Board[]>("boards_list"),
+  get: (id: string) => invoke<Board>("boards_get", { id }),
+  create: (data: CreateBoard) => invoke<Board>("boards_create", { input: data }),
   update: (id: string, data: Partial<Board>) =>
-    request<Board>(`/boards/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    invoke<Board>("boards_update", { id, input: data }),
   delete: (id: string) =>
-    request<{ ok: boolean }>(`/boards/${id}`, { method: "DELETE" }),
+    invoke<boolean>("boards_delete", { id }).then((deleted) => ({ ok: deleted })),
 };
 
 // Cards
 export const cards = {
   list: (boardId: string, doneLimit = 20) =>
-    request<{ cards: CardWithTags[]; doneHasMore: boolean }>(
-      `/cards/board/${boardId}?done_limit=${doneLimit}`
-    ),
-  get: (id: string) => request<CardWithTags>(`/cards/${id}`),
+    invoke<{ cards: CardWithTags[]; done_has_more: boolean }>("cards_list_for_board", {
+      boardId,
+      doneLimit,
+    }).then(({ cards, done_has_more }) => ({ cards, doneHasMore: done_has_more })),
+  get: (id: string) => invoke<CardWithTags>("cards_get_with_tags", { id }),
   create: (boardId: string, data: CreateCard) =>
-    request<CardWithTags>(`/cards/board/${boardId}`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    invoke<CardWithTags>("cards_create", { boardId, input: data }),
   update: (id: string, data: UpdateCard) =>
-    request<CardWithTags>(`/cards/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    invoke<CardWithTags>("cards_update", { id, input: data }),
   move: (id: string, data: { status: string; position: number }) =>
-    request<CardWithTags>(`/cards/${id}/move`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    }),
-  reorder: (updates: Array<{ id: string; status: string; position: number }>) =>
-    request<{ ok: boolean }>("/cards/reorder", {
-      method: "PATCH",
-      body: JSON.stringify(updates),
-    }),
+    invoke<CardWithTags>("cards_move", { id, status: data.status, position: data.position }),
+  reorder: (_updates: Array<{ id: string; status: string; position: number }>) =>
+    Promise.reject(new Error("cards.reorder not available in IPC mode")),
   delete: (id: string) =>
-    request<{ ok: boolean }>(`/cards/${id}`, { method: "DELETE" }),
-  moveToBoard: (id: string, boardId: string) =>
-    request<CardWithTags>(`/cards/${id}/move-to-board`, { method: "PATCH", body: JSON.stringify({ board_id: boardId }) }),
+    invoke<boolean>("cards_delete", { id }).then((deleted) => ({ ok: deleted })),
+  moveToBoard: (_id: string, _boardId: string) =>
+    Promise.reject<CardWithTags>(new Error("cards.moveToBoard not available in IPC mode")),
   execute: (id: string) =>
-    request<{ ok: boolean }>(`/cards/${id}/execute`, { method: "POST" }),
+    invoke<void>("card_execute_single", { cardId: id }).then(() => ({ ok: true })),
   stop: (id: string) =>
-    request<{ ok: boolean }>(`/cards/${id}/stop`, { method: "POST" }),
+    invoke<boolean>("card_stop", { cardId: id }).then(() => ({ ok: true })),
 };
 
 // Criteria
 export const criteria = {
   add: (cardId: string, text: string) =>
-    request<Criterion>(`/criteria/card/${cardId}`, {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    }),
+    invoke<Criterion>("criteria_add", { cardId, input: { text, source: "user" } }),
   update: (id: string, data: { text?: string; status?: "pending" | "pass" | "fail" }) =>
-    request<Criterion>(`/criteria/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    invoke<Criterion>("criteria_update", { id, input: data }),
   remove: (id: string) =>
-    request<{ ok: boolean }>(`/criteria/${id}`, { method: "DELETE" }),
-  reorder: (updates: Array<{ id: string; position: number }>) =>
-    request<{ ok: boolean }>("/criteria/reorder", {
-      method: "PATCH",
-      body: JSON.stringify(updates),
-    }),
+    invoke<boolean>("criteria_remove", { id }).then(() => ({ ok: true })),
+  reorder: (_updates: Array<{ id: string; position: number }>) =>
+    Promise.reject(new Error("criteria.reorder requires card_id; call site must use criteria_reorder directly")),
 };
 
 // Comments
 export const comments = {
-  list: (cardId: string) => request<Comment[]>(`/comments/card/${cardId}`),
+  list: (cardId: string) => invoke<Comment[]>("comments_list_for_card", { cardId }),
   create: (cardId: string, data: { content: string; author?: string }) =>
-    request<Comment>(`/comments/card/${cardId}`, {
-      method: "POST",
-      body: JSON.stringify({ author: "user", ...data }),
+    invoke<Comment>("comments_create", {
+      cardId,
+      input: { author: "user", ...data },
     }),
   clear: (cardId: string) =>
-    request<{ ok: boolean }>(`/comments/card/${cardId}`, { method: "DELETE" }),
+    invoke<number>("comments_clear", { cardId }).then(() => ({ ok: true })),
 };
 
 // Executions
 export const executions = {
-  list: (cardId: string) => request<Execution[]>(`/executions/card/${cardId}`),
-  get: (id: string) => request<Execution>(`/executions/${id}`),
+  list: (cardId: string) => invoke<Execution[]>("executions_list_for_card", { cardId }),
+  get: (id: string) => invoke<Execution>("executions_get", { id }),
 };
 
 // Commits
 export const commits = {
-  list: (cardId: string) => request<CardCommit[]>(`/commits/card/${cardId}`),
+  list: (cardId: string) => invoke<CardCommit[]>("commits_list_for_card", { cardId }),
 };
 
 // Queue
 export const queue = {
-  status: (boardId: string) => request<QueueStatus>(`/queue/${boardId}`),
+  status: (boardId: string) =>
+    invoke<QueueStatus | null>("queue_get_state", { boardId }).then((s) =>
+      s
+        ? s
+        : { boardId, queue: [], current: null, isRunning: false, isPaused: false }
+    ),
   start: (boardId: string) =>
-    request<{ ok: boolean }>(`/queue/${boardId}/play`, { method: "POST" }),
+    invoke<void>("queue_start", { boardId }).then(() => ({ ok: true })),
   stop: (boardId: string) =>
-    request<{ ok: boolean }>(`/queue/${boardId}/play`, { method: "DELETE" }),
+    invoke<boolean>("queue_stop", { boardId }).then(() => ({ ok: true })),
   pause: (boardId: string) =>
-    request<{ ok: boolean }>(`/queue/${boardId}/pause`, { method: "POST" }),
+    invoke<boolean>("queue_pause", { boardId }).then(() => ({ ok: true })),
   resume: (boardId: string) =>
-    request<{ ok: boolean }>(`/queue/${boardId}/resume`, { method: "POST" }),
+    invoke<boolean>("queue_resume", { boardId }).then(() => ({ ok: true })),
 };
 
 // Config
 export const config = {
-  getGlobal: () => request<ConfigData>("/config"),
+  getGlobal: () => invoke<ConfigData>("config_get_global"),
   updateGlobal: (data: Partial<ConfigData>) =>
-    request<ConfigData>("/config", { method: "PUT", body: JSON.stringify(data) }),
-  getForBoard: (boardId: string) => request<ConfigData>(`/config/board/${boardId}`),
-  getForBoardRaw: (boardId: string) => request<PartialConfigData>(`/config/board/${boardId}/raw`),
+    invoke<ConfigData>("config_update_global", { input: data }),
+  getForBoard: (boardId: string) => invoke<ConfigData>("config_get_for_board", { boardId }),
+  // Rust returns the merged config for a board; raw (un-merged) variant reuses the same command.
+  getForBoardRaw: (boardId: string) =>
+    invoke<PartialConfigData>("config_get_for_board", { boardId }),
   updateForBoard: (boardId: string, data: Partial<ConfigData>) =>
-    request<ConfigData>(`/config/board/${boardId}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
+    invoke<ConfigData>("config_update_for_board", { boardId, input: data }),
 };
 
 // Tags
 export const tags = {
-  defaults: () => request<string[]>("/tags/defaults"),
-  forBoard: (boardId: string) => request<string[]>(`/tags/board/${boardId}`),
+  defaults: () => invoke<string[]>("tags_defaults"),
+  forBoard: (boardId: string) => invoke<string[]>("tags_for_board", { boardId }),
 };
 
 // Files
 export const files = {
   browse: (boardId: string, path?: string) =>
-    request<FileEntry[]>(`/files/board/${boardId}${path ? `?path=${encodeURIComponent(path)}` : ""}`),
+    invoke<FileEntry[]>("files_browse", { boardId, path: path ?? null }),
   tree: (boardId: string) =>
-    request<{ entries: FileEntry[]; truncated: boolean }>(`/files/board/${boardId}/tree`),
+    invoke<{ entries: FileEntry[]; truncated: boolean }>("files_tree", { boardId }),
 };
 
-// Attachments
+// Attachments. Upload not available in IPC mode (no Tauri command yet); deferred until file-picker dialog path lands.
 export const attachments = {
-  // Upload files to a card's attachment directory
-  // Uses FormData, NOT JSON - so don't use the existing request() helper
-  upload: async (boardId: string, cardId: string, files: FileList | File[]): Promise<string[]> => {
-    const form = new FormData();
-    for (const file of files) {
-      form.append("files", file);
-    }
-    const res = await fetch(`/api/files/board/${boardId}/upload/${cardId}`, {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error((err as { error?: string }).error ?? res.statusText);
-    }
-    return res.json() as Promise<string[]>;
-  },
-
-  // Delete all attachments for a card
+  upload: (_boardId: string, _cardId: string, _files: FileList | File[]): Promise<string[]> =>
+    Promise.reject(new Error("attachments.upload not available in IPC mode (use drag-drop or file picker)")),
   cleanup: (boardId: string, cardId: string) =>
-    request<{ ok: boolean }>(`/files/board/${boardId}/attachments/${cardId}`, { method: "DELETE" }),
-
-  // List attachments for a card
+    invoke<{ ok: boolean }>("attachments_cleanup", { boardId, cardId }),
   list: (boardId: string, cardId: string) =>
-    request<string[]>(`/files/board/${boardId}/attachments/${cardId}`),
-
-  // Delete a single attachment file
+    invoke<string[]>("attachments_list", { boardId, cardId }),
   deleteFile: (boardId: string, cardId: string, filename: string) =>
-    request<{ ok: boolean }>(`/files/board/${boardId}/attachments/${cardId}/${encodeURIComponent(filename)}`, { method: "DELETE" }),
+    invoke<{ ok: boolean }>("attachments_delete_file", { boardId, cardId, filename }),
 };
 
 // AI
 export const ai = {
   generateTitle: (description: string) =>
-    request<{ title: string }>("/ai/generate-title", {
-      method: "POST",
-      body: JSON.stringify({ description }),
-    }),
+    invoke<string>("ai_generate_title", { args: { description } }).then((title) => ({ title })),
 };
 
 // Chat
 export const chat = {
   send: (cardId: string, data: { message: string; mode: "plan" | "execute"; thinking: "smart" | "basic" }) =>
-    request<{ ok: boolean }>(`/cards/${cardId}/chat`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+    invoke<void>("chat_start", { cardId, args: data }).then(() => ({ ok: true })),
   stop: (cardId: string) =>
-    request<{ ok: boolean; killed: boolean }>(`/cards/${cardId}/chat`, {
-      method: "DELETE",
-    }),
+    invoke<boolean>("chat_stop", { cardId }).then((killed) => ({ ok: true, killed })),
 };
 
 // Terminal
 export const terminal = {
-  open: (cardId: string, size: { cols: number; rows: number }) =>
-    request<{ ok: boolean; running: boolean }>(`/cards/${cardId}/terminal`, {
-      method: "POST",
-      body: JSON.stringify(size),
-    }),
+  open: (cardId: string, _size: { cols: number; rows: number }, cwd?: string) =>
+    invoke<void>("terminal_open", { cardId, cwd: cwd ?? "." }).then(() => ({ ok: true, running: true })),
   status: (cardId: string) =>
-    request<{ running: boolean; scrollback: string }>(`/cards/${cardId}/terminal`),
+    invoke<{ running: boolean; scrollback: string }>("terminal_status", { cardId }),
   close: (cardId: string) =>
-    request<{ ok: boolean }>(`/cards/${cardId}/terminal`, { method: "DELETE" }),
+    invoke<boolean>("terminal_close", { cardId }).then(() => ({ ok: true })),
   stop: (cardId: string) =>
-    request<{ ok: boolean }>(`/cards/${cardId}/terminal/stop`, { method: "POST" }),
+    invoke<void>("terminal_interrupt", { cardId }).then(() => ({ ok: true })),
   killSession: (cardId: string) =>
-    request<{ ok: boolean }>(`/cards/${cardId}/session/kill`, { method: "POST" }),
+    invoke<boolean>("terminal_kill_session", { cardId }).then(() => ({ ok: true })),
 };
 
 // Update
 export const update = {
   check: () =>
-    request<{ available: boolean; currentVersion: string; latestVersion: string }>("/update"),
-  apply: () =>
-    request<{ ok: boolean }>("/update/apply", { method: "POST" }),
-  logs: () =>
-    request<{ lines: string[]; message?: string }>("/update/logs"),
+    invoke<{ available: boolean; current: string; latest: string; asset_url: string | null }>("update_check").then(
+      (r) => ({ available: r.available, currentVersion: r.current, latestVersion: r.latest })
+    ),
+  apply: (): Promise<{ ok: boolean }> => Promise.reject(new Error("update.apply not implemented in IPC mode")),
+  logs: (): Promise<{ lines: string[]; message?: string }> => Promise.reject(new Error("update.logs not implemented in IPC mode")),
 };
 
 // Caffeinate
 export const caffeinate = {
-  status: () => request<{ active: boolean; activeBoards: Array<{ id: string; name: string }> }>("/caffeinate"),
-  start: () => request<{ active: boolean }>("/caffeinate", { method: "POST" }),
-  stop: () => request<{ active: boolean }>("/caffeinate", { method: "DELETE" }),
+  status: () => invoke<{ active: boolean; activeBoards: Array<{ id: string; name: string }> }>("caffeinate_status"),
+  start: () => invoke<{ active: boolean }>("caffeinate_start"),
+  stop: () => invoke<{ active: boolean }>("caffeinate_stop"),
 };
 
 // Stats
 export const stats = {
-  boardCounts: () => request<BoardStatusCounts>("/stats/boards"),
-  donePerDay: (days?: number, tzOffset?: number) => {
-    const params = new URLSearchParams();
-    if (days) params.set("days", String(days));
-    if (tzOffset !== undefined) params.set("tzOffset", String(tzOffset));
-    const qs = params.toString();
-    return request<DonePerDay[]>(`/stats/done-per-day${qs ? `?${qs}` : ""}`);
-  },
-  donePerDayByBoard: (days?: number, tzOffset?: number) => {
-    const params = new URLSearchParams();
-    if (days) params.set("days", String(days));
-    if (tzOffset !== undefined) params.set("tzOffset", String(tzOffset));
-    const qs = params.toString();
-    return request<DonePerDayByBoard>(`/stats/done-per-day-by-board${qs ? `?${qs}` : ""}`);
-  },
+  boardCounts: () => invoke<BoardStatusCounts>("stats_board_counts"),
+  donePerDay: (days?: number, tzOffset?: number) =>
+    invoke<DonePerDay[]>("stats_done_per_day", { days: days ?? null, tzOffset: tzOffset ?? null }),
+  donePerDayByBoard: (days?: number, tzOffset?: number) =>
+    invoke<DonePerDayByBoard>("stats_done_per_day_by_board", {
+      days: days ?? null,
+      tzOffset: tzOffset ?? null,
+    }),
 };
 
 // Types (simplified for frontend use)
