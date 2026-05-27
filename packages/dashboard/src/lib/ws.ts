@@ -1,4 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 
 interface WSEvent {
   type: string;
@@ -13,16 +15,6 @@ function dbg(...args: unknown[]) {
 }
 
 const listeners = new Set<WSListener>();
-let ws: WebSocket | null = null;
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let reconnectDelay = 1000;
-let wasConnected = false;
-
-// ---------------------------------------------------------------------------
-// Tauri event bridge — active only in IPC mode
-// ---------------------------------------------------------------------------
-
-const IS_IPC = (import.meta.env.VITE_BACKEND as string | undefined) === "ipc";
 
 const TAURI_WS_EVENTS = [
   "execution:started",
@@ -42,124 +34,75 @@ const TAURI_WS_EVENTS = [
   "terminal:session-state",
 ] as const;
 
-/** Fire an event into the shared listener registry (used by both WS and Tauri paths). */
 function dispatch(event: WSEvent): void {
-  for (const listener of listeners) {
-    listener(event);
-  }
+  for (const fn of listeners) fn(event);
 }
 
-// Wire up Tauri listeners once at module initialisation time when in IPC mode.
-// Dynamic import keeps the Tauri API out of the bundle in HTTP mode.
-if (IS_IPC) {
-  import("@tauri-apps/api/event").then(({ listen }) => {
-    for (const evtType of TAURI_WS_EVENTS) {
-      listen<unknown>(evtType, (e) => {
-        dbg("tauri←", evtType, e.payload);
-        dispatch({ type: evtType, payload: e.payload });
-      }).catch((err) => {
+const unlistenFns: UnlistenFn[] = [];
+let bridgeStarted = false;
+
+function startBridge(): void {
+  if (bridgeStarted) return;
+  bridgeStarted = true;
+  for (const evtType of TAURI_WS_EVENTS) {
+    listen<unknown>(evtType, (e) => {
+      dbg("tauri←", evtType, e.payload);
+      dispatch({ type: evtType, payload: e.payload });
+    })
+      .then((un) => unlistenFns.push(un))
+      .catch((err) => {
         console.error("[gpd:ws] Failed to register Tauri listener for", evtType, err);
       });
-    }
-    dbg("Tauri event bridge active");
-  }).catch((err) => {
-    console.error("[gpd:ws] Failed to import @tauri-apps/api/event:", err);
-  });
-}
-
-function connect() {
-  if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) {
-    return;
   }
-
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const url = `${protocol}//${window.location.host}/ws`;
-
-  ws = new WebSocket(url);
-
-  ws.onopen = () => {
-    dbg("Connected to", url);
-    reconnectDelay = 1000;
-    if (wasConnected) {
-      dbg("Reconnected — notifying listeners");
-      for (const listener of listeners) {
-        listener({ type: "ws:reconnected", payload: null });
-      }
-    }
-    wasConnected = true;
-  };
-
-  ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data as string) as WSEvent;
-      for (const listener of listeners) {
-        listener(data);
-      }
-    } catch (err) {
-      console.error("[gpd:ws] Failed to parse message:", err);
-    }
-  };
-
-  ws.onclose = (ev) => {
-    dbg("Disconnected", ev.code, ev.reason);
-    ws = null;
-    scheduleReconnect();
-  };
-
-  ws.onerror = (ev) => {
-    console.error("[gpd:ws] Error:", ev);
-    ws?.close();
-  };
+  dbg("Tauri event bridge active");
 }
 
-function scheduleReconnect() {
-  if (reconnectTimer) return;
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-    connect();
-  }, reconnectDelay);
+startBridge();
+
+/** Send a message to the backend. In Tauri mode, only terminal:input and terminal:resize are routed. */
+export function sendWS(message: unknown): boolean {
+  const msg = message as { type?: string; cardId?: string; data?: string; cols?: number; rows?: number };
+  if (!msg?.type?.startsWith("terminal:") || !msg.cardId) return false;
+  switch (msg.type) {
+    case "terminal:input":
+      if (typeof msg.data === "string") {
+        invoke<void>("terminal_input", { cardId: msg.cardId, data: msg.data }).catch(() => {});
+      }
+      return true;
+    case "terminal:resize":
+      if (typeof msg.cols === "number" && typeof msg.rows === "number") {
+        invoke<void>("terminal_resize", { cardId: msg.cardId, cols: msg.cols, rows: msg.rows }).catch(() => {});
+      }
+      return true;
+    default:
+      return false;
+  }
 }
 
-function subscribe(listener: WSListener): () => void {
+/** Subscribe a callback to every WS event. Returns unsubscribe. */
+export function subscribe(listener: WSListener): () => void {
   listeners.add(listener);
-  // In IPC mode the Tauri event bridge (wired above) feeds dispatch(); skip WS.
-  if (!IS_IPC && listeners.size === 1) connect();
   return () => {
     listeners.delete(listener);
   };
 }
 
-export function sendWS(message: unknown): boolean {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(message));
-    return true;
-  }
-  return false;
-}
-
-export function useWebSocket(onEvent: WSListener) {
-  const callbackRef = useRef(onEvent);
-  callbackRef.current = onEvent;
-
+/** React hook: subscribe to all WS events for the lifetime of the component. */
+export function useWebSocket(onEvent: WSListener): void {
+  const ref = useRef(onEvent);
+  ref.current = onEvent;
   useEffect(() => {
-    const handler: WSListener = (event) => callbackRef.current(event);
-    return subscribe(handler);
+    const unsub = subscribe((evt) => ref.current(evt));
+    return unsub;
   }, []);
 }
 
-export function useWSEvent(type: string, handler: (payload: unknown) => void) {
-  const handlerRef = useRef(handler);
-  handlerRef.current = handler;
-
-  const listener = useCallback(
-    (event: WSEvent) => {
-      if (event.type === type) {
-        handlerRef.current(event.payload);
-      }
-    },
-    [type]
-  );
-
-  useWebSocket(listener);
+/** React hook: subscribe to a single WS event type. */
+export function useWSEvent(type: string, handler: (payload: unknown) => void): void {
+  const ref = useRef(handler);
+  ref.current = handler;
+  const onEvent = useCallback((evt: WSEvent) => {
+    if (evt.type === type) ref.current(evt.payload);
+  }, [type]);
+  useWebSocket(onEvent);
 }

@@ -1,74 +1,81 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 
-class MockWebSocket {
-  static OPEN = 1;
-  static CONNECTING = 0;
-  static CLOSED = 3;
-  static instances: MockWebSocket[] = [];
+// ---------------------------------------------------------------------------
+// Mock @tauri-apps/api/event and @tauri-apps/api/core before any ws import
+// ---------------------------------------------------------------------------
 
-  readyState = 0;
-  onopen: (() => void) | null = null;
-  onmessage: ((e: { data: string }) => void) | null = null;
-  onclose: ((e: { code: number; reason: string }) => void) | null = null;
-  onerror: ((e: unknown) => void) | null = null;
-  close = vi.fn();
-  send = vi.fn();
+type TauriListener = (event: { payload: unknown }) => void;
+const tauriListeners = new Map<string, TauriListener[]>();
 
-  constructor(public url: string) {
-    MockWebSocket.instances.push(this);
-  }
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn((evtType: string, handler: TauriListener) => {
+    if (!tauriListeners.has(evtType)) tauriListeners.set(evtType, []);
+    tauriListeners.get(evtType)!.push(handler);
+    const unlisten = () => {
+      const arr = tauriListeners.get(evtType);
+      if (arr) {
+        const idx = arr.indexOf(handler);
+        if (idx !== -1) arr.splice(idx, 1);
+      }
+    };
+    return Promise.resolve(unlisten);
+  }),
+}));
 
-  simulateOpen() {
-    this.readyState = 1;
-    this.onopen?.();
-  }
+const mockInvoke = vi.fn((_cmd: string, _args?: unknown) => Promise.resolve(undefined));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (cmd: string, args?: unknown) => mockInvoke(cmd, args),
+}));
 
-  simulateMessage(data: object) {
-    this.onmessage?.({ data: JSON.stringify(data) });
-  }
-
-  simulateClose(code = 1000, reason = "") {
-    this.readyState = 3;
-    this.onclose?.({ code, reason });
-  }
+/** Simulate a Tauri event emission */
+function emitTauri(evtType: string, payload: unknown) {
+  const handlers = tauriListeners.get(evtType) ?? [];
+  for (const h of handlers) h({ payload });
 }
 
 beforeEach(() => {
-  MockWebSocket.instances = [];
-  vi.stubGlobal("WebSocket", MockWebSocket);
-  vi.useFakeTimers();
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-  vi.restoreAllMocks();
+  tauriListeners.clear();
+  mockInvoke.mockClear();
+  // Reset module so bridgeStarted resets between tests
   vi.resetModules();
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("useWebSocket", () => {
-  it("calls listener when a message is received", async () => {
+  it("calls listener when a Tauri event is emitted", async () => {
     const { useWebSocket } = await import("../lib/ws.js");
     const handler = vi.fn();
 
     renderHook(() => useWebSocket(handler));
 
-    const ws = MockWebSocket.instances[0]!;
-    expect(ws).toBeDefined();
+    // Wait for the listen() promises to resolve
+    await act(async () => {
+      await Promise.resolve();
+    });
 
-    ws.simulateOpen();
-    ws.simulateMessage({ type: "test:event", payload: { foo: 1 } });
+    emitTauri("card:updated", { id: "c1" });
 
-    expect(handler).toHaveBeenCalledWith({ type: "test:event", payload: { foo: 1 } });
+    expect(handler).toHaveBeenCalledWith({ type: "card:updated", payload: { id: "c1" } });
   });
 
-  it("creates WebSocket connection on first subscriber", async () => {
+  it("does not call listener after unsubscribe", async () => {
     const { useWebSocket } = await import("../lib/ws.js");
+    const handler = vi.fn();
 
-    renderHook(() => useWebSocket(vi.fn()));
+    const { unmount } = renderHook(() => useWebSocket(handler));
 
-    expect(MockWebSocket.instances).toHaveLength(1);
-    expect(MockWebSocket.instances[0]!.url).toContain("/ws");
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    unmount();
+    emitTauri("card:updated", { id: "c1" });
+
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 
@@ -79,53 +86,45 @@ describe("useWSEvent", () => {
 
     renderHook(() => useWSEvent("card:updated", handler));
 
-    const ws = MockWebSocket.instances[0]!;
-    ws.simulateOpen();
+    await act(async () => {
+      await Promise.resolve();
+    });
 
-    ws.simulateMessage({ type: "board:updated", payload: {} });
+    emitTauri("execution:started", { run: 1 });
     expect(handler).not.toHaveBeenCalled();
 
-    ws.simulateMessage({ type: "card:updated", payload: { id: "c1" } });
+    emitTauri("card:updated", { id: "c1" });
     expect(handler).toHaveBeenCalledWith({ id: "c1" });
   });
 });
 
 describe("sendWS", () => {
-  it("returns false when there is no open socket", async () => {
+  it("returns false for non-terminal messages", async () => {
     const { sendWS } = await import("../lib/ws.js");
-    // No connection has been established — ws is null
-    expect(sendWS({ type: "terminal:input", cardId: "c1", data: "x" })).toBe(false);
+    expect(sendWS({ type: "board:refresh" })).toBe(false);
   });
 
-  it("returns true and calls socket.send with JSON string when socket is open", async () => {
-    const { useWebSocket, sendWS } = await import("../lib/ws.js");
+  it("returns false for terminal messages without a cardId", async () => {
+    const { sendWS } = await import("../lib/ws.js");
+    expect(sendWS({ type: "terminal:input", data: "x" })).toBe(false);
+  });
 
-    // Establish a connection via the hook
-    renderHook(() => useWebSocket(vi.fn()));
-
-    const mockWs = MockWebSocket.instances[0]!;
-    expect(mockWs).toBeDefined();
-
-    // Simulate the socket becoming open
-    mockWs.simulateOpen();
-
-    const msg = { type: "terminal:input", cardId: "c1", data: "x" };
-    const result = sendWS(msg);
-
+  it("invokes terminal_input and returns true for terminal:input", async () => {
+    const { sendWS } = await import("../lib/ws.js");
+    const result = sendWS({ type: "terminal:input", cardId: "c1", data: "ls\n" });
     expect(result).toBe(true);
-    expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify(msg));
+    expect(mockInvoke).toHaveBeenCalledWith("terminal_input", { cardId: "c1", data: "ls\n" });
   });
 
-  it("returns false when socket exists but is not OPEN (e.g. CONNECTING)", async () => {
-    const { useWebSocket, sendWS } = await import("../lib/ws.js");
+  it("invokes terminal_resize and returns true for terminal:resize", async () => {
+    const { sendWS } = await import("../lib/ws.js");
+    const result = sendWS({ type: "terminal:resize", cardId: "c1", cols: 120, rows: 40 });
+    expect(result).toBe(true);
+    expect(mockInvoke).toHaveBeenCalledWith("terminal_resize", { cardId: "c1", cols: 120, rows: 40 });
+  });
 
-    renderHook(() => useWebSocket(vi.fn()));
-
-    const mockWs = MockWebSocket.instances[0]!;
-    // readyState is 0 (CONNECTING) by default — never called simulateOpen
-    expect(mockWs.readyState).toBe(0);
-
-    expect(sendWS({ type: "terminal:input", cardId: "c1", data: "x" })).toBe(false);
-    expect(mockWs.send).not.toHaveBeenCalled();
+  it("returns false for unknown terminal sub-types", async () => {
+    const { sendWS } = await import("../lib/ws.js");
+    expect(sendWS({ type: "terminal:unknown", cardId: "c1" })).toBe(false);
   });
 });
